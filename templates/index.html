@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard - Gestão de Estoque{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Cards de Estatísticas -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card card-stat h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                     style="width:48px;height:48px;background:#e8f0fe">
+                    <i class="bi bi-archive fs-5 text-primary"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Almoxarifados</div>
+                    <div class="fs-3 fw-bold">{{ stats.total_almoxarifados }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card card-stat h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                     style="width:48px;height:48px;background:#e8f5e9">
+                    <i class="bi bi-box-seam fs-5 text-success"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Total de Itens</div>
+                    <div class="fs-3 fw-bold">{{ stats.total_itens }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card card-stat h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                     style="width:48px;height:48px;background:#fff8e1">
+                    <i class="bi bi-exclamation-triangle fs-5 text-warning"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Em Alerta</div>
+                    <div class="fs-3 fw-bold text-warning">{{ stats.itens_alerta }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card card-stat h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                     style="width:48px;height:48px;background:#fdecea">
+                    <i class="bi bi-x-circle fs-5 text-danger"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Críticos</div>
+                    <div class="fs-3 fw-bold text-danger">{{ stats.itens_criticos }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alertas de Estoque Mínimo -->
+{% if alertas %}
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header d-flex align-items-center gap-2" style="background:#fff3cd;border-bottom:2px solid #ffc107">
+        <i class="bi bi-bell-fill text-warning alert-pulse"></i>
+        <strong>⚠️ Itens que precisam de pedido de compra ({{ alertas|length }})</strong>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Almoxarifado</th>
+                    <th>Qtd. Atual</th>
+                    <th>Estoque Mínimo</th>
+                    <th>Status</th>
+                    <th>Ação</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in alertas %}
+                <tr>
+                    <td><strong>{{ item.nome }}</strong><br><small class="text-muted">{{ item.codigo }}</small></td>
+                    <td>{{ item.almoxarifado.nome }}</td>
+                    <td>{{ item.quantidade }} {{ item.unidade }}</td>
+                    <td>{{ item.estoque_minimo }} {{ item.unidade }}</td>
+                    <td>
+                        {% if item.status == 'critico' %}
+                            <span class="badge bg-danger">🔴 ZERADO</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">🟡 ABAIXO DO MÍNIMO</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="/item/{{ item.id }}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-eye"></i> Ver
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Almoxarifados -->
+<div class="row g-3">
+    {% for alm in almoxarifados %}
+    <div class="col-md-4">
+        <div class="card card-stat h-100">
+            <div class="card-header fw-bold" style="background:var(--primary);color:#fff">
+                <i class="bi bi-archive me-2"></i>{{ alm.nome }}
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">{{ alm.descricao }}</p>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Total de itens:</span>
+                    <strong>{{ alm.itens|length }}</strong>
+                </div>
+                {% set alertas_alm = alm.itens | selectattr('status', 'ne', 'ok') | list %}
+                {% if alertas_alm %}
+                <div class="alert alert-warning py-2 px-3 mb-2 small">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    {{ alertas_alm|length }} item(ns) precisam de atenção
+                </div>
+                {% endif %}
+            </div>
+            <div class="card-footer bg-transparent d-flex gap-2">
+                <a href="/almoxarifado/{{ alm.id }}" class="btn btn-sm btn-primary flex-fill">
+                    <i class="bi bi-eye me-1"></i> Abrir
+                </a>
+                <a href="/almoxarifado/{{ alm.id }}/editar" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-pencil"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    <div class="col-md-4">
+        <a href="/almoxarifado/novo" class="card card-stat h-100 text-decoration-none border-dashed"
+           style="border: 2px dashed #ccc; min-height: 180px;">
+            <div class="card-body d-flex flex-column align-items-center justify-content-center text-muted">
+                <i class="bi bi-plus-circle fs-1 mb-2"></i>
+                <span>Novo Almoxarifado</span>
+            </div>
+        </a>
+    </div>
+</div>
+{% endblock %}

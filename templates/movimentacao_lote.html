@@ -63,12 +63,14 @@
     <div class="card-header" style="background:var(--primary)">
         <ul class="nav nav-tabs card-header-tabs" id="tabHistorico">
             <li class="nav-item">
-                <button class="nav-link active text-white fw-bold" onclick="trocarAba('insumos', this)">
+                <button class="nav-link active fw-bold" id="btn-insumos" onclick="trocarAba('insumos', this)"
+                        style="color:#fff;background:rgba(255,255,255,0.2);border-color:rgba(255,255,255,0.3) rgba(255,255,255,0.3) transparent">
                     <i class="bi bi-arrow-left-right me-1"></i> Movimentações
                 </button>
             </li>
             <li class="nav-item">
-                <button class="nav-link text-white-50" onclick="trocarAba('requisicoes', this)">
+                <button class="nav-link fw-bold" id="btn-requisicoes" onclick="trocarAba('requisicoes', this)"
+                        style="color:rgba(255,255,255,0.55);background:transparent;border-color:transparent">
                     <i class="bi bi-person-check me-1"></i> Requisições
                 </button>
             </li>
@@ -271,12 +273,13 @@ function trocarAba(aba, btn) {
     document.getElementById('aba-insumos').style.display = aba === 'insumos' ? '' : 'none';
     document.getElementById('aba-requisicoes').style.display = aba === 'requisicoes' ? '' : 'none';
     document.querySelectorAll('#tabHistorico .nav-link').forEach(b => {
-        b.classList.remove('active');
-        b.classList.add('text-white-50');
-        b.classList.remove('text-white');
+        b.style.background = 'transparent';
+        b.style.color = 'rgba(255,255,255,0.55)';
+        b.style.borderColor = 'transparent';
     });
-    btn.classList.add('active', 'text-white');
-    btn.classList.remove('text-white-50');
+    btn.style.background = 'rgba(255,255,255,0.2)';
+    btn.style.color = '#fff';
+    btn.style.borderColor = 'rgba(255,255,255,0.3) rgba(255,255,255,0.3) transparent';
 }
 
 adicionarLinha();

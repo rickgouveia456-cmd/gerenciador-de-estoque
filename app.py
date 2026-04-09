@@ -149,6 +149,38 @@ def inject_sidebar():
         alms = []
     return dict(sidebar_alms=alms, usuario_atual=u)
 
+def run_migrations():
+    try:
+        from sqlalchemy import text
+        with db.engine.connect() as conn:
+            try:
+                conn.execute(text("ALTER TABLE item ADD COLUMN status_compra VARCHAR(30) DEFAULT 'pendente'"))
+                conn.commit()
+            except: pass
+            try:
+                conn.execute(text("ALTER TABLE item ADD COLUMN fixado BOOLEAN DEFAULT 0"))
+                conn.commit()
+            except: pass
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS acesso_extra (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    usuario_id INTEGER NOT NULL REFERENCES usuario(id),
+                    almoxarifado_id INTEGER NOT NULL REFERENCES almoxarifado(id),
+                    motivo VARCHAR(200),
+                    data_inicio DATETIME,
+                    data_fim DATETIME,
+                    concedido_por VARCHAR(100)
+                )
+            """))
+            conn.commit()
+    except Exception as e:
+        print(f'Migração: {e}')
+
+with app.app_context():
+    db.create_all()
+    run_migrations()
+    seed_data()
+
 # ── LOGIN / LOGOUT ────────────────────────────────────────────────────────────
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -843,6 +875,35 @@ def seed_data():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
+        # Migração: adicionar colunas novas se não existirem
+        try:
+            from sqlalchemy import text
+            with db.engine.connect() as conn:
+                # Item: status_compra
+                try:
+                    conn.execute(text("ALTER TABLE item ADD COLUMN status_compra VARCHAR(30) DEFAULT 'pendente'"))
+                    conn.commit()
+                except: pass
+                # Item: fixado
+                try:
+                    conn.execute(text("ALTER TABLE item ADD COLUMN fixado BOOLEAN DEFAULT 0"))
+                    conn.commit()
+                except: pass
+                # Usuario: acessos_extras (tabela nova)
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS acesso_extra (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        usuario_id INTEGER NOT NULL REFERENCES usuario(id),
+                        almoxarifado_id INTEGER NOT NULL REFERENCES almoxarifado(id),
+                        motivo VARCHAR(200),
+                        data_inicio DATETIME,
+                        data_fim DATETIME,
+                        concedido_por VARCHAR(100)
+                    )
+                """))
+                conn.commit()
+        except Exception as e:
+            print(f'Migração: {e}')
         seed_data()
     port = int(os.environ.get('PORT', 5000))
     app.run(debug=False, host='0.0.0.0', port=port)

@@ -491,7 +491,12 @@ def requisicao_nova():
             if not it or qtd <= 0:
                 continue
             if qtd > it.quantidade:
-                flash(f'"{it.nome}": estoque insuficiente ({it.quantidade} {it.unidade})', 'danger')
+                flash(
+                    f'<strong>Estoque insuficiente:</strong> "{it.nome}" tem apenas '
+                    f'<strong>{it.quantidade} {it.unidade}</strong> disponível. '
+                    f'<a href="/almoxarifado/{it.almoxarifado_id}" class="alert-link">Consultar Estoque</a>',
+                    'danger'
+                )
                 continue
 
             it.quantidade -= qtd
@@ -511,7 +516,14 @@ def requisicao_nova():
 
         if criados:
             db.session.commit()
-            flash(f'{criados} item(ns) requisitado(s) com sucesso!', 'success')
+            flash(
+                f'<strong>✅ Requisição registrada!</strong> '
+                f'{criados} item(ns) retirado(s) com sucesso para <strong>{colaborador}</strong>. '
+                f'<a href="/requisicoes" class="alert-link">Ver Requisições</a>',
+                'success'
+            )
+        elif not any(True for key in request.form.keys() if key.startswith('item_id_')):
+            flash('Adicione pelo menos um item antes de registrar.', 'warning')
         return redirect(url_for('requisicoes'))
 
     import json

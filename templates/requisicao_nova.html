@@ -4,7 +4,6 @@
 
 {% block content %}
 <form method="POST" action="/requisicoes/nova" id="formReq">
-    <!-- Cabeçalho -->
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-header fw-bold text-white" style="background:var(--primary)">
             <i class="bi bi-person-check me-2"></i>Dados da Requisição
@@ -33,7 +32,6 @@
         </div>
     </div>
 
-    <!-- Itens -->
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-header fw-bold text-white d-flex justify-content-between align-items-center"
              style="background:var(--primary)">
@@ -42,22 +40,7 @@
                 <i class="bi bi-plus-lg me-1"></i> Adicionar Item
             </button>
         </div>
-        <div class="card-body p-0">
-            <div class="d-none d-md-block">
-                <table class="table table-hover mb-0">
-                    <thead>
-                        <tr>
-                            <th style="width:45%">Insumo / EPI</th>
-                            <th style="width:15%">Quantidade</th>
-                            <th style="width:25%">Estoque Disponível</th>
-                            <th style="width:15%"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="linhasItens"></tbody>
-                </table>
-            </div>
-            <div class="d-md-none p-3" id="linhasMobile"></div>
-        </div>
+        <div class="card-body p-2" id="listaItens"></div>
     </div>
 
     <div class="d-flex gap-2 justify-content-end">
@@ -78,9 +61,9 @@ function getItens() {
 
 function buildSelect(idx) {
     const itens = getItens();
-    let opts = '<option value="">Selecione...</option>';
+    let opts = '<option value="">Selecione o insumo...</option>';
     itens.forEach(it => {
-        opts += `<option value="${it.id}" data-qtd="${it.quantidade}" data-un="${it.unidade}">${it.nome}</option>`;
+        opts += `<option value="${it.id}" data-qtd="${it.quantidade}" data-un="${it.unidade}">${it.nome} (${it.quantidade} ${it.unidade})</option>`;
     });
     return `<select name="item_id_${idx}" class="form-select form-select-sm" required onchange="atualizarBadge(this,${idx})">${opts}</select>`;
 }
@@ -89,71 +72,43 @@ function atualizarBadge(sel, idx) {
     const opt = sel.options[sel.selectedIndex];
     const qtd = parseFloat(opt.dataset.qtd || 0);
     const un  = opt.dataset.un || '';
-    const html = qtd <= 0
+    const b = document.getElementById(`badge_${idx}`);
+    if (!b) return;
+    b.innerHTML = qtd <= 0
         ? `<span class="badge bg-danger">🔴 Zerado</span>`
         : `<span class="badge bg-success">🟢 ${qtd} ${un}</span>`;
-    const b = document.getElementById(`badge_${idx}`);
-    if (b) b.innerHTML = html;
-    const bm = document.getElementById(`badge_m_${idx}`);
-    if (bm) bm.innerHTML = html;
 }
 
 function adicionarLinha() {
     const idx = linhaCount++;
-
-    // Desktop
-    const tr = document.createElement('tr');
-    tr.id = `linha_${idx}`;
-    tr.innerHTML = `
-        <td>${buildSelect(idx)}</td>
-        <td><input type="number" name="quantidade_${idx}" class="form-control form-control-sm"
-                   step="0.01" min="0.01" required placeholder="0"></td>
-        <td id="badge_${idx}"></td>
-        <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="remover(${idx})">
-            <i class="bi bi-trash"></i></button></td>
-    `;
-    document.getElementById('linhasItens').appendChild(tr);
-
-    // Mobile
     const div = document.createElement('div');
-    div.id = `linha_m_${idx}`;
-    div.className = 'card border mb-2 p-3';
+    div.id = `linha_${idx}`;
+    div.className = 'row g-2 align-items-center mb-2 p-2 border rounded';
     div.innerHTML = `
-        <div class="d-flex justify-content-between mb-2">
-            <strong class="small">Item ${idx+1}</strong>
-            <button type="button" class="btn btn-sm btn-outline-danger" onclick="remover(${idx})">
-                <i class="bi bi-trash"></i></button>
+        <div class="col-12 col-md-5">${buildSelect(idx)}</div>
+        <div class="col-6 col-md-2">
+            <input type="number" name="quantidade_${idx}" class="form-control form-control-sm"
+                   step="0.01" min="0.01" required placeholder="Qtd">
         </div>
-        <div class="mb-2">${buildSelect(idx)}</div>
-        <div class="row g-2 align-items-center">
-            <div class="col-6">
-                <input type="number" name="quantidade_${idx}" class="form-control form-control-sm"
-                       step="0.01" min="0.01" required placeholder="Quantidade">
-            </div>
-            <div class="col-6" id="badge_m_${idx}"></div>
+        <div class="col-4 col-md-3" id="badge_${idx}"></div>
+        <div class="col-2 col-md-2 text-end">
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="remover(${idx})">
+                <i class="bi bi-trash"></i>
+            </button>
         </div>
     `;
-    document.getElementById('linhasMobile').appendChild(div);
+    document.getElementById('listaItens').appendChild(div);
 }
 
 function remover(idx) {
-    ['linha_', 'linha_m_'].forEach(p => {
-        const el = document.getElementById(p + idx);
-        if (el) el.remove();
-    });
+    const el = document.getElementById(`linha_${idx}`);
+    if (el) el.remove();
 }
 
 document.getElementById('selectAlmox').addEventListener('change', () => {
-    document.getElementById('linhasItens').innerHTML = '';
-    document.getElementById('linhasMobile').innerHTML = '';
+    document.getElementById('listaItens').innerHTML = '';
     linhaCount = 0;
     adicionarLinha();
-});
-
-document.getElementById('formReq').addEventListener('submit', function() {
-    const inp = document.createElement('input');
-    inp.type = 'hidden'; inp.name = 'total_linhas'; inp.value = linhaCount;
-    this.appendChild(inp);
 });
 
 adicionarLinha();

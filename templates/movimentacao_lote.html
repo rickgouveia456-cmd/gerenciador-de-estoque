@@ -80,6 +80,66 @@
     </div>
 </form>
 
+<!-- Histórico recente -->
+{% if historico %}
+<div class="card border-0 shadow-sm mt-4">
+    <div class="card-header fw-bold text-white" style="background:var(--primary)">
+        <i class="bi bi-clock-history me-2"></i>Últimas Movimentações Registradas
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0 d-none d-md-table">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Item</th>
+                    <th>Almoxarifado</th>
+                    <th>Tipo</th>
+                    <th>Quantidade</th>
+                    <th>Responsável</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for mov in historico %}
+                <tr>
+                    <td class="small text-muted">{{ mov.data.strftime('%d/%m/%Y %H:%M') }}</td>
+                    <td><strong>{{ mov.item.nome }}</strong></td>
+                    <td class="small">{{ mov.item.almoxarifado.nome }}</td>
+                    <td>
+                        {% if mov.tipo == 'entrada' %}
+                            <span class="badge bg-success">📥 Entrada</span>
+                        {% else %}
+                            <span class="badge bg-danger">📤 Saída</span>
+                        {% endif %}
+                    </td>
+                    <td class="fw-bold">{{ mov.quantidade }} {{ mov.item.unidade }}</td>
+                    <td class="small">{{ mov.responsavel or '—' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <!-- Mobile -->
+        <div class="d-md-none">
+            {% for mov in historico %}
+            <div class="border-bottom p-3">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <strong>{{ mov.item.nome }}</strong>
+                        <div class="small text-muted">{{ mov.item.almoxarifado.nome }}</div>
+                    </div>
+                    {% if mov.tipo == 'entrada' %}
+                        <span class="badge bg-success">📥 {{ mov.quantidade }} {{ mov.item.unidade }}</span>
+                    {% else %}
+                        <span class="badge bg-danger">📤 {{ mov.quantidade }} {{ mov.item.unidade }}</span>
+                    {% endif %}
+                </div>
+                <div class="small text-muted mt-1">{{ mov.data.strftime('%d/%m/%Y %H:%M') }} — {{ mov.responsavel or '—' }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Dados dos itens por almoxarifado (JSON) -->
 <script>
 const itensPorAlmox = {{ itens_json | safe }};

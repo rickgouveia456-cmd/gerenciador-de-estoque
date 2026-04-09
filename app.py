@@ -329,6 +329,15 @@ def movimentacao_lote():
     almoxarifados = Almoxarifado.query.all() if u.perfil == 'admin' else \
         Almoxarifado.query.filter(Almoxarifado.id.in_(u.almoxarifados_permitidos())).all()
 
+    # Histórico das últimas 20 movimentações
+    if u.perfil == 'admin':
+        historico = Movimentacao.query.order_by(Movimentacao.data.desc()).limit(20).all()
+    else:
+        ids = u.almoxarifados_permitidos()
+        historico = (Movimentacao.query.join(Item)
+                     .filter(Item.almoxarifado_id.in_(ids))
+                     .order_by(Movimentacao.data.desc()).limit(20).all())
+
     # Montar JSON com itens por almoxarifado
     itens_json = {}
     for alm in almoxarifados:
@@ -388,17 +397,31 @@ def movimentacao_lote():
         if movs:
             db.session.add_all(movs)
             db.session.commit()
-            flash(f'{len(movs)} movimentacao(oes) registrada(s) com sucesso!', 'success')
+            tipo_label = '📥 Entrada' if request.form['tipo'] == 'entrada' else '📤 Saída'
+            alm = Almoxarifado.query.get(alm_id)
+            flash(
+                f'<strong>{tipo_label} registrada!</strong> '
+                f'{len(movs)} item(ns) movimentado(s) em <strong>{alm.nome if alm else ""}</strong>. '
+                f'<a href="/almoxarifado/{alm_id}" class="alert-link">Ver Almoxarifado</a>',
+                'success'
+            )
+        elif not erros:
+            flash('Adicione pelo menos um item antes de confirmar.', 'warning')
 
         for e in erros:
-            flash(e, 'danger')
+            flash(
+                f'<strong>Estoque insuficiente:</strong> {e} '
+                f'<a href="/almoxarifado/{alm_id}" class="alert-link">Consultar Estoque</a>',
+                'danger'
+            )
 
         return redirect(url_for('movimentacao_lote'))
 
     import json
     return render_template('movimentacao_lote.html',
                            almoxarifados=almoxarifados,
-                           itens_json=json.dumps(itens_json))
+                           itens_json=json.dumps(itens_json),
+                           historico=historico)
 
 @app.route('/item/<int:id>/movimentar', methods=['POST'])
 def movimentar(id):

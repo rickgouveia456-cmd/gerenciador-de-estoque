@@ -115,6 +115,11 @@ def login_required(f):
         if 'usuario_id' not in session:
             flash('Faça login para continuar.', 'warning')
             return redirect(url_for('login'))
+        u = Usuario.query.get(session['usuario_id'])
+        if not u or not u.ativo:
+            session.clear()
+            flash('Sessão expirada. Faça login novamente.', 'warning')
+            return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated
 
@@ -140,13 +145,13 @@ def usuario_atual():
 @app.context_processor
 def inject_sidebar():
     u = usuario_atual()
-    if u and u.perfil == 'admin':
+    if not u:
+        return dict(sidebar_alms=[], usuario_atual=None)
+    if u.perfil == 'admin':
         alms = Almoxarifado.query.all()
-    elif u:
+    else:
         ids = u.almoxarifados_permitidos()
         alms = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).all() if ids else []
-    else:
-        alms = []
     return dict(sidebar_alms=alms, usuario_atual=u)
 
 def run_migrations():

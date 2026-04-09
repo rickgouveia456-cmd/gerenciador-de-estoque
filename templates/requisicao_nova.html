@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+{% block title %}Nova Requisição{% endblock %}
+{% block page_title %}Nova Requisição de Material / EPI{% endblock %}
+
+{% block content %}
+<form method="POST" action="/requisicoes/nova" id="formReq">
+    <!-- Cabeçalho -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header fw-bold text-white" style="background:var(--primary)">
+            <i class="bi bi-person-check me-2"></i>Dados da Requisição
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-semibold">Colaborador *</label>
+                    <input type="text" name="colaborador" class="form-control"
+                           placeholder="Nome do colaborador" required>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-semibold">Almoxarifado *</label>
+                    <select name="almoxarifado_id" id="selectAlmox" class="form-select" required>
+                        <option value="">Selecione...</option>
+                        {% for alm in almoxarifados %}
+                        <option value="{{ alm.id }}">{{ alm.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-semibold">Observação</label>
+                    <input type="text" name="observacao" class="form-control" placeholder="Opcional">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Itens -->
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header fw-bold text-white d-flex justify-content-between align-items-center"
+             style="background:var(--primary)">
+            <span><i class="bi bi-box-seam me-2"></i>Itens Requisitados</span>
+            <button type="button" class="btn btn-sm btn-warning fw-bold" onclick="adicionarLinha()">
+                <i class="bi bi-plus-lg me-1"></i> Adicionar Item
+            </button>
+        </div>
+        <div class="card-body p-0">
+            <div class="d-none d-md-block">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width:45%">Insumo / EPI</th>
+                            <th style="width:15%">Quantidade</th>
+                            <th style="width:25%">Estoque Disponível</th>
+                            <th style="width:15%"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="linhasItens"></tbody>
+                </table>
+            </div>
+            <div class="d-md-none p-3" id="linhasMobile"></div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 justify-content-end">
+        <a href="/requisicoes" class="btn btn-outline-secondary">Cancelar</a>
+        <button type="submit" class="btn btn-primary px-4">
+            <i class="bi bi-check-lg me-1"></i> Registrar Requisição
+        </button>
+    </div>
+</form>
+
+<script>
+const itensPorAlmox = {{ itens_json | safe }};
+let linhaCount = 0;
+
+function getItens() {
+    return itensPorAlmox[document.getElementById('selectAlmox').value] || [];
+}
+
+function buildSelect(idx) {
+    const itens = getItens();
+    let opts = '<option value="">Selecione...</option>';
+    itens.forEach(it => {
+        opts += `<option value="${it.id}" data-qtd="${it.quantidade}" data-un="${it.unidade}">${it.nome}</option>`;
+    });
+    return `<select name="item_id_${idx}" class="form-select form-select-sm" required onchange="atualizarBadge(this,${idx})">${opts}</select>`;
+}
+
+function atualizarBadge(sel, idx) {
+    const opt = sel.options[sel.selectedIndex];
+    const qtd = parseFloat(opt.dataset.qtd || 0);
+    const un  = opt.dataset.un || '';
+    const html = qtd <= 0
+        ? `<span class="badge bg-danger">🔴 Zerado</span>`
+        : `<span class="badge bg-success">🟢 ${qtd} ${un}</span>`;
+    const b = document.getElementById(`badge_${idx}`);
+    if (b) b.innerHTML = html;
+    const bm = document.getElementById(`badge_m_${idx}`);
+    if (bm) bm.innerHTML = html;
+}
+
+function adicionarLinha() {
+    const idx = linhaCount++;
+
+    // Desktop
+    const tr = document.createElement('tr');
+    tr.id = `linha_${idx}`;
+    tr.innerHTML = `
+        <td>${buildSelect(idx)}</td>
+        <td><input type="number" name="quantidade_${idx}" class="form-control form-control-sm"
+                   step="0.01" min="0.01" required placeholder="0"></td>
+        <td id="badge_${idx}"></td>
+        <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="remover(${idx})">
+            <i class="bi bi-trash"></i></button></td>
+    `;
+    document.getElementById('linhasItens').appendChild(tr);
+
+    // Mobile
+    const div = document.createElement('div');
+    div.id = `linha_m_${idx}`;
+    div.className = 'card border mb-2 p-3';
+    div.innerHTML = `
+        <div class="d-flex justify-content-between mb-2">
+            <strong class="small">Item ${idx+1}</strong>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="remover(${idx})">
+                <i class="bi bi-trash"></i></button>
+        </div>
+        <div class="mb-2">${buildSelect(idx)}</div>
+        <div class="row g-2 align-items-center">
+            <div class="col-6">
+                <input type="number" name="quantidade_${idx}" class="form-control form-control-sm"
+                       step="0.01" min="0.01" required placeholder="Quantidade">
+            </div>
+            <div class="col-6" id="badge_m_${idx}"></div>
+        </div>
+    `;
+    document.getElementById('linhasMobile').appendChild(div);
+}
+
+function remover(idx) {
+    ['linha_', 'linha_m_'].forEach(p => {
+        const el = document.getElementById(p + idx);
+        if (el) el.remove();
+    });
+}
+
+document.getElementById('selectAlmox').addEventListener('change', () => {
+    document.getElementById('linhasItens').innerHTML = '';
+    document.getElementById('linhasMobile').innerHTML = '';
+    linhaCount = 0;
+    adicionarLinha();
+});
+
+document.getElementById('formReq').addEventListener('submit', function() {
+    const inp = document.createElement('input');
+    inp.type = 'hidden'; inp.name = 'total_linhas'; inp.value = linhaCount;
+    this.appendChild(inp);
+});
+
+adicionarLinha();
+</script>
+{% endblock %}

@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% block title %}Usuários{% endblock %}
+{% block page_title %}Gerenciar Usuários{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-end mb-3">
+    <a href="/usuarios/novo" class="btn btn-primary btn-sm">
+        <i class="bi bi-person-plus me-1"></i> Novo Usuário
+    </a>
+</div>
+
+<div class="card border-0 shadow-sm d-none d-md-block">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Login</th>
+                    <th>Perfil</th>
+                    <th>Almoxarifado</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in usuarios %}
+                <tr>
+                    <td><strong>{{ u.nome }}</strong></td>
+                    <td><code>{{ u.login }}</code></td>
+                    <td>
+                        {% if u.perfil == 'admin' %}
+                            <span class="badge bg-danger">👑 Admin</span>
+                        {% else %}
+                            <span class="badge bg-primary">👤 Colaborador</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ u.almoxarifado.nome if u.almoxarifado else '— Todos —' }}</td>
+                    <td>
+                        {% if u.ativo %}
+                            <span class="badge bg-success">Ativo</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Inativo</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="/usuarios/{{ u.id }}/editar" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        {% if u.login != 'admin' %}
+                        <form action="/usuarios/{{ u.id }}/deletar" method="POST" class="d-inline"
+                              onsubmit="return confirm('Deletar usuário?')">
+                            <button class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Mobile -->
+<div class="d-md-none">
+    {% for u in usuarios %}
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                    <div class="fw-bold">{{ u.nome }}</div>
+                    <code class="small">{{ u.login }}</code>
+                </div>
+                {% if u.perfil == 'admin' %}
+                    <span class="badge bg-danger">👑 Admin</span>
+                {% else %}
+                    <span class="badge bg-primary">👤 Colaborador</span>
+                {% endif %}
+            </div>
+            <div class="small text-muted mb-2">
+                {{ u.almoxarifado.nome if u.almoxarifado else '— Todos —' }}
+            </div>
+            <div class="d-flex gap-2">
+                <a href="/usuarios/{{ u.id }}/editar" class="btn btn-sm btn-outline-secondary flex-fill">
+                    <i class="bi bi-pencil me-1"></i> Editar
+                </a>
+                {% if u.login != 'admin' %}
+                <form action="/usuarios/{{ u.id }}/deletar" method="POST"
+                      onsubmit="return confirm('Deletar?')">
+                    <button class="btn btn-sm btn-outline-danger">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

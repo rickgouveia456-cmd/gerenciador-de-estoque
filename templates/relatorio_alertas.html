@@ -3,61 +3,94 @@
 {% block page_title %}Pedidos de Compra — Estoque Mínimo Atingido{% endblock %}
 
 {% block content %}
+
+{% set status_labels = {
+    'pendente':           ('🔴', 'URGENTE',                  'danger'),
+    'verificando':        ('🔍', 'Verificando Inventário',   'secondary'),
+    'pedido_efetuado':    ('📋', 'Pedido Efetuado',          'primary'),
+    'pedido_rota':        ('🚚', 'Pedido em Rota',           'info'),
+    'recebido':           ('✅', 'Recebido',                  'success')
+} %}
+
 {% if itens %}
 <div class="alert alert-warning d-flex align-items-center gap-2 mb-4">
     <i class="bi bi-bell-fill fs-4 alert-pulse"></i>
     <div>
         <strong>{{ itens|length }} item(ns) precisam de pedido de compra!</strong>
-        Verifique os itens abaixo e providencie a reposição.
+        Atualize o status de cada item para acompanhar o processo.
     </div>
 </div>
 
-<div class="card border-0 shadow-sm">
+<!-- Itens Fixados -->
+{% set fixados = itens | selectattr('fixado') | list %}
+{% if fixados %}
+<div class="mb-2 d-flex align-items-center gap-2">
+    <i class="bi bi-pin-fill text-warning"></i>
+    <strong class="text-warning">Itens Fixados ({{ fixados|length }})</strong>
+</div>
+<div class="card border-warning border-2 shadow-sm mb-4">
     <div class="card-body p-0">
-        <table class="table table-hover mb-0">
+        <table class="table table-hover mb-0 d-none d-md-table">
             <thead>
                 <tr>
-                    <th>Código</th>
+                    <th style="width:40px"></th>
                     <th>Item</th>
                     <th>Almoxarifado</th>
                     <th>Qtd. Atual</th>
-                    <th>Estoque Mínimo</th>
                     <th>Déficit</th>
-                    <th>Status</th>
+                    <th>Status Compra</th>
+                    <th>Fixar</th>
+                    <th>Ação</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in fixados %}
+                {% include '_linha_alerta.html' %}
+                {% endfor %}
+            </tbody>
+        </table>
+        <div class="d-md-none">
+            {% for item in fixados %}
+            {% include '_card_alerta_mobile.html' %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Todos os itens -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header fw-bold" style="background:var(--primary);color:#fff">
+        <i class="bi bi-list-ul me-2"></i>Todos os Itens em Alerta
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0 d-none d-md-table">
+            <thead>
+                <tr>
+                    <th style="width:40px"></th>
+                    <th>Item</th>
+                    <th>Almoxarifado</th>
+                    <th>Qtd. Atual</th>
+                    <th>Déficit</th>
+                    <th>Status Compra</th>
+                    <th>Fixar</th>
                     <th>Ação</th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in itens %}
-                <tr class="{% if item.status == 'critico' %}table-danger{% else %}table-warning{% endif %}">
-                    <td><code>{{ item.codigo }}</code></td>
-                    <td><strong>{{ item.nome }}</strong></td>
-                    <td>{{ item.almoxarifado.nome }}</td>
-                    <td class="fw-bold {% if item.status == 'critico' %}text-danger{% else %}text-warning{% endif %}">
-                        {{ item.quantidade }} {{ item.unidade }}
-                    </td>
-                    <td>{{ item.estoque_minimo }} {{ item.unidade }}</td>
-                    <td class="fw-bold text-danger">
-                        {{ (item.estoque_minimo - item.quantidade) | round(2) }} {{ item.unidade }}
-                    </td>
-                    <td>
-                        {% if item.status == 'critico' %}
-                            <span class="badge bg-danger alert-pulse">🔴 URGENTE</span>
-                        {% else %}
-                            <span class="badge bg-warning text-dark">🟡 ATENÇÃO</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <a href="/item/{{ item.id }}" class="btn btn-sm btn-primary">
-                            <i class="bi bi-arrow-left-right me-1"></i> Dar Entrada
-                        </a>
-                    </td>
-                </tr>
+                {% include '_linha_alerta.html' %}
                 {% endfor %}
             </tbody>
         </table>
+        <div class="d-md-none">
+            {% for item in itens %}
+            {% include '_card_alerta_mobile.html' %}
+            {% endfor %}
+        </div>
     </div>
 </div>
+
 {% else %}
 <div class="text-center py-5">
     <i class="bi bi-check-circle fs-1 text-success d-block mb-3"></i>
@@ -65,4 +98,42 @@
     <p class="text-muted">Nenhum item está abaixo do estoque mínimo.</p>
 </div>
 {% endif %}
+
+{% block scripts %}
+<script>
+function atualizarStatus(itemId, select) {
+    const val = select.value;
+    fetch(`/item/${itemId}/status_compra`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: `status_compra=${val}`
+    }).then(() => {
+        // Atualizar badge ao lado
+        const badge = document.getElementById(`badge_status_${itemId}`);
+        const cores = {
+            'pendente':        ['danger',    '🔴 URGENTE'],
+            'verificando':     ['secondary', '🔍 Verificando Inventário'],
+            'pedido_efetuado': ['primary',   '📋 Pedido Efetuado'],
+            'pedido_rota':     ['info',      '🚚 Pedido em Rota'],
+            'recebido':        ['success',   '✅ Recebido'],
+        };
+        if (badge && cores[val]) {
+            badge.className = `badge bg-${cores[val][0]}`;
+            badge.textContent = cores[val][1];
+        }
+    });
+}
+
+function toggleFixar(itemId, btn) {
+    fetch(`/item/${itemId}/fixar`, {method: 'POST'})
+    .then(r => r.json())
+    .then(data => {
+        btn.innerHTML = data.fixado
+            ? '<i class="bi bi-pin-fill text-warning fs-5"></i>'
+            : '<i class="bi bi-pin text-muted fs-5"></i>';
+        btn.title = data.fixado ? 'Desafixar' : 'Fixar item';
+    });
+}
+</script>
+{% endblock %}
 {% endblock %}

@@ -1,0 +1,44 @@
+<div class="card border-0 border-bottom mb-0 rounded-0 {% if item.fixado %}bg-warning bg-opacity-10{% endif %}">
+    <div class="card-body py-3">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+            <div>
+                {% if item.fixado %}<i class="bi bi-pin-fill text-warning me-1"></i>{% endif %}
+                <strong>{{ item.nome }}</strong>
+                <br><small class="text-muted">{{ item.almoxarifado.nome }}</small>
+            </div>
+            <button class="btn btn-sm border-0 bg-transparent p-0"
+                    onclick="toggleFixar({{ item.id }}, this)">
+                {% if item.fixado %}
+                    <i class="bi bi-pin-fill text-warning fs-5"></i>
+                {% else %}
+                    <i class="bi bi-pin text-muted fs-5"></i>
+                {% endif %}
+            </button>
+        </div>
+        <div class="row g-2 text-center mb-3">
+            <div class="col-4">
+                <div class="small text-muted">Atual</div>
+                <div class="fw-bold text-danger">{{ item.quantidade }} {{ item.unidade }}</div>
+            </div>
+            <div class="col-4">
+                <div class="small text-muted">Mínimo</div>
+                <div class="fw-bold">{{ item.estoque_minimo }} {{ item.unidade }}</div>
+            </div>
+            <div class="col-4">
+                <div class="small text-muted">Déficit</div>
+                <div class="fw-bold text-danger">{{ (item.estoque_minimo - item.quantidade) | round(2) }}</div>
+            </div>
+        </div>
+        <select class="form-select form-select-sm mb-2"
+                onchange="atualizarStatus({{ item.id }}, this)">
+            <option value="pendente"        {% if item.status_compra == 'pendente' %}selected{% endif %}>🔴 URGENTE</option>
+            <option value="verificando"     {% if item.status_compra == 'verificando' %}selected{% endif %}>🔍 Verificando Inventário</option>
+            <option value="pedido_efetuado" {% if item.status_compra == 'pedido_efetuado' %}selected{% endif %}>📋 Pedido Efetuado</option>
+            <option value="pedido_rota"     {% if item.status_compra == 'pedido_rota' %}selected{% endif %}>🚚 Pedido em Rota</option>
+            <option value="recebido"        {% if item.status_compra == 'recebido' %}selected{% endif %}>✅ Recebido</option>
+        </select>
+        <a href="/item/{{ item.id }}" class="btn btn-sm btn-primary w-100">
+            <i class="bi bi-arrow-left-right me-1"></i> Dar Entrada
+        </a>
+    </div>
+</div>

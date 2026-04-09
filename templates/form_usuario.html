@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+{% block title %}{% if usuario %}Editar{% else %}Novo{% endif %} Usuário{% endblock %}
+{% block page_title %}{% if usuario %}Editar Usuário{% else %}Novo Usuário{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+                <form method="POST">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Nome completo *</label>
+                            <input type="text" name="nome" class="form-control" required
+                                   value="{{ usuario.nome if usuario else '' }}"
+                                   placeholder="Nome do usuário">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Login *</label>
+                            <input type="text" name="login" class="form-control" required
+                                   value="{{ usuario.login if usuario else '' }}"
+                                   placeholder="Ex: joao.silva">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">
+                                Senha {% if usuario %}(deixe em branco para manter){% else %}*{% endif %}
+                            </label>
+                            <input type="password" name="senha" class="form-control"
+                                   {% if not usuario %}required{% endif %}
+                                   placeholder="Senha de acesso">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Perfil *</label>
+                            <select name="perfil" class="form-select" required id="selectPerfil"
+                                    onchange="toggleAlmox()">
+                                <option value="colaborador" {% if usuario and usuario.perfil == 'colaborador' %}selected{% endif %}>
+                                    👤 Colaborador
+                                </option>
+                                <option value="admin" {% if usuario and usuario.perfil == 'admin' %}selected{% endif %}>
+                                    👑 Administrador
+                                </option>
+                            </select>
+                        </div>
+                        <div class="col-md-6" id="divAlmox">
+                            <label class="form-label fw-semibold">Almoxarifado</label>
+                            <select name="almoxarifado_id" class="form-select">
+                                <option value="">— Selecione —</option>
+                                {% for alm in almoxarifados %}
+                                <option value="{{ alm.id }}"
+                                    {% if usuario and usuario.almoxarifado_id == alm.id %}selected{% endif %}>
+                                    {{ alm.nome }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Colaborador só acessa este almoxarifado</div>
+                        </div>
+                        {% if usuario %}
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="ativo" id="ativo"
+                                       {% if usuario.ativo %}checked{% endif %}>
+                                <label class="form-check-label" for="ativo">Usuário ativo</label>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>
+                            {% if usuario %}Salvar{% else %}Criar{% endif %}
+                        </button>
+                        <a href="/usuarios" class="btn btn-outline-secondary">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if usuario %}
+<!-- Acessos Extras -->
+<div class="row justify-content-center mt-4">
+    <div class="col-md-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header fw-bold text-white" style="background:var(--primary)">
+                <i class="bi bi-key me-2"></i>Acessos Temporários — Substituto
+            </div>
+            <div class="card-body">
+                {% if usuario.acessos_extras %}
+                <table class="table table-sm mb-3">
+                    <thead>
+                        <tr>
+                            <th>Almoxarifado</th>
+                            <th>Motivo</th>
+                            <th>Concedido por</th>
+                            <th>Expira em</th>
+                            <th>Status</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in usuario.acessos_extras %}
+                        <tr>
+                            <td>{{ a.almoxarifado.nome }}</td>
+                            <td class="text-muted small">{{ a.motivo or '—' }}</td>
+                            <td class="small">{{ a.concedido_por }}</td>
+                            <td class="small">
+                                {% if a.data_fim %}
+                                    {{ a.data_fim.strftime('%d/%m/%Y %H:%M') }}
+                                {% else %}
+                                    <span class="text-muted">Sem prazo</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if a.ativo %}
+                                    <span class="badge bg-success">Ativo</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Expirado</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <form action="/acesso_extra/{{ a.id }}/revogar" method="POST"
+                                      onsubmit="return confirm('Revogar acesso?')">
+                                    <button class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-x-lg"></i> Revogar
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p class="text-muted small mb-3">Nenhum acesso temporário ativo.</p>
+                {% endif %}
+
+                <!-- Formulário novo acesso -->
+                <hr>
+                <h6 class="fw-bold mb-3">
+                    <i class="bi bi-plus-circle me-1 text-success"></i>
+                    Conceder Acesso Temporário
+                </h6>
+                <form action="/usuarios/{{ usuario.id }}/acesso_extra" method="POST">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold small">Almoxarifado *</label>
+                            <select name="almoxarifado_id" class="form-select form-select-sm" required>
+                                <option value="">Selecione...</option>
+                                {% for alm in almoxarifados %}
+                                <option value="{{ alm.id }}">{{ alm.nome }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold small">Motivo</label>
+                            <input type="text" name="motivo" class="form-control form-control-sm"
+                                   placeholder="Ex: Cobertura de falta">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold small">Expira em (opcional)</label>
+                            <input type="datetime-local" name="data_fim" class="form-control form-control-sm">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-success btn-sm mt-3">
+                        <i class="bi bi-key me-1"></i> Conceder Acesso
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+<script>
+function toggleAlmox() {
+    const perfil = document.getElementById('selectPerfil').value;
+    document.getElementById('divAlmox').style.display = perfil === 'admin' ? 'none' : '';
+}
+toggleAlmox();
+</script>
+{% endblock %}

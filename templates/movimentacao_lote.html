@@ -1,0 +1,202 @@
+{% extends 'base.html' %}
+{% block title %}Registro de Movimentação{% endblock %}
+{% block page_title %}Registro de Movimentação{% endblock %}
+
+{% block content %}
+<form method="POST" action="/movimentacao/lote" id="formLote">
+
+    <!-- Cabeçalho da movimentação -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header fw-bold text-white" style="background:var(--primary)">
+            <i class="bi bi-arrow-left-right me-2"></i>Informações da Movimentação
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-6 col-md-3">
+                    <label class="form-label fw-semibold">Almoxarifado *</label>
+                    <select name="almoxarifado_id" id="selectAlmox" class="form-select" required>
+                        <option value="">Selecione...</option>
+                        {% for alm in almoxarifados %}
+                        <option value="{{ alm.id }}">{{ alm.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label fw-semibold">Tipo *</label>
+                    <select name="tipo" id="selectTipo" class="form-select" required>
+                        <option value="entrada">📥 Entrada</option>
+                        <option value="saida">📤 Saída</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label fw-semibold">Responsável</label>
+                    <input type="text" name="responsavel" class="form-control" placeholder="Nome do responsável">
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label fw-semibold">Observação</label>
+                    <input type="text" name="observacao" class="form-control" placeholder="Opcional">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela de itens -->
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header fw-bold text-white d-flex justify-content-between align-items-center"
+             style="background:var(--primary)">
+            <span><i class="bi bi-list-ul me-2"></i>Insumos</span>
+            <button type="button" class="btn btn-sm btn-warning fw-bold" onclick="adicionarLinha()">
+                <i class="bi bi-plus-lg me-1"></i> Adicionar Linha
+            </button>
+        </div>
+        <div class="card-body p-0">
+            <!-- Desktop -->
+            <div class="d-none d-md-block">
+                <table class="table table-hover mb-0" id="tabelaItens">
+                    <thead>
+                        <tr>
+                            <th style="width:40%">Insumo</th>
+                            <th style="width:15%">Quantidade</th>
+                            <th style="width:20%">Colaborador</th>
+                            <th style="width:15%">Estoque Atual</th>
+                            <th style="width:10%"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="linhasItens">
+                        <!-- linhas geradas por JS -->
+                    </tbody>
+                </table>
+            </div>
+            <!-- Mobile -->
+            <div class="d-md-none p-3" id="linhasMobile"></div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 justify-content-end">
+        <a href="/" class="btn btn-outline-secondary">Cancelar</a>
+        <button type="submit" class="btn btn-primary px-4">
+            <i class="bi bi-check-lg me-1"></i> Confirmar Movimentação
+        </button>
+    </div>
+</form>
+
+<!-- Dados dos itens por almoxarifado (JSON) -->
+<script>
+const itensPorAlmox = {{ itens_json | safe }};
+
+function getItensAlmox() {
+    const almId = document.getElementById('selectAlmox').value;
+    return itensPorAlmox[almId] || [];
+}
+
+function buildSelectInsumo(name, idx) {
+    const itens = getItensAlmox();
+    let opts = '<option value="">Selecione o insumo...</option>';
+    itens.forEach(it => {
+        opts += `<option value="${it.id}" data-qtd="${it.quantidade}" data-unidade="${it.unidade}">${it.nome} (${it.quantidade} ${it.unidade})</option>`;
+    });
+    return `<select name="item_id_${idx}" class="form-select form-select-sm select-insumo" required onchange="atualizarEstoque(this, ${idx})">${opts}</select>`;
+}
+
+function atualizarEstoque(sel, idx) {
+    const opt = sel.options[sel.selectedIndex];
+    const qtd = opt.dataset.qtd || '';
+    const un  = opt.dataset.unidade || '';
+    const badge = document.getElementById(`badge_${idx}`);
+    if (badge) {
+        if (qtd === '') {
+            badge.innerHTML = '';
+        } else if (parseFloat(qtd) <= 0) {
+            badge.innerHTML = `<span class="badge bg-danger">🔴 Zerado</span>`;
+        } else {
+            badge.innerHTML = `<span class="badge bg-success">🟢 ${qtd} ${un}</span>`;
+        }
+    }
+    // mobile
+    const badgeM = document.getElementById(`badge_m_${idx}`);
+    if (badgeM) {
+        badgeM.innerHTML = badge ? badge.innerHTML : '';
+    }
+}
+
+let linhaCount = 0;
+
+function adicionarLinha() {
+    const idx = linhaCount++;
+
+    // Desktop
+    const tbody = document.getElementById('linhasItens');
+    const tr = document.createElement('tr');
+    tr.id = `linha_${idx}`;
+    tr.innerHTML = `
+        <td>${buildSelectInsumo('item_id', idx)}</td>
+        <td><input type="number" name="quantidade_${idx}" class="form-control form-control-sm" step="0.01" min="0.01" required placeholder="0"></td>
+        <td><input type="text" name="colaborador_${idx}" class="form-control form-control-sm" placeholder="Nome"></td>
+        <td id="badge_${idx}"></td>
+        <td>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removerLinha(${idx})">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>
+    `;
+    tbody.appendChild(tr);
+
+    // Mobile
+    const mob = document.getElementById('linhasMobile');
+    const div = document.createElement('div');
+    div.id = `linha_m_${idx}`;
+    div.className = 'card border mb-2 p-3';
+    div.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <strong class="small">Item ${idx + 1}</strong>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removerLinha(${idx})">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+        <div class="mb-2">
+            <label class="form-label small fw-semibold mb-1">Insumo</label>
+            ${buildSelectInsumo('item_id', idx).replace('select-insumo', 'select-insumo-m').replace(`onchange="atualizarEstoque(this, ${idx})"`, `onchange="atualizarEstoque(this, ${idx})"`)}
+        </div>
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <label class="form-label small fw-semibold mb-1">Quantidade</label>
+                <input type="number" name="quantidade_${idx}" class="form-control form-control-sm" step="0.01" min="0.01" required placeholder="0">
+            </div>
+            <div class="col-6">
+                <label class="form-label small fw-semibold mb-1">Colaborador</label>
+                <input type="text" name="colaborador_${idx}" class="form-control form-control-sm" placeholder="Nome">
+            </div>
+        </div>
+        <div id="badge_m_${idx}"></div>
+    `;
+    mob.appendChild(div);
+}
+
+function removerLinha(idx) {
+    const el = document.getElementById(`linha_${idx}`);
+    if (el) el.remove();
+    const elm = document.getElementById(`linha_m_${idx}`);
+    if (elm) elm.remove();
+}
+
+// Recarregar selects quando trocar almoxarifado
+document.getElementById('selectAlmox').addEventListener('change', () => {
+    document.getElementById('linhasItens').innerHTML = '';
+    document.getElementById('linhasMobile').innerHTML = '';
+    linhaCount = 0;
+    adicionarLinha();
+});
+
+// Adicionar primeira linha ao carregar
+adicionarLinha();
+
+// Antes de submeter, contar linhas
+document.getElementById('formLote').addEventListener('submit', function(e) {
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'total_linhas';
+    input.value = linhaCount;
+    this.appendChild(input);
+});
+</script>
+{% endblock %}

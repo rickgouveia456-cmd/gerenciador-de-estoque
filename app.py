@@ -338,16 +338,24 @@ def movimentacao_lote():
         ]
 
     if request.method == 'POST':
-        alm_id     = int(request.form['almoxarifado_id'])
-        tipo       = request.form['tipo']
+        alm_id      = int(request.form['almoxarifado_id'])
+        tipo        = request.form['tipo']
         responsavel = request.form.get('responsavel', '')
         observacao  = request.form.get('observacao', '')
-        total       = int(request.form.get('total_linhas', 0))
 
         erros = []
         movs  = []
 
-        for i in range(total):
+        # Coletar índices sem depender de total_linhas
+        indices = set()
+        for key in request.form.keys():
+            if key.startswith('item_id_'):
+                try:
+                    indices.add(int(key.split('_')[-1]))
+                except ValueError:
+                    pass
+
+        for i in sorted(indices):
             item_id = request.form.get(f'item_id_{i}')
             qtd_str = request.form.get(f'quantidade_{i}')
             colab   = request.form.get(f'colaborador_{i}', '')
@@ -355,10 +363,13 @@ def movimentacao_lote():
             if not item_id or not qtd_str:
                 continue
 
-            it  = Item.query.get(item_id)
-            qtd = float(qtd_str)
+            it = Item.query.get(item_id)
+            try:
+                qtd = float(qtd_str)
+            except ValueError:
+                continue
 
-            if not it:
+            if not it or qtd <= 0:
                 continue
 
             if tipo == 'saida' and qtd > it.quantidade:
@@ -377,7 +388,7 @@ def movimentacao_lote():
         if movs:
             db.session.add_all(movs)
             db.session.commit()
-            flash(f'{len(movs)} movimentação(ões) registrada(s) com sucesso!', 'success')
+            flash(f'{len(movs)} movimentacao(oes) registrada(s) com sucesso!', 'success')
 
         for e in erros:
             flash(e, 'danger')
@@ -456,16 +467,27 @@ def requisicao_nova():
     if request.method == 'POST':
         colaborador = request.form.get('colaborador', '')
         observacao  = request.form.get('observacao', '')
-        total       = int(request.form.get('total_linhas', 0))
         criados = 0
 
-        for i in range(total):
+        # Coletar todos os item_id_N do formulário sem depender de total_linhas
+        indices = set()
+        for key in request.form.keys():
+            if key.startswith('item_id_'):
+                try:
+                    indices.add(int(key.split('_')[-1]))
+                except ValueError:
+                    pass
+
+        for i in sorted(indices):
             item_id = request.form.get(f'item_id_{i}')
             qtd_str = request.form.get(f'quantidade_{i}')
             if not item_id or not qtd_str:
                 continue
             it  = Item.query.get(item_id)
-            qtd = float(qtd_str)
+            try:
+                qtd = float(qtd_str)
+            except ValueError:
+                continue
             if not it or qtd <= 0:
                 continue
             if qtd > it.quantidade:
@@ -482,7 +504,7 @@ def requisicao_nova():
             db.session.add(Movimentacao(
                 tipo='saida', quantidade=qtd,
                 responsavel=colaborador,
-                observacao=f'Requisição — {observacao}',
+                observacao=f'Requisicao — {observacao}',
                 item_id=it.id
             ))
             criados += 1

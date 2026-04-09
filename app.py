@@ -216,6 +216,7 @@ def item(id):
 # ── CRUD ALMOXARIFADO ────────────────────────────────────────────────────────
 
 @app.route('/almoxarifado/novo', methods=['GET', 'POST'])
+@admin_required
 def novo_almoxarifado():
     if request.method == 'POST':
         alm = Almoxarifado(nome=request.form['nome'], descricao=request.form.get('descricao', ''))
@@ -292,7 +293,9 @@ def deletar_item(id):
 
 @app.route('/movimentacao/lote', methods=['GET', 'POST'])
 def movimentacao_lote():
-    almoxarifados = Almoxarifado.query.all()
+    u = usuario_atual()
+    almoxarifados = Almoxarifado.query.all() if u.perfil == 'admin' else \
+        Almoxarifado.query.filter(Almoxarifado.id.in_(u.almoxarifados_permitidos())).all()
 
     # Montar JSON com itens por almoxarifado
     itens_json = {}
@@ -408,7 +411,9 @@ def requisicoes():
 
 @app.route('/requisicoes/nova', methods=['GET', 'POST'])
 def requisicao_nova():
-    almoxarifados = Almoxarifado.query.all()
+    u = usuario_atual()
+    almoxarifados = Almoxarifado.query.all() if u.perfil == 'admin' else \
+        Almoxarifado.query.filter(Almoxarifado.id.in_(u.almoxarifados_permitidos())).all()
     itens_json = {}
     for alm in almoxarifados:
         itens_json[str(alm.id)] = [

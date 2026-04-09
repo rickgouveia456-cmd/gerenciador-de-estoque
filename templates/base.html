@@ -145,9 +145,11 @@
             <span>{{ alm.nome | truncate(22, True) }}</span>
         </a>
         {% endfor %}
+        {% if usuario_atual and usuario_atual.perfil == 'admin' %}
         <a href="/almoxarifado/novo" class="nav-link">
             <i class="bi bi-plus-circle me-2"></i> Novo Almoxarifado
         </a>
+        {% endif %}
 
         <span class="nav-section">Relatórios</span>
         <a href="/relatorios/consumo" class="nav-link {% if request.endpoint == 'relatorio_consumo' %}active{% endif %}">

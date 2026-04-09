@@ -5,7 +5,6 @@
 {% block content %}
 <form method="POST" action="/movimentacao/lote" id="formLote">
 
-    <!-- Cabeçalho da movimentação -->
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-header fw-bold text-white" style="background:var(--primary)">
             <i class="bi bi-arrow-left-right me-2"></i>Informações da Movimentação
@@ -23,14 +22,14 @@
                 </div>
                 <div class="col-6 col-md-3">
                     <label class="form-label fw-semibold">Tipo *</label>
-                    <select name="tipo" id="selectTipo" class="form-select" required>
+                    <select name="tipo" class="form-select" required>
                         <option value="entrada">📥 Entrada</option>
                         <option value="saida">📤 Saída</option>
                     </select>
                 </div>
                 <div class="col-6 col-md-3">
                     <label class="form-label fw-semibold">Responsável</label>
-                    <input type="text" name="responsavel" class="form-control" placeholder="Nome do responsável">
+                    <input type="text" name="responsavel" class="form-control" placeholder="Nome">
                 </div>
                 <div class="col-6 col-md-3">
                     <label class="form-label fw-semibold">Observação</label>
@@ -40,7 +39,6 @@
         </div>
     </div>
 
-    <!-- Tabela de itens -->
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-header fw-bold text-white d-flex justify-content-between align-items-center"
              style="background:var(--primary)">
@@ -49,30 +47,10 @@
                 <i class="bi bi-plus-lg me-1"></i> Adicionar Linha
             </button>
         </div>
-        <div class="card-body p-0">
-            <!-- Desktop -->
-            <div class="d-none d-md-block">
-                <table class="table table-hover mb-0" id="tabelaItens">
-                    <thead>
-                        <tr>
-                            <th style="width:40%">Insumo</th>
-                            <th style="width:15%">Quantidade</th>
-                            <th style="width:20%">Colaborador</th>
-                            <th style="width:15%">Estoque Atual</th>
-                            <th style="width:10%"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="linhasItens">
-                        <!-- linhas geradas por JS -->
-                    </tbody>
-                </table>
-            </div>
-            <!-- Mobile -->
-            <div class="d-md-none p-3" id="linhasMobile"></div>
-        </div>
+        <div class="card-body p-2" id="listaLinhas"></div>
     </div>
 
-    <div class="d-flex gap-2 justify-content-end">
+    <div class="d-flex gap-2 justify-content-end mb-4">
         <a href="/" class="btn btn-outline-secondary">Cancelar</a>
         <button type="submit" class="btn btn-primary px-4">
             <i class="bi bi-check-lg me-1"></i> Confirmar Movimentação
@@ -80,48 +58,62 @@
     </div>
 </form>
 
-<!-- Histórico recente -->
-{% if historico %}
-<div class="card border-0 shadow-sm mt-4">
-    <div class="card-header fw-bold text-white" style="background:var(--primary)">
-        <i class="bi bi-clock-history me-2"></i>Últimas Movimentações Registradas
+<!-- Histórico com abas -->
+<div class="card border-0 shadow-sm mt-2">
+    <div class="card-header" style="background:var(--primary)">
+        <ul class="nav nav-tabs card-header-tabs" id="tabHistorico">
+            <li class="nav-item">
+                <button class="nav-link active text-white fw-bold" onclick="trocarAba('insumos', this)">
+                    <i class="bi bi-arrow-left-right me-1"></i> Movimentações
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link text-white-50" onclick="trocarAba('requisicoes', this)">
+                    <i class="bi bi-person-check me-1"></i> Requisições
+                </button>
+            </li>
+        </ul>
     </div>
-    <div class="card-body p-0">
-        <table class="table table-hover mb-0 d-none d-md-table">
-            <thead>
-                <tr>
-                    <th>Data</th>
-                    <th>Item</th>
-                    <th>Almoxarifado</th>
-                    <th>Tipo</th>
-                    <th>Quantidade</th>
-                    <th>Responsável</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for mov in historico %}
-                <tr>
-                    <td class="small text-muted">{{ mov.data.strftime('%d/%m/%Y %H:%M') }}</td>
-                    <td><strong>{{ mov.item.nome }}</strong></td>
-                    <td class="small">{{ mov.item.almoxarifado.nome }}</td>
-                    <td>
-                        {% if mov.tipo == 'entrada' %}
-                            <span class="badge bg-success">📥 Entrada</span>
-                        {% else %}
-                            <span class="badge bg-danger">📤 Saída</span>
-                        {% endif %}
-                    </td>
-                    <td class="fw-bold">{{ mov.quantidade }} {{ mov.item.unidade }}</td>
-                    <td class="small">{{ mov.responsavel or '—' }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <!-- Mobile -->
+
+    <!-- Aba Movimentações -->
+    <div id="aba-insumos">
+        {% if historico %}
+        <div class="table-responsive d-none d-md-block">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Item</th>
+                        <th>Almoxarifado</th>
+                        <th>Tipo</th>
+                        <th>Quantidade</th>
+                        <th>Responsável</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mov in historico %}
+                    <tr>
+                        <td class="small text-muted">{{ mov.data.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td><strong>{{ mov.item.nome }}</strong></td>
+                        <td class="small">{{ mov.item.almoxarifado.nome }}</td>
+                        <td>
+                            {% if mov.tipo == 'entrada' %}
+                                <span class="badge bg-success">📥 Entrada</span>
+                            {% else %}
+                                <span class="badge bg-danger">📤 Saída</span>
+                            {% endif %}
+                        </td>
+                        <td class="fw-bold">{{ mov.quantidade }} {{ mov.item.unidade }}</td>
+                        <td class="small">{{ mov.responsavel or '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
         <div class="d-md-none">
             {% for mov in historico %}
             <div class="border-bottom p-3">
-                <div class="d-flex justify-content-between align-items-start">
+                <div class="d-flex justify-content-between">
                     <div>
                         <strong>{{ mov.item.nome }}</strong>
                         <div class="small text-muted">{{ mov.item.almoxarifado.nome }}</div>
@@ -136,127 +128,157 @@
             </div>
             {% endfor %}
         </div>
+        {% else %}
+        <div class="text-center py-4 text-muted">
+            <i class="bi bi-inbox fs-2 d-block mb-2"></i>Nenhuma movimentação registrada.
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Aba Requisições -->
+    <div id="aba-requisicoes" style="display:none">
+        {% if requisicoes %}
+        <div class="table-responsive d-none d-md-block">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Colaborador</th>
+                        <th>Item</th>
+                        <th>Quantidade</th>
+                        <th>Status</th>
+                        <th>Devolução</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in requisicoes %}
+                    <tr>
+                        <td class="small text-muted">{{ r.data_retirada.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td><strong>{{ r.colaborador }}</strong></td>
+                        <td>{{ r.item.nome }}</td>
+                        <td class="fw-bold">{{ r.quantidade }} {{ r.item.unidade }}</td>
+                        <td>
+                            {% if r.status == 'aberta' %}
+                                <span class="badge bg-warning text-dark">🟡 Em uso</span>
+                            {% else %}
+                                <span class="badge bg-success">🟢 Devolvido</span>
+                            {% endif %}
+                        </td>
+                        <td class="small">
+                            {% if r.data_devolucao %}{{ r.data_devolucao.strftime('%d/%m/%Y %H:%M') }}
+                            {% elif r.status == 'aberta' %}
+                            <form action="/requisicoes/{{ r.id }}/devolver" method="POST">
+                                <button class="btn btn-sm btn-success">
+                                    <i class="bi bi-arrow-return-left"></i> Devolver
+                                </button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="d-md-none">
+            {% for r in requisicoes %}
+            <div class="border-bottom p-3">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <strong>{{ r.colaborador }}</strong>
+                        <div class="small text-muted">{{ r.item.nome }} — {{ r.quantidade }} {{ r.item.unidade }}</div>
+                    </div>
+                    {% if r.status == 'aberta' %}
+                        <span class="badge bg-warning text-dark">🟡 Em uso</span>
+                    {% else %}
+                        <span class="badge bg-success">🟢 Devolvido</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-4 text-muted">
+            <i class="bi bi-inbox fs-2 d-block mb-2"></i>Nenhuma requisição registrada.
+        </div>
+        {% endif %}
     </div>
 </div>
-{% endif %}
 
-<!-- Dados dos itens por almoxarifado (JSON) -->
 <script>
 const itensPorAlmox = {{ itens_json | safe }};
+let linhaCount = 0;
 
-function getItensAlmox() {
-    const almId = document.getElementById('selectAlmox').value;
-    return itensPorAlmox[almId] || [];
+function getItens() {
+    return itensPorAlmox[document.getElementById('selectAlmox').value] || [];
 }
 
-function buildSelectInsumo(name, idx) {
-    const itens = getItensAlmox();
+function buildSelect(idx) {
+    const itens = getItens();
     let opts = '<option value="">Selecione o insumo...</option>';
     itens.forEach(it => {
-        opts += `<option value="${it.id}" data-qtd="${it.quantidade}" data-unidade="${it.unidade}">${it.nome} (${it.quantidade} ${it.unidade})</option>`;
+        opts += `<option value="${it.id}" data-qtd="${it.quantidade}" data-un="${it.unidade}">${it.nome} (${it.quantidade} ${it.unidade})</option>`;
     });
-    return `<select name="item_id_${idx}" class="form-select form-select-sm select-insumo" required onchange="atualizarEstoque(this, ${idx})">${opts}</select>`;
+    return `<select name="item_id_${idx}" class="form-select form-select-sm" required onchange="atualizarBadge(this,${idx})">${opts}</select>`;
 }
 
-function atualizarEstoque(sel, idx) {
+function atualizarBadge(sel, idx) {
     const opt = sel.options[sel.selectedIndex];
-    const qtd = opt.dataset.qtd || '';
-    const un  = opt.dataset.unidade || '';
-    const badge = document.getElementById(`badge_${idx}`);
-    if (badge) {
-        if (qtd === '') {
-            badge.innerHTML = '';
-        } else if (parseFloat(qtd) <= 0) {
-            badge.innerHTML = `<span class="badge bg-danger">🔴 Zerado</span>`;
-        } else {
-            badge.innerHTML = `<span class="badge bg-success">🟢 ${qtd} ${un}</span>`;
-        }
-    }
-    // mobile
-    const badgeM = document.getElementById(`badge_m_${idx}`);
-    if (badgeM) {
-        badgeM.innerHTML = badge ? badge.innerHTML : '';
-    }
+    const qtd = parseFloat(opt.dataset.qtd || 0);
+    const un  = opt.dataset.un || '';
+    const b = document.getElementById(`badge_${idx}`);
+    if (!b) return;
+    b.innerHTML = qtd <= 0
+        ? `<span class="badge bg-danger">🔴 Zerado</span>`
+        : `<span class="badge bg-success">🟢 ${qtd} ${un}</span>`;
 }
-
-let linhaCount = 0;
 
 function adicionarLinha() {
     const idx = linhaCount++;
-
-    // Desktop
-    const tbody = document.getElementById('linhasItens');
-    const tr = document.createElement('tr');
-    tr.id = `linha_${idx}`;
-    tr.innerHTML = `
-        <td>${buildSelectInsumo('item_id', idx)}</td>
-        <td><input type="number" name="quantidade_${idx}" class="form-control form-control-sm" step="0.01" min="0.01" required placeholder="0"></td>
-        <td><input type="text" name="colaborador_${idx}" class="form-control form-control-sm" placeholder="Nome"></td>
-        <td id="badge_${idx}"></td>
-        <td>
-            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removerLinha(${idx})">
-                <i class="bi bi-trash"></i>
-            </button>
-        </td>
-    `;
-    tbody.appendChild(tr);
-
-    // Mobile
-    const mob = document.getElementById('linhasMobile');
     const div = document.createElement('div');
-    div.id = `linha_m_${idx}`;
-    div.className = 'card border mb-2 p-3';
+    div.id = `linha_${idx}`;
+    div.className = 'row g-2 align-items-center mb-2 p-2 border rounded';
     div.innerHTML = `
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <strong class="small">Item ${idx + 1}</strong>
-            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removerLinha(${idx})">
+        <div class="col-12 col-md-4">${buildSelect(idx)}</div>
+        <div class="col-5 col-md-2">
+            <input type="number" name="quantidade_${idx}" class="form-control form-control-sm"
+                   step="0.01" min="0.01" required placeholder="Qtd">
+        </div>
+        <div class="col-5 col-md-3">
+            <input type="text" name="colaborador_${idx}" class="form-control form-control-sm" placeholder="Colaborador">
+        </div>
+        <div class="col-8 col-md-2" id="badge_${idx}"></div>
+        <div class="col-4 col-md-1 text-end">
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="remover(${idx})">
                 <i class="bi bi-trash"></i>
             </button>
         </div>
-        <div class="mb-2">
-            <label class="form-label small fw-semibold mb-1">Insumo</label>
-            ${buildSelectInsumo('item_id', idx).replace('select-insumo', 'select-insumo-m').replace(`onchange="atualizarEstoque(this, ${idx})"`, `onchange="atualizarEstoque(this, ${idx})"`)}
-        </div>
-        <div class="row g-2 mb-2">
-            <div class="col-6">
-                <label class="form-label small fw-semibold mb-1">Quantidade</label>
-                <input type="number" name="quantidade_${idx}" class="form-control form-control-sm" step="0.01" min="0.01" required placeholder="0">
-            </div>
-            <div class="col-6">
-                <label class="form-label small fw-semibold mb-1">Colaborador</label>
-                <input type="text" name="colaborador_${idx}" class="form-control form-control-sm" placeholder="Nome">
-            </div>
-        </div>
-        <div id="badge_m_${idx}"></div>
     `;
-    mob.appendChild(div);
+    document.getElementById('listaLinhas').appendChild(div);
 }
 
-function removerLinha(idx) {
+function remover(idx) {
     const el = document.getElementById(`linha_${idx}`);
     if (el) el.remove();
-    const elm = document.getElementById(`linha_m_${idx}`);
-    if (elm) elm.remove();
 }
 
-// Recarregar selects quando trocar almoxarifado
 document.getElementById('selectAlmox').addEventListener('change', () => {
-    document.getElementById('linhasItens').innerHTML = '';
-    document.getElementById('linhasMobile').innerHTML = '';
+    document.getElementById('listaLinhas').innerHTML = '';
     linhaCount = 0;
     adicionarLinha();
 });
 
-// Adicionar primeira linha ao carregar
-adicionarLinha();
+function trocarAba(aba, btn) {
+    document.getElementById('aba-insumos').style.display = aba === 'insumos' ? '' : 'none';
+    document.getElementById('aba-requisicoes').style.display = aba === 'requisicoes' ? '' : 'none';
+    document.querySelectorAll('#tabHistorico .nav-link').forEach(b => {
+        b.classList.remove('active');
+        b.classList.add('text-white-50');
+        b.classList.remove('text-white');
+    });
+    btn.classList.add('active', 'text-white');
+    btn.classList.remove('text-white-50');
+}
 
-// Antes de submeter, contar linhas
-document.getElementById('formLote').addEventListener('submit', function(e) {
-    const input = document.createElement('input');
-    input.type = 'hidden';
-    input.name = 'total_linhas';
-    input.value = linhaCount;
-    this.appendChild(input);
-});
+adicionarLinha();
 </script>
 {% endblock %}

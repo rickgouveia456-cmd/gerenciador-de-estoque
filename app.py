@@ -332,11 +332,15 @@ def movimentacao_lote():
     # Histórico das últimas 20 movimentações
     if u.perfil == 'admin':
         historico = Movimentacao.query.order_by(Movimentacao.data.desc()).limit(20).all()
+        requisicoes_hist = Requisicao.query.order_by(Requisicao.data_retirada.desc()).limit(20).all()
     else:
         ids = u.almoxarifados_permitidos()
         historico = (Movimentacao.query.join(Item)
                      .filter(Item.almoxarifado_id.in_(ids))
                      .order_by(Movimentacao.data.desc()).limit(20).all())
+        requisicoes_hist = (Requisicao.query.join(Item)
+                            .filter(Item.almoxarifado_id.in_(ids))
+                            .order_by(Requisicao.data_retirada.desc()).limit(20).all())
 
     # Montar JSON com itens por almoxarifado
     itens_json = {}
@@ -421,7 +425,8 @@ def movimentacao_lote():
     return render_template('movimentacao_lote.html',
                            almoxarifados=almoxarifados,
                            itens_json=json.dumps(itens_json),
-                           historico=historico)
+                           historico=historico,
+                           requisicoes=requisicoes_hist)
 
 @app.route('/item/<int:id>/movimentar', methods=['POST'])
 def movimentar(id):

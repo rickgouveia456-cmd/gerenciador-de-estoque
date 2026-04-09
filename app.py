@@ -176,11 +176,6 @@ def run_migrations():
     except Exception as e:
         print(f'Migração: {e}')
 
-with app.app_context():
-    db.create_all()
-    run_migrations()
-    seed_data()
-
 # ── LOGIN / LOGOUT ────────────────────────────────────────────────────────────
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -871,6 +866,11 @@ def seed_data():
         admin.set_senha('admin123')
         db.session.add(admin)
         db.session.commit()
+
+with app.app_context():
+    db.create_all()
+    run_migrations()
+    seed_data()
 
 if __name__ == '__main__':
     with app.app_context():

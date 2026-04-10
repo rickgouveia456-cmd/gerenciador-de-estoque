@@ -28,6 +28,21 @@
 </div>
 
 {% if itens %}
+<!-- Barra de pesquisa -->
+<div class="mb-3">
+    <div class="input-group">
+        <span class="input-group-text bg-white border-end-0">
+            <i class="bi bi-search text-muted"></i>
+        </span>
+        <input type="text" id="buscaItem" class="form-control border-start-0"
+               placeholder="Pesquisar item por nome ou código..."
+               oninput="filtrarItens(this.value)">
+        <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('buscaItem').value=''; filtrarItens('')">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
+</div>
+
 <!-- Tabela para desktop -->
 <div class="card border-0 shadow-sm d-none d-md-block">
     <div class="card-body p-0">
@@ -44,9 +59,9 @@
                     <th>Ações</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="tbodyItens">
                 {% for item in itens %}
-                <tr>
+                <tr data-busca="{{ item.nome | lower }} {{ item.codigo | lower }}">
                     <td><code>{{ item.codigo }}</code></td>
                     <td><strong>{{ item.nome }}</strong></td>
                     <td>{{ item.unidade }}</td>
@@ -84,13 +99,17 @@
                 {% endfor %}
             </tbody>
         </table>
+        <div id="semResultados" class="text-center py-4 text-muted" style="display:none">
+            <i class="bi bi-search fs-2 d-block mb-2"></i>Nenhum item encontrado.
+        </div>
     </div>
 </div>
 
 <!-- Cards para mobile -->
-<div class="d-md-none">
+<div class="d-md-none" id="cardsItens">
     {% for item in itens %}
-    <div class="card border-0 shadow-sm mb-3">
+    <div class="card border-0 shadow-sm mb-3 card-item-mobile"
+         data-busca="{{ item.nome | lower }} {{ item.codigo | lower }}">
         <div class="card-body">
             <div class="d-flex justify-content-between align-items-start mb-2">
                 <div>
@@ -144,7 +163,36 @@
         </div>
     </div>
     {% endfor %}
+    <div id="semResultadosMobile" class="text-center py-4 text-muted" style="display:none">
+        <i class="bi bi-search fs-2 d-block mb-2"></i>Nenhum item encontrado.
+    </div>
 </div>
+
+{% block scripts %}
+<script>
+function filtrarItens(q) {
+    q = q.toLowerCase().trim();
+    // Desktop
+    const rows = document.querySelectorAll('#tbodyItens tr');
+    let visiveis = 0;
+    rows.forEach(tr => {
+        const match = tr.dataset.busca.includes(q);
+        tr.style.display = match ? '' : 'none';
+        if (match) visiveis++;
+    });
+    document.getElementById('semResultados').style.display = visiveis === 0 ? '' : 'none';
+    // Mobile
+    const cards = document.querySelectorAll('.card-item-mobile');
+    let visiveisMobile = 0;
+    cards.forEach(c => {
+        const match = c.dataset.busca.includes(q);
+        c.style.display = match ? '' : 'none';
+        if (match) visiveisMobile++;
+    });
+    document.getElementById('semResultadosMobile').style.display = visiveisMobile === 0 ? '' : 'none';
+}
+</script>
+{% endblock %}
 
 {% else %}
 <div class="card border-0 shadow-sm">

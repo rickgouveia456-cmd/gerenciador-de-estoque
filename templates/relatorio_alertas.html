@@ -21,6 +21,22 @@
     </div>
 </div>
 
+<!-- Pesquisa -->
+<div class="mb-3">
+    <div class="input-group">
+        <span class="input-group-text bg-white border-end-0">
+            <i class="bi bi-search text-muted"></i>
+        </span>
+        <input type="text" id="buscaAlerta" class="form-control border-start-0"
+               placeholder="Pesquisar item ou almoxarifado..."
+               oninput="filtrarAlertas(this.value)">
+        <button class="btn btn-outline-secondary" type="button"
+                onclick="document.getElementById('buscaAlerta').value=''; filtrarAlertas('')">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
+</div>
+
 <!-- Itens Fixados -->
 {% set fixados = itens | selectattr('fixado') | list %}
 {% if fixados %}
@@ -101,6 +117,20 @@
 
 {% block scripts %}
 <script>
+function filtrarAlertas(q) {
+    q = q.toLowerCase().trim();
+    // Desktop
+    const rows = document.querySelectorAll('tr[data-busca]');
+    rows.forEach(tr => {
+        tr.style.display = tr.dataset.busca.includes(q) ? '' : 'none';
+    });
+    // Mobile
+    const cards = document.querySelectorAll('.card-alerta-mobile');
+    cards.forEach(c => {
+        c.style.display = c.dataset.busca.includes(q) ? '' : 'none';
+    });
+}
+
 function atualizarStatus(itemId, select) {
     const val = select.value;
     fetch(`/item/${itemId}/status_compra`, {

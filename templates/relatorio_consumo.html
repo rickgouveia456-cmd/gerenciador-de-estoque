@@ -44,6 +44,20 @@
     </div>
     <div class="card-body p-0">
         {% if movimentacoes %}
+        <div class="p-3 border-bottom">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0">
+                    <i class="bi bi-search text-muted"></i>
+                </span>
+                <input type="text" id="buscaConsumo" class="form-control border-start-0"
+                       placeholder="Pesquisar por item ou almoxarifado..."
+                       oninput="filtrarConsumo(this.value)">
+                <button class="btn btn-outline-secondary" type="button"
+                        onclick="document.getElementById('buscaConsumo').value=''; filtrarConsumo('')">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+        </div>
         <table class="table table-hover mb-0">
             <thead>
                 <tr>
@@ -55,9 +69,9 @@
                     <th>Observação</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="tbodyConsumo">
                 {% for mov in movimentacoes %}
-                <tr>
+                <tr data-busca="{{ mov.item.nome | lower }} {{ mov.item.codigo | lower }} {{ mov.item.almoxarifado.nome | lower }}">
                     <td class="text-muted small">{{ mov.data.strftime('%d/%m/%Y %H:%M') }}</td>
                     <td>
                         <a href="/item/{{ mov.item.id }}" class="text-decoration-none fw-semibold">
@@ -73,6 +87,9 @@
                 {% endfor %}
             </tbody>
         </table>
+        <div id="semResultadosConsumo" class="text-center py-4 text-muted" style="display:none">
+            <i class="bi bi-search fs-2 d-block mb-2"></i>Nenhum resultado encontrado.
+        </div>
         {% else %}
         <div class="text-center py-5 text-muted">
             <i class="bi bi-inbox fs-1 d-block mb-2"></i>
@@ -81,4 +98,20 @@
         {% endif %}
     </div>
 </div>
+
+{% block scripts %}
+<script>
+function filtrarConsumo(q) {
+    q = q.toLowerCase().trim();
+    const rows = document.querySelectorAll('#tbodyConsumo tr');
+    let visiveis = 0;
+    rows.forEach(tr => {
+        const match = tr.dataset.busca.includes(q);
+        tr.style.display = match ? '' : 'none';
+        if (match) visiveis++;
+    });
+    document.getElementById('semResultadosConsumo').style.display = visiveis === 0 ? '' : 'none';
+}
+</script>
+{% endblock %}
 {% endblock %}

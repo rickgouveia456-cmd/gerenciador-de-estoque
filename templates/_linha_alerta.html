@@ -1,4 +1,5 @@
-<tr class="{% if item.fixado %}table-warning{% elif item.status == 'critico' %}table-danger{% else %}table-warning{% endif %}">
+<tr class="{% if item.fixado %}table-warning{% elif item.status == 'critico' %}table-danger{% else %}table-warning{% endif %}"
+    data-busca="{{ item.nome | lower }} {{ item.codigo | lower }} {{ item.almoxarifado.nome | lower }}">
     <td class="text-center">
         {% if item.fixado %}<i class="bi bi-pin-fill text-warning"></i>{% endif %}
     </td>

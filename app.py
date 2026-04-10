@@ -591,7 +591,6 @@ def relatorio_consumo():
         ids_permitidos = u.almoxarifados_permitidos()
         query = query.filter(Item.almoxarifado_id.in_(ids_permitidos))
         almoxarifados = Almoxarifado.query.filter(Almoxarifado.id.in_(ids_permitidos)).all()
-        # Se tentou filtrar por almoxarifado fora do permitido, ignora
         if alm_id and alm_id not in ids_permitidos:
             alm_id = None
     else:
@@ -604,6 +603,90 @@ def relatorio_consumo():
     return render_template('relatorio_consumo.html', movimentacoes=movs,
                            almoxarifados=almoxarifados, data_ini=data_ini,
                            data_fim=data_fim, alm_id=alm_id)
+
+@app.route('/relatorios/consumo/exportar')
+@login_required
+def exportar_consumo():
+    u = usuario_atual()
+    alm_id = request.args.get('almoxarifado_id', type=int)
+    data_ini = request.args.get('data_ini', str(date.today().replace(day=1)))
+    data_fim = request.args.get('data_fim', str(date.today()))
+
+    query = Movimentacao.query.join(Item).filter(
+        Movimentacao.tipo == 'saida',
+        Movimentacao.data >= data_ini,
+        Movimentacao.data <= data_fim + ' 23:59:59'
+    )
+
+    if u.perfil != 'admin':
+        ids_permitidos = u.almoxarifados_permitidos()
+        query = query.filter(Item.almoxarifado_id.in_(ids_permitidos))
+        if alm_id and alm_id not in ids_permitidos:
+            alm_id = None
+    if alm_id:
+        query = query.filter(Item.almoxarifado_id == alm_id)
+
+    movs = query.order_by(Movimentacao.data.desc()).all()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Consumo'
+
+    h_fill = PatternFill('solid', fgColor='1A3A5C')
+    h_font = Font(bold=True, color='FFFFFF', size=11)
+    borda  = Border(left=Side(style='thin'), right=Side(style='thin'),
+                    top=Side(style='thin'), bottom=Side(style='thin'))
+
+    # Título
+    ws.merge_cells('A1:F1')
+    ws['A1'] = 'Relatório de Consumo'
+    ws['A1'].font = Font(bold=True, size=13, color='1A3A5C')
+    ws['A1'].alignment = Alignment(horizontal='center')
+
+    ws.merge_cells('A2:F2')
+    ws['A2'] = f'Período: {data_ini} a {data_fim}  |  Gerado em: {agora().strftime("%d/%m/%Y %H:%M")}'
+    ws['A2'].font = Font(italic=True, color='888888')
+    ws['A2'].alignment = Alignment(horizontal='center')
+
+    # Cabeçalho
+    headers = ['Data', 'Item', 'Código', 'Almoxarifado', 'Quantidade', 'Responsável', 'Observação']
+    for col, h in enumerate(headers, 1):
+        c = ws.cell(row=4, column=col, value=h)
+        c.font = h_font
+        c.fill = h_fill
+        c.alignment = Alignment(horizontal='center')
+        c.border = borda
+
+    # Dados
+    alt_fill = PatternFill('solid', fgColor='EEF2F7')
+    for r, mov in enumerate(movs, 5):
+        fill = alt_fill if r % 2 == 0 else None
+        valores = [
+            mov.data.strftime('%d/%m/%Y %H:%M'),
+            mov.item.nome,
+            mov.item.codigo,
+            mov.item.almoxarifado.nome,
+            f'{mov.quantidade} {mov.item.unidade}',
+            mov.responsavel or '',
+            mov.observacao or ''
+        ]
+        for c, v in enumerate(valores, 1):
+            cell = ws.cell(row=r, column=c, value=v)
+            cell.border = borda
+            cell.alignment = Alignment(horizontal='left' if c in (2, 3, 4, 6, 7) else 'center')
+            if fill:
+                cell.fill = fill
+
+    # Larguras
+    for i, w in enumerate([18, 35, 14, 30, 14, 20, 30], 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    nome = f'consumo_{data_ini}_a_{data_fim}.xlsx'
+    return send_file(buf, as_attachment=True, download_name=nome,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 @app.route('/relatorios/alertas')
 @login_required

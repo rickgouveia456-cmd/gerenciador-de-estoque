@@ -6,7 +6,7 @@
 <!-- Filtros -->
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-body">
-        <form method="GET" class="row g-3 align-items-end">
+        <form method="GET" class="row g-3 align-items-end" id="formFiltro">
             <div class="col-md-3">
                 <label class="form-label fw-semibold">Almoxarifado</label>
                 <select name="almoxarifado_id" class="form-select">
@@ -26,10 +26,15 @@
                 <label class="form-label fw-semibold">Data Fim</label>
                 <input type="date" name="data_fim" class="form-control" value="{{ data_fim }}">
             </div>
-            <div class="col-md-3">
-                <button type="submit" class="btn btn-primary w-100">
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-fill">
                     <i class="bi bi-search me-1"></i> Filtrar
                 </button>
+                <a id="btnExportar"
+                   href="/relatorios/consumo/exportar?almoxarifado_id={{ alm_id or '' }}&data_ini={{ data_ini }}&data_fim={{ data_fim }}"
+                   class="btn btn-success">
+                    <i class="bi bi-file-earmark-excel me-1"></i> Excel
+                </a>
             </div>
         </form>
     </div>
@@ -112,6 +117,15 @@ function filtrarConsumo(q) {
     });
     document.getElementById('semResultadosConsumo').style.display = visiveis === 0 ? '' : 'none';
 }
+
+// Atualiza o link do botão Excel conforme os filtros do formulário
+document.getElementById('formFiltro').addEventListener('change', function() {
+    const alm = this.querySelector('[name=almoxarifado_id]').value;
+    const ini = this.querySelector('[name=data_ini]').value;
+    const fim = this.querySelector('[name=data_fim]').value;
+    document.getElementById('btnExportar').href =
+        `/relatorios/consumo/exportar?almoxarifado_id=${alm}&data_ini=${ini}&data_fim=${fim}`;
+});
 </script>
 {% endblock %}
 {% endblock %}

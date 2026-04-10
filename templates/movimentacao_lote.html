@@ -58,152 +58,68 @@
     </div>
 </form>
 
-<!-- Histórico com abas -->
+<!-- Histórico -->
 <div class="card border-0 shadow-sm mt-2">
-    <div class="card-header" style="background:var(--primary)">
-        <ul class="nav nav-tabs card-header-tabs" id="tabHistorico">
-            <li class="nav-item">
-                <button class="nav-link active fw-bold" id="btn-insumos" onclick="trocarAba('insumos', this)"
-                        style="color:#fff;background:rgba(255,255,255,0.2);border-color:rgba(255,255,255,0.3) rgba(255,255,255,0.3) transparent">
-                    <i class="bi bi-arrow-left-right me-1"></i> Movimentações
-                </button>
-            </li>
-            <li class="nav-item">
-                <button class="nav-link fw-bold" id="btn-requisicoes" onclick="trocarAba('requisicoes', this)"
-                        style="color:rgba(255,255,255,0.55);background:transparent;border-color:transparent">
-                    <i class="bi bi-person-check me-1"></i> Requisições
-                </button>
-            </li>
-        </ul>
+    <div class="card-header" style="background:var(--primary);color:#fff">
+        <span class="fw-bold"><i class="bi bi-arrow-left-right me-2"></i>Histórico de Movimentações</span>
     </div>
 
-    <!-- Aba Movimentações -->
-    <div id="aba-insumos">
-        {% if historico %}
-        <div class="table-responsive d-none d-md-block">
-            <table class="table table-hover mb-0">
-                <thead>
-                    <tr>
-                        <th>Data</th>
-                        <th>Item</th>
-                        <th>Almoxarifado</th>
-                        <th>Tipo</th>
-                        <th>Quantidade</th>
-                        <th>Responsável</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for mov in historico %}
-                    <tr>
-                        <td class="small text-muted">{{ mov.data.strftime('%d/%m/%Y %H:%M') }}</td>
-                        <td><strong>{{ mov.item.nome }}</strong></td>
-                        <td class="small">{{ mov.item.almoxarifado.nome }}</td>
-                        <td>
-                            {% if mov.tipo == 'entrada' %}
-                                <span class="badge bg-success">📥 Entrada</span>
-                            {% else %}
-                                <span class="badge bg-danger">📤 Saída</span>
-                            {% endif %}
-                        </td>
-                        <td class="fw-bold">{{ mov.quantidade }} {{ mov.item.unidade }}</td>
-                        <td class="small">{{ mov.responsavel or '—' }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        <div class="d-md-none">
-            {% for mov in historico %}
-            <div class="border-bottom p-3">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <strong>{{ mov.item.nome }}</strong>
-                        <div class="small text-muted">{{ mov.item.almoxarifado.nome }}</div>
-                    </div>
-                    {% if mov.tipo == 'entrada' %}
-                        <span class="badge bg-success">📥 {{ mov.quantidade }} {{ mov.item.unidade }}</span>
-                    {% else %}
-                        <span class="badge bg-danger">📤 {{ mov.quantidade }} {{ mov.item.unidade }}</span>
-                    {% endif %}
-                </div>
-                <div class="small text-muted mt-1">{{ mov.data.strftime('%d/%m/%Y %H:%M') }} — {{ mov.responsavel or '—' }}</div>
-            </div>
-            {% endfor %}
-        </div>
-        {% else %}
-        <div class="text-center py-4 text-muted">
-            <i class="bi bi-inbox fs-2 d-block mb-2"></i>Nenhuma movimentação registrada.
-        </div>
-        {% endif %}
+    {% if historico %}
+    <div class="table-responsive d-none d-md-block">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Item</th>
+                    <th>Almoxarifado</th>
+                    <th>Tipo</th>
+                    <th>Quantidade</th>
+                    <th>Responsável</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for mov in historico %}
+                <tr>
+                    <td class="small text-muted">{{ mov.data.strftime('%d/%m/%Y %H:%M') }}</td>
+                    <td><strong>{{ mov.item.nome }}</strong></td>
+                    <td class="small">{{ mov.item.almoxarifado.nome }}</td>
+                    <td>
+                        {% if mov.tipo == 'entrada' %}
+                            <span class="badge bg-success">📥 Entrada</span>
+                        {% else %}
+                            <span class="badge bg-danger">📤 Saída</span>
+                        {% endif %}
+                    </td>
+                    <td class="fw-bold">{{ mov.quantidade }} {{ mov.item.unidade }}</td>
+                    <td class="small">{{ mov.responsavel or '—' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
-
-    <!-- Aba Requisições -->
-    <div id="aba-requisicoes" style="display:none">
-        {% if requisicoes %}
-        <div class="table-responsive d-none d-md-block">
-            <table class="table table-hover mb-0">
-                <thead>
-                    <tr>
-                        <th>Data</th>
-                        <th>Colaborador</th>
-                        <th>Item</th>
-                        <th>Quantidade</th>
-                        <th>Status</th>
-                        <th>Devolução</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for r in requisicoes %}
-                    <tr>
-                        <td class="small text-muted">{{ r.data_retirada.strftime('%d/%m/%Y %H:%M') }}</td>
-                        <td><strong>{{ r.colaborador }}</strong></td>
-                        <td>{{ r.item.nome }}</td>
-                        <td class="fw-bold">{{ r.quantidade }} {{ r.item.unidade }}</td>
-                        <td>
-                            {% if r.status == 'aberta' %}
-                                <span class="badge bg-warning text-dark">🟡 Em uso</span>
-                            {% else %}
-                                <span class="badge bg-success">🟢 Devolvido</span>
-                            {% endif %}
-                        </td>
-                        <td class="small">
-                            {% if r.data_devolucao %}{{ r.data_devolucao.strftime('%d/%m/%Y %H:%M') }}
-                            {% elif r.status == 'aberta' %}
-                            <form action="/requisicoes/{{ r.id }}/devolver" method="POST">
-                                <button class="btn btn-sm btn-success">
-                                    <i class="bi bi-arrow-return-left"></i> Devolver
-                                </button>
-                            </form>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        <div class="d-md-none">
-            {% for r in requisicoes %}
-            <div class="border-bottom p-3">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <strong>{{ r.colaborador }}</strong>
-                        <div class="small text-muted">{{ r.item.nome }} — {{ r.quantidade }} {{ r.item.unidade }}</div>
-                    </div>
-                    {% if r.status == 'aberta' %}
-                        <span class="badge bg-warning text-dark">🟡 Em uso</span>
-                    {% else %}
-                        <span class="badge bg-success">🟢 Devolvido</span>
-                    {% endif %}
+    <div class="d-md-none">
+        {% for mov in historico %}
+        <div class="border-bottom p-3">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <strong>{{ mov.item.nome }}</strong>
+                    <div class="small text-muted">{{ mov.item.almoxarifado.nome }}</div>
                 </div>
+                {% if mov.tipo == 'entrada' %}
+                    <span class="badge bg-success">📥 {{ mov.quantidade }} {{ mov.item.unidade }}</span>
+                {% else %}
+                    <span class="badge bg-danger">📤 {{ mov.quantidade }} {{ mov.item.unidade }}</span>
+                {% endif %}
             </div>
-            {% endfor %}
+            <div class="small text-muted mt-1">{{ mov.data.strftime('%d/%m/%Y %H:%M') }} — {{ mov.responsavel or '—' }}</div>
         </div>
-        {% else %}
-        <div class="text-center py-4 text-muted">
-            <i class="bi bi-inbox fs-2 d-block mb-2"></i>Nenhuma requisição registrada.
-        </div>
-        {% endif %}
+        {% endfor %}
     </div>
+    {% else %}
+    <div class="text-center py-4 text-muted">
+        <i class="bi bi-inbox fs-2 d-block mb-2"></i>Nenhuma movimentação registrada.
+    </div>
+    {% endif %}
 </div>
 
 <script>
@@ -268,19 +184,6 @@ document.getElementById('selectAlmox').addEventListener('change', () => {
     linhaCount = 0;
     adicionarLinha();
 });
-
-function trocarAba(aba, btn) {
-    document.getElementById('aba-insumos').style.display = aba === 'insumos' ? '' : 'none';
-    document.getElementById('aba-requisicoes').style.display = aba === 'requisicoes' ? '' : 'none';
-    document.querySelectorAll('#tabHistorico .nav-link').forEach(b => {
-        b.style.background = 'transparent';
-        b.style.color = 'rgba(255,255,255,0.55)';
-        b.style.borderColor = 'transparent';
-    });
-    btn.style.background = 'rgba(255,255,255,0.2)';
-    btn.style.color = '#fff';
-    btn.style.borderColor = 'rgba(255,255,255,0.3) rgba(255,255,255,0.3) transparent';
-}
 
 adicionarLinha();
 </script>

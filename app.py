@@ -1,6 +1,16 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, send_file, session
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, date
+try:
+    from zoneinfo import ZoneInfo
+    BRASILIA = ZoneInfo('America/Sao_Paulo')
+    def agora():
+        return datetime.now(BRASILIA).replace(tzinfo=None)
+except ImportError:
+    import pytz
+    BRASILIA = pytz.timezone('America/Sao_Paulo')
+    def agora():
+        return datetime.now(BRASILIA).replace(tzinfo=None)
 from functools import wraps
 import io
 import os
@@ -51,19 +61,8 @@ class Movimentacao(db.Model):
     quantidade = db.Column(db.Float, nullable=False)
     responsavel = db.Column(db.String(100))
     observacao = db.Column(db.String(200))
-    data = db.Column(db.DateTime, default=datetime.utcnow)
+    data = db.Column(db.DateTime, default=agora)
     item_id = db.Column(db.Integer, db.ForeignKey('item.id'), nullable=False)
-
-class Requisicao(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    colaborador = db.Column(db.String(100), nullable=False)
-    observacao = db.Column(db.String(200))
-    quantidade = db.Column(db.Float, nullable=False)
-    status = db.Column(db.String(20), default='aberta')  # aberta | devolvida
-    data_retirada = db.Column(db.DateTime, default=datetime.utcnow)
-    data_devolucao = db.Column(db.DateTime, nullable=True)
-    item_id = db.Column(db.Integer, db.ForeignKey('item.id'), nullable=False)
-    item = db.relationship('Item', backref='requisicoes')
 
 class Usuario(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -96,14 +95,14 @@ class AcessoExtra(db.Model):
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
     almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=False)
     motivo = db.Column(db.String(200))
-    data_inicio = db.Column(db.DateTime, default=datetime.utcnow)
+    data_inicio = db.Column(db.DateTime, default=agora)
     data_fim = db.Column(db.DateTime, nullable=True)
     concedido_por = db.Column(db.String(100))
     almoxarifado = db.relationship('Almoxarifado')
 
     @property
     def ativo(self):
-        if self.data_fim and datetime.utcnow() > self.data_fim:
+        if self.data_fim and agora() > self.data_fim:
             return False
         return True
 
@@ -280,8 +279,14 @@ def deletar_almoxarifado(id):
 # ── CRUD ITEM ────────────────────────────────────────────────────────────────
 
 @app.route('/item/novo', methods=['GET', 'POST'])
+@login_required
 def novo_item():
-    almoxarifados = Almoxarifado.query.all()
+    u = usuario_atual()
+    if u.perfil == 'admin':
+        almoxarifados = Almoxarifado.query.all()
+    else:
+        ids = u.almoxarifados_permitidos()
+        almoxarifados = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).all()
     if request.method == 'POST':
         it = Item(
             nome=request.form['nome'],
@@ -298,9 +303,18 @@ def novo_item():
     return render_template('form_item.html', item=None, almoxarifados=almoxarifados)
 
 @app.route('/item/<int:id>/editar', methods=['GET', 'POST'])
+@login_required
 def editar_item(id):
     it = Item.query.get_or_404(id)
-    almoxarifados = Almoxarifado.query.all()
+    u = usuario_atual()
+    if u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('index'))
+    if u.perfil == 'admin':
+        almoxarifados = Almoxarifado.query.all()
+    else:
+        ids = u.almoxarifados_permitidos()
+        almoxarifados = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).all()
     if request.method == 'POST':
         it.nome = request.form['nome']
         it.codigo = request.form['codigo']
@@ -324,6 +338,7 @@ def deletar_item(id):
 # ── MOVIMENTAÇÃO EM LOTE ─────────────────────────────────────────────────────
 
 @app.route('/movimentacao/lote', methods=['GET', 'POST'])
+@login_required
 def movimentacao_lote():
     u = usuario_atual()
     almoxarifados = Almoxarifado.query.all() if u.perfil == 'admin' else \
@@ -332,15 +347,11 @@ def movimentacao_lote():
     # Histórico das últimas 20 movimentações
     if u.perfil == 'admin':
         historico = Movimentacao.query.order_by(Movimentacao.data.desc()).limit(20).all()
-        requisicoes_hist = Requisicao.query.order_by(Requisicao.data_retirada.desc()).limit(20).all()
     else:
         ids = u.almoxarifados_permitidos()
         historico = (Movimentacao.query.join(Item)
                      .filter(Item.almoxarifado_id.in_(ids))
                      .order_by(Movimentacao.data.desc()).limit(20).all())
-        requisicoes_hist = (Requisicao.query.join(Item)
-                            .filter(Item.almoxarifado_id.in_(ids))
-                            .order_by(Requisicao.data_retirada.desc()).limit(20).all())
 
     # Montar JSON com itens por almoxarifado
     itens_json = {}
@@ -425,10 +436,10 @@ def movimentacao_lote():
     return render_template('movimentacao_lote.html',
                            almoxarifados=almoxarifados,
                            itens_json=json.dumps(itens_json),
-                           historico=historico,
-                           requisicoes=requisicoes_hist)
+                           historico=historico)
 
 @app.route('/item/<int:id>/movimentar', methods=['POST'])
+@login_required
 def movimentar(id):
     it = Item.query.get_or_404(id)
     tipo = request.form['tipo']
@@ -447,134 +458,6 @@ def movimentar(id):
     db.session.commit()
     flash(f'{"Entrada" if tipo == "entrada" else "Saida"} de {qtd} {it.unidade} registrada!', 'success')
     return redirect(url_for('item', id=id))
-
-# ── REQUISIÇÕES ──────────────────────────────────────────────────────────────
-
-@app.route('/requisicoes')
-def requisicoes():
-    colaborador  = request.args.get('colaborador', '')
-    status       = request.args.get('status', '')
-    data_ini     = request.args.get('data_ini', '')
-    data_fim     = request.args.get('data_fim', '')
-
-    q = Requisicao.query
-    if colaborador:
-        q = q.filter(Requisicao.colaborador.ilike(f'%{colaborador}%'))
-    if status:
-        q = q.filter(Requisicao.status == status)
-    if data_ini:
-        q = q.filter(Requisicao.data_retirada >= data_ini)
-    if data_fim:
-        q = q.filter(Requisicao.data_retirada <= data_fim + ' 23:59:59')
-
-    reqs = q.order_by(Requisicao.data_retirada.desc()).all()
-
-    return render_template('requisicoes.html',
-        requisicoes=reqs,
-        total=len(reqs),
-        em_uso=sum(1 for r in reqs if r.status == 'aberta'),
-        devolvidos=sum(1 for r in reqs if r.status == 'devolvida'),
-        filtro_colaborador=colaborador,
-        filtro_status=status,
-        filtro_data_ini=data_ini,
-        filtro_data_fim=data_fim
-    )
-
-@app.route('/requisicoes/nova', methods=['GET', 'POST'])
-def requisicao_nova():
-    u = usuario_atual()
-    almoxarifados = Almoxarifado.query.all() if u.perfil == 'admin' else \
-        Almoxarifado.query.filter(Almoxarifado.id.in_(u.almoxarifados_permitidos())).all()
-    itens_json = {}
-    for alm in almoxarifados:
-        itens_json[str(alm.id)] = [
-            {'id': it.id, 'nome': it.nome, 'quantidade': it.quantidade, 'unidade': it.unidade}
-            for it in alm.itens
-        ]
-
-    if request.method == 'POST':
-        colaborador = request.form.get('colaborador', '')
-        observacao  = request.form.get('observacao', '')
-        criados = 0
-
-        # Coletar todos os item_id_N do formulário sem depender de total_linhas
-        indices = set()
-        for key in request.form.keys():
-            if key.startswith('item_id_'):
-                try:
-                    indices.add(int(key.split('_')[-1]))
-                except ValueError:
-                    pass
-
-        for i in sorted(indices):
-            item_id = request.form.get(f'item_id_{i}')
-            qtd_str = request.form.get(f'quantidade_{i}')
-            if not item_id or not qtd_str:
-                continue
-            it  = Item.query.get(item_id)
-            try:
-                qtd = float(qtd_str)
-            except ValueError:
-                continue
-            if not it or qtd <= 0:
-                continue
-            if qtd > it.quantidade:
-                flash(
-                    f'<strong>Estoque insuficiente:</strong> "{it.nome}" tem apenas '
-                    f'<strong>{it.quantidade} {it.unidade}</strong> disponível. '
-                    f'<a href="/almoxarifado/{it.almoxarifado_id}" class="alert-link">Consultar Estoque</a>',
-                    'danger'
-                )
-                continue
-
-            it.quantidade -= qtd
-            db.session.add(Requisicao(
-                colaborador=colaborador,
-                observacao=observacao,
-                quantidade=qtd,
-                item_id=it.id
-            ))
-            db.session.add(Movimentacao(
-                tipo='saida', quantidade=qtd,
-                responsavel=colaborador,
-                observacao=f'Requisicao — {observacao}',
-                item_id=it.id
-            ))
-            criados += 1
-
-        if criados:
-            db.session.commit()
-            flash(
-                f'<strong>✅ Requisição registrada!</strong> '
-                f'{criados} item(ns) retirado(s) com sucesso para <strong>{colaborador}</strong>. '
-                f'<a href="/requisicoes" class="alert-link">Ver Requisições</a>',
-                'success'
-            )
-        elif not any(True for key in request.form.keys() if key.startswith('item_id_')):
-            flash('Adicione pelo menos um item antes de registrar.', 'warning')
-        return redirect(url_for('requisicoes'))
-
-    import json
-    return render_template('requisicao_nova.html',
-                           almoxarifados=almoxarifados,
-                           itens_json=json.dumps(itens_json))
-
-@app.route('/requisicoes/<int:id>/devolver', methods=['POST'])
-def devolver_requisicao(id):
-    req = Requisicao.query.get_or_404(id)
-    if req.status == 'aberta':
-        req.status = 'devolvida'
-        req.data_devolucao = datetime.utcnow()
-        req.item.quantidade += req.quantidade
-        db.session.add(Movimentacao(
-            tipo='entrada', quantidade=req.quantidade,
-            responsavel=req.colaborador,
-            observacao=f'Devolução de requisição #{req.id}',
-            item_id=req.item_id
-        ))
-        db.session.commit()
-        flash(f'Devolução de "{req.item.nome}" registrada!', 'success')
-    return redirect(url_for('requisicoes'))
 
 @app.route('/almoxarifado/<int:id>/importar', methods=['GET', 'POST'])
 @login_required
@@ -690,28 +573,47 @@ def modelo_excel(id):
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 @app.route('/relatorios/consumo')
+@login_required
 def relatorio_consumo():
+    u = usuario_atual()
     alm_id = request.args.get('almoxarifado_id', type=int)
     data_ini = request.args.get('data_ini', str(date.today().replace(day=1)))
     data_fim = request.args.get('data_fim', str(date.today()))
-    query = Movimentacao.query.filter(
+
+    query = Movimentacao.query.join(Item).filter(
         Movimentacao.tipo == 'saida',
         Movimentacao.data >= data_ini,
         Movimentacao.data <= data_fim + ' 23:59:59'
     )
+
+    # Colaborador só vê os almoxarifados dele
+    if u.perfil != 'admin':
+        ids_permitidos = u.almoxarifados_permitidos()
+        query = query.filter(Item.almoxarifado_id.in_(ids_permitidos))
+        almoxarifados = Almoxarifado.query.filter(Almoxarifado.id.in_(ids_permitidos)).all()
+        # Se tentou filtrar por almoxarifado fora do permitido, ignora
+        if alm_id and alm_id not in ids_permitidos:
+            alm_id = None
+    else:
+        almoxarifados = Almoxarifado.query.all()
+
     if alm_id:
-        query = query.join(Item).filter(Item.almoxarifado_id == alm_id)
+        query = query.filter(Item.almoxarifado_id == alm_id)
+
     movs = query.order_by(Movimentacao.data.desc()).all()
-    almoxarifados = Almoxarifado.query.all()
     return render_template('relatorio_consumo.html', movimentacoes=movs,
                            almoxarifados=almoxarifados, data_ini=data_ini,
                            data_fim=data_fim, alm_id=alm_id)
 
 @app.route('/relatorios/alertas')
+@login_required
 def relatorio_alertas():
-    itens = Item.query.filter(Item.quantidade <= Item.estoque_minimo).order_by(
-        Item.fixado.desc(), Item.quantidade.asc()
-    ).all()
+    u = usuario_atual()
+    query = Item.query.filter(Item.quantidade <= Item.estoque_minimo)
+    if u.perfil != 'admin':
+        ids = u.almoxarifados_permitidos()
+        query = query.filter(Item.almoxarifado_id.in_(ids))
+    itens = query.order_by(Item.fixado.desc(), Item.quantidade.asc()).all()
     return render_template('relatorio_alertas.html', itens=itens)
 
 @app.route('/item/<int:id>/status_compra', methods=['POST'])
@@ -754,7 +656,7 @@ def exportar_almoxarifado(id):
         ws['A1'].font = Font(bold=True, size=13, color='1A3A5C')
         ws['A1'].alignment = Alignment(horizontal='center')
         ws.merge_cells(f'A2:{get_column_letter(cols)}2')
-        ws['A2'] = f'Gerado em: {datetime.now().strftime("%d/%m/%Y %H:%M")}'
+        ws['A2'] = f'Gerado em: {agora().strftime("%d/%m/%Y %H:%M")}'
         ws['A2'].font = Font(italic=True, color='888888')
         ws['A2'].alignment = Alignment(horizontal='center')
 
@@ -825,8 +727,14 @@ def exportar_almoxarifado(id):
 # ── API ──────────────────────────────────────────────────────────────────────
 
 @app.route('/api/alertas')
+@login_required
 def api_alertas():
-    itens = Item.query.filter(Item.quantidade <= Item.estoque_minimo).all()
+    u = usuario_atual()
+    query = Item.query.filter(Item.quantidade <= Item.estoque_minimo)
+    if u.perfil != 'admin':
+        ids = u.almoxarifados_permitidos()
+        query = query.filter(Item.almoxarifado_id.in_(ids))
+    itens = query.all()
     return jsonify([{
         'id': i.id, 'nome': i.nome, 'codigo': i.codigo,
         'quantidade': i.quantidade, 'estoque_minimo': i.estoque_minimo,

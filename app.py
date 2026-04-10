@@ -211,17 +211,18 @@ def index():
     u = usuario_atual()
     if u.perfil == 'admin':
         almoxarifados = Almoxarifado.query.all()
-        alertas = Item.query.filter(Item.quantidade <= Item.estoque_minimo).all()
+        alertas = Item.query.filter(Item.quantidade <= Item.estoque_minimo, Item.ativo == True).all()
     else:
         ids = u.almoxarifados_permitidos()
         almoxarifados = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).all() if ids else []
         alertas = Item.query.filter(
             Item.quantidade <= Item.estoque_minimo,
+            Item.ativo == True,
             Item.almoxarifado_id.in_(ids)
         ).all() if ids else []
     stats = {
         'total_almoxarifados': len(almoxarifados),
-        'total_itens': sum(len(a.itens) for a in almoxarifados),
+        'total_itens': sum(len([i for i in a.itens if i.ativo]) for a in almoxarifados),
         'itens_alerta': len([a for a in alertas if a.quantidade > 0]),
         'itens_criticos': len([a for a in alertas if a.quantidade <= 0]),
     }
@@ -235,9 +236,8 @@ def almoxarifado(id):
     if u.perfil != 'admin' and id not in u.almoxarifados_permitidos():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('index'))
-    itens = Item.query.filter_by(almoxarifado_id=id, ativo=True).all()
-    itens_inativos = Item.query.filter_by(almoxarifado_id=id, ativo=False).all()
-    return render_template('almoxarifado.html', almoxarifado=alm, itens=itens, itens_inativos=itens_inativos)
+    itens = Item.query.filter_by(almoxarifado_id=id).all()
+    return render_template('almoxarifado.html', almoxarifado=alm, itens=itens)
 
 @app.route('/item/<int:id>')
 @login_required
@@ -734,7 +734,7 @@ def exportar_consumo():
 @login_required
 def relatorio_alertas():
     u = usuario_atual()
-    query = Item.query.filter(Item.quantidade <= Item.estoque_minimo)
+    query = Item.query.filter(Item.quantidade <= Item.estoque_minimo, Item.ativo == True)
     if u.perfil != 'admin':
         ids = u.almoxarifados_permitidos()
         query = query.filter(Item.almoxarifado_id.in_(ids))
@@ -855,7 +855,7 @@ def exportar_almoxarifado(id):
 @login_required
 def api_alertas():
     u = usuario_atual()
-    query = Item.query.filter(Item.quantidade <= Item.estoque_minimo)
+    query = Item.query.filter(Item.quantidade <= Item.estoque_minimo, Item.ativo == True)
     if u.perfil != 'admin':
         ids = u.almoxarifados_permitidos()
         query = query.filter(Item.almoxarifado_id.in_(ids))

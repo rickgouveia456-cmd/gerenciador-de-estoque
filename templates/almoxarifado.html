@@ -61,16 +61,20 @@
             </thead>
             <tbody id="tbodyItens">
                 {% for item in itens %}
-                <tr data-busca="{{ item.nome | lower }} {{ item.codigo | lower }}">
+                <tr data-busca="{{ item.nome | lower }} {{ item.codigo | lower }}"
+                    {% if not item.ativo %}class="table-secondary text-muted"{% endif %}>
                     <td><code>{{ item.codigo }}</code></td>
-                    <td><strong>{{ item.nome }}</strong></td>
+                    <td>
+                        <strong>{{ item.nome }}</strong>
+                        {% if not item.ativo %}<span class="badge bg-warning text-dark ms-1">Desativado</span>{% endif %}
+                    </td>
                     <td>{{ item.unidade }}</td>
-                    <td class="fw-bold {% if item.status == 'critico' %}text-danger{% elif item.status == 'alerta' %}text-warning{% else %}text-success{% endif %}">
+                    <td class="fw-bold {% if not item.ativo %}text-muted{% elif item.status == 'critico' %}text-danger{% elif item.status == 'alerta' %}text-warning{% else %}text-success{% endif %}">
                         {{ item.quantidade }}
                     </td>
                     <td>{{ item.estoque_minimo }}</td>
                     <td style="min-width:120px">
-                        {% if item.estoque_minimo > 0 %}
+                        {% if item.ativo and item.estoque_minimo > 0 %}
                         {% set pct = [(item.quantidade / item.estoque_minimo * 100), 100] | min %}
                         {% if pct <= 50 %}{% set bar_color = 'bg-danger' %}{% elif pct <= 100 %}{% set bar_color = 'bg-warning' %}{% else %}{% set bar_color = 'bg-success' %}{% endif %}
                         <div class="progress progress-estoque">
@@ -79,7 +83,9 @@
                         {% endif %}
                     </td>
                     <td>
-                        {% if item.status == 'critico' %}
+                        {% if not item.ativo %}
+                            <span class="badge bg-warning text-dark">⚠️ Desativado</span>
+                        {% elif item.status == 'critico' %}
                             <span class="badge bg-danger">🔴 Zerado</span>
                         {% elif item.status == 'alerta' %}
                             <span class="badge bg-warning text-dark">🟡 Alerta</span>
@@ -91,9 +97,11 @@
                         <a href="/item/{{ item.id }}" class="btn btn-sm btn-outline-primary">
                             <i class="bi bi-eye"></i>
                         </a>
+                        {% if item.ativo %}
                         <a href="/item/{{ item.id }}/editar" class="btn btn-sm btn-outline-secondary">
                             <i class="bi bi-pencil"></i>
                         </a>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -108,15 +116,17 @@
 <!-- Cards para mobile -->
 <div class="d-md-none" id="cardsItens">
     {% for item in itens %}
-    <div class="card border-0 shadow-sm mb-3 card-item-mobile"
+    <div class="card border-0 shadow-sm mb-3 card-item-mobile {% if not item.ativo %}border-warning{% endif %}"
          data-busca="{{ item.nome | lower }} {{ item.codigo | lower }}">
-        <div class="card-body">
+        <div class="card-body {% if not item.ativo %}bg-light{% endif %}">
             <div class="d-flex justify-content-between align-items-start mb-2">
                 <div>
-                    <h6 class="mb-0 fw-bold">{{ item.nome }}</h6>
+                    <h6 class="mb-0 fw-bold {% if not item.ativo %}text-muted{% endif %}">{{ item.nome }}</h6>
                     <small class="text-muted"><code>{{ item.codigo }}</code></small>
                 </div>
-                {% if item.status == 'critico' %}
+                {% if not item.ativo %}
+                    <span class="badge bg-warning text-dark">⚠️ Desativado</span>
+                {% elif item.status == 'critico' %}
                     <span class="badge bg-danger">🔴 Zerado</span>
                 {% elif item.status == 'alerta' %}
                     <span class="badge bg-warning text-dark">🟡 Alerta</span>
@@ -125,6 +135,7 @@
                 {% endif %}
             </div>
 
+            {% if item.ativo %}
             <div class="row g-2 mb-2 text-center">
                 <div class="col-4">
                     <div class="small text-muted">Atual</div>
@@ -160,6 +171,11 @@
                     <i class="bi bi-pencil"></i>
                 </a>
             </div>
+            {% else %}
+            <a href="/item/{{ item.id }}" class="btn btn-sm btn-outline-secondary w-100">
+                <i class="bi bi-eye me-1"></i> Ver histórico
+            </a>
+            {% endif %}
         </div>
     </div>
     {% endfor %}
@@ -200,70 +216,6 @@ function filtrarItens(q) {
         <i class="bi bi-inbox fs-1 d-block mb-2"></i>
         Nenhum item cadastrado.
         <a href="/item/novo?alm={{ almoxarifado.id }}">Cadastrar primeiro item</a>
-    </div>
-</div>
-{% endif %}
-
-{% if itens_inativos %}
-<div class="mt-4">
-    <button class="btn btn-outline-secondary btn-sm mb-2" type="button"
-            data-bs-toggle="collapse" data-bs-target="#collapseInativos">
-        <i class="bi bi-slash-circle me-1"></i> Itens Desativados ({{ itens_inativos|length }})
-    </button>
-    <div class="collapse" id="collapseInativos">
-        <div class="card border-0 shadow-sm">
-            <div class="card-body p-0">
-                <table class="table table-sm mb-0 d-none d-md-table">
-                    <thead>
-                        <tr>
-                            <th>Código</th>
-                            <th>Item</th>
-                            <th>Unidade</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in itens_inativos %}
-                        <tr class="text-muted">
-                            <td><code>{{ item.codigo }}</code></td>
-                            <td><s>{{ item.nome }}</s></td>
-                            <td>{{ item.unidade }}</td>
-                            <td>
-                                <a href="/item/{{ item.id }}" class="btn btn-sm btn-outline-secondary">
-                                    <i class="bi bi-eye"></i>
-                                </a>
-                                <form action="/item/{{ item.id }}/reativar" method="POST" class="d-inline">
-                                    <button class="btn btn-sm btn-outline-success">
-                                        <i class="bi bi-check-circle me-1"></i> Reativar
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                <div class="d-md-none">
-                    {% for item in itens_inativos %}
-                    <div class="d-flex justify-content-between align-items-center p-3 border-bottom text-muted">
-                        <div>
-                            <s class="fw-semibold">{{ item.nome }}</s>
-                            <div class="small"><code>{{ item.codigo }}</code></div>
-                        </div>
-                        <div class="d-flex gap-1">
-                            <a href="/item/{{ item.id }}" class="btn btn-sm btn-outline-secondary">
-                                <i class="bi bi-eye"></i>
-                            </a>
-                            <form action="/item/{{ item.id }}/reativar" method="POST">
-                                <button class="btn btn-sm btn-outline-success">
-                                    <i class="bi bi-check-circle"></i>
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
     </div>
 </div>
 {% endif %}

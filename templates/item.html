@@ -43,17 +43,37 @@
         </div>
 
         <!-- Ações rápidas -->
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
             <a href="/item/{{ item.id }}/editar" class="btn btn-outline-secondary btn-sm flex-fill">
                 <i class="bi bi-pencil me-1"></i> Editar
             </a>
+            {% if item.ativo %}
+            <form action="/item/{{ item.id }}/desativar" method="POST"
+                  onsubmit="return confirm('Desativar este item? O saldo restante será registrado como saída no consumo e o item ficará oculto na listagem.')">
+                <button class="btn btn-warning btn-sm">
+                    <i class="bi bi-slash-circle me-1"></i> Desativar
+                </button>
+            </form>
+            {% else %}
+            <form action="/item/{{ item.id }}/reativar" method="POST">
+                <button class="btn btn-success btn-sm">
+                    <i class="bi bi-check-circle me-1"></i> Reativar
+                </button>
+            </form>
+            {% endif %}
             <form action="/item/{{ item.id }}/deletar" method="POST"
-                  onsubmit="return confirm('Deletar este item?')" class="flex-fill">
+                  onsubmit="return confirm('Deletar este item permanentemente?')" class="flex-fill">
                 <button class="btn btn-outline-danger btn-sm w-100">
                     <i class="bi bi-trash me-1"></i> Deletar
                 </button>
             </form>
         </div>
+
+        {% if not item.ativo %}
+        <div class="alert alert-warning mt-3 mb-0 py-2 small">
+            <i class="bi bi-slash-circle me-1"></i> <strong>Item desativado</strong> — não aparece na listagem do almoxarifado.
+        </div>
+        {% endif %}
     </div>
 
     <!-- Movimentação + Histórico -->

@@ -45,6 +45,7 @@ class Item(db.Model):
     almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=False)
     status_compra = db.Column(db.String(30), default='pendente')
     fixado = db.Column(db.Boolean, default=False)
+    ativo = db.Column(db.Boolean, default=True)
     movimentacoes = db.relationship('Movimentacao', backref='item', lazy=True, cascade='all, delete-orphan')
 
     @property
@@ -165,6 +166,10 @@ def run_migrations():
                 conn.execute(text("ALTER TABLE item ADD COLUMN fixado BOOLEAN DEFAULT 0"))
                 conn.commit()
             except: pass
+            try:
+                conn.execute(text("ALTER TABLE item ADD COLUMN ativo BOOLEAN DEFAULT 1"))
+                conn.commit()
+            except: pass
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS acesso_extra (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -230,8 +235,9 @@ def almoxarifado(id):
     if u.perfil != 'admin' and id not in u.almoxarifados_permitidos():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('index'))
-    itens = Item.query.filter_by(almoxarifado_id=id).all()
-    return render_template('almoxarifado.html', almoxarifado=alm, itens=itens)
+    itens = Item.query.filter_by(almoxarifado_id=id, ativo=True).all()
+    itens_inativos = Item.query.filter_by(almoxarifado_id=id, ativo=False).all()
+    return render_template('almoxarifado.html', almoxarifado=alm, itens=itens, itens_inativos=itens_inativos)
 
 @app.route('/item/<int:id>')
 @login_required
@@ -334,6 +340,42 @@ def deletar_item(id):
     db.session.commit()
     flash('Item removido!', 'warning')
     return redirect(url_for('almoxarifado', id=alm_id))
+
+@app.route('/item/<int:id>/desativar', methods=['POST'])
+@login_required
+def desativar_item(id):
+    it = Item.query.get_or_404(id)
+    u = usuario_atual()
+    if u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('index'))
+    # Se ainda tem saldo, registra saída no consumo
+    if it.quantidade > 0:
+        db.session.add(Movimentacao(
+            tipo='saida',
+            quantidade=it.quantidade,
+            responsavel=u.nome,
+            observacao=f'Item desativado — saldo baixado automaticamente',
+            item_id=it.id
+        ))
+        it.quantidade = 0
+    it.ativo = False
+    db.session.commit()
+    flash(f'Item "{it.nome}" desativado. Histórico preservado.', 'warning')
+    return redirect(url_for('almoxarifado', id=it.almoxarifado_id))
+
+@app.route('/item/<int:id>/reativar', methods=['POST'])
+@login_required
+def reativar_item(id):
+    it = Item.query.get_or_404(id)
+    u = usuario_atual()
+    if u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('index'))
+    it.ativo = True
+    db.session.commit()
+    flash(f'Item "{it.nome}" reativado!', 'success')
+    return redirect(url_for('almoxarifado', id=it.almoxarifado_id))
 
 # ── MOVIMENTAÇÃO EM LOTE ─────────────────────────────────────────────────────
 

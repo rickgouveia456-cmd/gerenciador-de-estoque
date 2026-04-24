@@ -1011,3 +1011,11 @@ if __name__ == '__main__':
         seed_data()
     port = int(os.environ.get('PORT', 5000))
     app.run(debug=False, host='0.0.0.0', port=port)
+
+# Inicialização para produção (gunicorn)
+with app.app_context():
+    try:
+        db.create_all()
+        seed_data()
+    except Exception as e:
+        print(f'Inicialização: {e}')

@@ -1,28 +1,19 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, send_file, session
 from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, date
-try:
-    from zoneinfo import ZoneInfo
-    BRASILIA = ZoneInfo('America/Sao_Paulo')
-    def agora():
-        return datetime.now(BRASILIA).replace(tzinfo=None)
-except ImportError:
-    import pytz
-    BRASILIA = pytz.timezone('America/Sao_Paulo')
-    def agora():
-        return datetime.now(BRASILIA).replace(tzinfo=None)
 from functools import wraps
 import io
 import os
 import json
-import hashlib
+import secrets
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
 app = Flask(__name__)
-app.secret_key = 'estoque_secret_2024'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///estoque.db'
+app.secret_key = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///estoque.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -45,7 +36,6 @@ class Item(db.Model):
     almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=False)
     status_compra = db.Column(db.String(30), default='pendente')
     fixado = db.Column(db.Boolean, default=False)
-    ativo = db.Column(db.Boolean, default=True)
     movimentacoes = db.relationship('Movimentacao', backref='item', lazy=True, cascade='all, delete-orphan')
 
     @property
@@ -62,14 +52,25 @@ class Movimentacao(db.Model):
     quantidade = db.Column(db.Float, nullable=False)
     responsavel = db.Column(db.String(100))
     observacao = db.Column(db.String(200))
-    data = db.Column(db.DateTime, default=agora)
+    data = db.Column(db.DateTime, default=datetime.utcnow)
     item_id = db.Column(db.Integer, db.ForeignKey('item.id'), nullable=False)
+
+class Requisicao(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    colaborador = db.Column(db.String(100), nullable=False)
+    observacao = db.Column(db.String(200))
+    quantidade = db.Column(db.Float, nullable=False)
+    status = db.Column(db.String(20), default='aberta')  # aberta | devolvida
+    data_retirada = db.Column(db.DateTime, default=datetime.utcnow)
+    data_devolucao = db.Column(db.DateTime, nullable=True)
+    item_id = db.Column(db.Integer, db.ForeignKey('item.id'), nullable=False)
+    item = db.relationship('Item', backref='requisicoes')
 
 class Usuario(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
     login = db.Column(db.String(50), unique=True, nullable=False)
-    senha_hash = db.Column(db.String(64), nullable=False)
+    senha_hash = db.Column(db.String(256), nullable=False)
     perfil = db.Column(db.String(20), default='colaborador')  # admin | colaborador
     almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=True)
     ativo = db.Column(db.Boolean, default=True)
@@ -77,10 +78,20 @@ class Usuario(db.Model):
     acessos_extras = db.relationship('AcessoExtra', backref='usuario', lazy=True, cascade='all, delete-orphan')
 
     def set_senha(self, senha):
-        self.senha_hash = hashlib.sha256(senha.encode()).hexdigest()
+        self.senha_hash = generate_password_hash(senha)
 
     def check_senha(self, senha):
-        return self.senha_hash == hashlib.sha256(senha.encode()).hexdigest()
+        # Compatibilidade: hashes antigos eram SHA-256 puro (64 chars hex)
+        if len(self.senha_hash) == 64 and not self.senha_hash.startswith('pbkdf2:'):
+            import hashlib
+            if self.senha_hash == hashlib.sha256(senha.encode()).hexdigest():
+                # Migra automaticamente para o novo hash seguro
+                self.set_senha(senha)
+                from flask_sqlalchemy import SQLAlchemy
+                db.session.commit()
+                return True
+            return False
+        return check_password_hash(self.senha_hash, senha)
 
     def almoxarifados_permitidos(self):
         ids = set()
@@ -96,14 +107,14 @@ class AcessoExtra(db.Model):
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
     almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=False)
     motivo = db.Column(db.String(200))
-    data_inicio = db.Column(db.DateTime, default=agora)
+    data_inicio = db.Column(db.DateTime, default=datetime.utcnow)
     data_fim = db.Column(db.DateTime, nullable=True)
     concedido_por = db.Column(db.String(100))
     almoxarifado = db.relationship('Almoxarifado')
 
     @property
     def ativo(self):
-        if self.data_fim and agora() > self.data_fim:
+        if self.data_fim and datetime.utcnow() > self.data_fim:
             return False
         return True
 
@@ -167,7 +178,7 @@ def run_migrations():
                 conn.commit()
             except: pass
             try:
-                conn.execute(text("ALTER TABLE item ADD COLUMN ativo BOOLEAN DEFAULT 1"))
+                conn.execute(text("ALTER TABLE usuario ADD COLUMN senha_hash_new VARCHAR(256)"))
                 conn.commit()
             except: pass
             conn.execute(text("""
@@ -211,18 +222,17 @@ def index():
     u = usuario_atual()
     if u.perfil == 'admin':
         almoxarifados = Almoxarifado.query.all()
-        alertas = Item.query.filter(Item.quantidade <= Item.estoque_minimo, Item.ativo == True).all()
+        alertas = Item.query.filter(Item.quantidade <= Item.estoque_minimo).all()
     else:
         ids = u.almoxarifados_permitidos()
         almoxarifados = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).all() if ids else []
         alertas = Item.query.filter(
             Item.quantidade <= Item.estoque_minimo,
-            Item.ativo == True,
             Item.almoxarifado_id.in_(ids)
         ).all() if ids else []
     stats = {
         'total_almoxarifados': len(almoxarifados),
-        'total_itens': sum(len([i for i in a.itens if i.ativo]) for a in almoxarifados),
+        'total_itens': sum(len(a.itens) for a in almoxarifados),
         'itens_alerta': len([a for a in alertas if a.quantidade > 0]),
         'itens_criticos': len([a for a in alertas if a.quantidade <= 0]),
     }
@@ -264,6 +274,7 @@ def novo_almoxarifado():
     return render_template('form_almoxarifado.html', almoxarifado=None)
 
 @app.route('/almoxarifado/<int:id>/editar', methods=['GET', 'POST'])
+@login_required
 def editar_almoxarifado(id):
     alm = Almoxarifado.query.get_or_404(id)
     if request.method == 'POST':
@@ -275,6 +286,7 @@ def editar_almoxarifado(id):
     return render_template('form_almoxarifado.html', almoxarifado=alm)
 
 @app.route('/almoxarifado/<int:id>/deletar', methods=['POST'])
+@admin_required
 def deletar_almoxarifado(id):
     alm = Almoxarifado.query.get_or_404(id)
     db.session.delete(alm)
@@ -287,12 +299,7 @@ def deletar_almoxarifado(id):
 @app.route('/item/novo', methods=['GET', 'POST'])
 @login_required
 def novo_item():
-    u = usuario_atual()
-    if u.perfil == 'admin':
-        almoxarifados = Almoxarifado.query.all()
-    else:
-        ids = u.almoxarifados_permitidos()
-        almoxarifados = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).all()
+    almoxarifados = Almoxarifado.query.all()
     if request.method == 'POST':
         it = Item(
             nome=request.form['nome'],
@@ -312,15 +319,7 @@ def novo_item():
 @login_required
 def editar_item(id):
     it = Item.query.get_or_404(id)
-    u = usuario_atual()
-    if u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos():
-        flash('Acesso negado.', 'danger')
-        return redirect(url_for('index'))
-    if u.perfil == 'admin':
-        almoxarifados = Almoxarifado.query.all()
-    else:
-        ids = u.almoxarifados_permitidos()
-        almoxarifados = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).all()
+    almoxarifados = Almoxarifado.query.all()
     if request.method == 'POST':
         it.nome = request.form['nome']
         it.codigo = request.form['codigo']
@@ -333,6 +332,7 @@ def editar_item(id):
     return render_template('form_item.html', item=it, almoxarifados=almoxarifados)
 
 @app.route('/item/<int:id>/deletar', methods=['POST'])
+@login_required
 def deletar_item(id):
     it = Item.query.get_or_404(id)
     alm_id = it.almoxarifado_id
@@ -340,42 +340,6 @@ def deletar_item(id):
     db.session.commit()
     flash('Item removido!', 'warning')
     return redirect(url_for('almoxarifado', id=alm_id))
-
-@app.route('/item/<int:id>/desativar', methods=['POST'])
-@login_required
-def desativar_item(id):
-    it = Item.query.get_or_404(id)
-    u = usuario_atual()
-    if u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos():
-        flash('Acesso negado.', 'danger')
-        return redirect(url_for('index'))
-    # Se ainda tem saldo, registra saída no consumo
-    if it.quantidade > 0:
-        db.session.add(Movimentacao(
-            tipo='saida',
-            quantidade=it.quantidade,
-            responsavel=u.nome,
-            observacao=f'Item desativado — saldo baixado automaticamente',
-            item_id=it.id
-        ))
-        it.quantidade = 0
-    it.ativo = False
-    db.session.commit()
-    flash(f'Item "{it.nome}" desativado. Histórico preservado.', 'warning')
-    return redirect(url_for('almoxarifado', id=it.almoxarifado_id))
-
-@app.route('/item/<int:id>/reativar', methods=['POST'])
-@login_required
-def reativar_item(id):
-    it = Item.query.get_or_404(id)
-    u = usuario_atual()
-    if u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos():
-        flash('Acesso negado.', 'danger')
-        return redirect(url_for('index'))
-    it.ativo = True
-    db.session.commit()
-    flash(f'Item "{it.nome}" reativado!', 'success')
-    return redirect(url_for('almoxarifado', id=it.almoxarifado_id))
 
 # ── MOVIMENTAÇÃO EM LOTE ─────────────────────────────────────────────────────
 
@@ -389,11 +353,15 @@ def movimentacao_lote():
     # Histórico das últimas 20 movimentações
     if u.perfil == 'admin':
         historico = Movimentacao.query.order_by(Movimentacao.data.desc()).limit(20).all()
+        requisicoes_hist = Requisicao.query.order_by(Requisicao.data_retirada.desc()).limit(20).all()
     else:
         ids = u.almoxarifados_permitidos()
         historico = (Movimentacao.query.join(Item)
                      .filter(Item.almoxarifado_id.in_(ids))
                      .order_by(Movimentacao.data.desc()).limit(20).all())
+        requisicoes_hist = (Requisicao.query.join(Item)
+                            .filter(Item.almoxarifado_id.in_(ids))
+                            .order_by(Requisicao.data_retirada.desc()).limit(20).all())
 
     # Montar JSON com itens por almoxarifado
     itens_json = {}
@@ -478,7 +446,8 @@ def movimentacao_lote():
     return render_template('movimentacao_lote.html',
                            almoxarifados=almoxarifados,
                            itens_json=json.dumps(itens_json),
-                           historico=historico)
+                           historico=historico,
+                           requisicoes=requisicoes_hist)
 
 @app.route('/item/<int:id>/movimentar', methods=['POST'])
 @login_required
@@ -500,6 +469,137 @@ def movimentar(id):
     db.session.commit()
     flash(f'{"Entrada" if tipo == "entrada" else "Saida"} de {qtd} {it.unidade} registrada!', 'success')
     return redirect(url_for('item', id=id))
+
+# ── REQUISIÇÕES ──────────────────────────────────────────────────────────────
+
+@app.route('/requisicoes')
+@login_required
+def requisicoes():
+    colaborador  = request.args.get('colaborador', '')
+    status       = request.args.get('status', '')
+    data_ini     = request.args.get('data_ini', '')
+    data_fim     = request.args.get('data_fim', '')
+
+    q = Requisicao.query
+    if colaborador:
+        q = q.filter(Requisicao.colaborador.ilike(f'%{colaborador}%'))
+    if status:
+        q = q.filter(Requisicao.status == status)
+    if data_ini:
+        q = q.filter(Requisicao.data_retirada >= data_ini)
+    if data_fim:
+        q = q.filter(Requisicao.data_retirada <= data_fim + ' 23:59:59')
+
+    reqs = q.order_by(Requisicao.data_retirada.desc()).all()
+
+    return render_template('requisicoes.html',
+        requisicoes=reqs,
+        total=len(reqs),
+        em_uso=sum(1 for r in reqs if r.status == 'aberta'),
+        devolvidos=sum(1 for r in reqs if r.status == 'devolvida'),
+        filtro_colaborador=colaborador,
+        filtro_status=status,
+        filtro_data_ini=data_ini,
+        filtro_data_fim=data_fim
+    )
+
+@app.route('/requisicoes/nova', methods=['GET', 'POST'])
+@login_required
+def requisicao_nova():
+    u = usuario_atual()
+    almoxarifados = Almoxarifado.query.all() if u.perfil == 'admin' else \
+        Almoxarifado.query.filter(Almoxarifado.id.in_(u.almoxarifados_permitidos())).all()
+    itens_json = {}
+    for alm in almoxarifados:
+        itens_json[str(alm.id)] = [
+            {'id': it.id, 'nome': it.nome, 'quantidade': it.quantidade, 'unidade': it.unidade}
+            for it in alm.itens
+        ]
+
+    if request.method == 'POST':
+        colaborador = request.form.get('colaborador', '')
+        observacao  = request.form.get('observacao', '')
+        criados = 0
+
+        # Coletar todos os item_id_N do formulário sem depender de total_linhas
+        indices = set()
+        for key in request.form.keys():
+            if key.startswith('item_id_'):
+                try:
+                    indices.add(int(key.split('_')[-1]))
+                except ValueError:
+                    pass
+
+        for i in sorted(indices):
+            item_id = request.form.get(f'item_id_{i}')
+            qtd_str = request.form.get(f'quantidade_{i}')
+            if not item_id or not qtd_str:
+                continue
+            it  = Item.query.get(item_id)
+            try:
+                qtd = float(qtd_str)
+            except ValueError:
+                continue
+            if not it or qtd <= 0:
+                continue
+            if qtd > it.quantidade:
+                flash(
+                    f'<strong>Estoque insuficiente:</strong> "{it.nome}" tem apenas '
+                    f'<strong>{it.quantidade} {it.unidade}</strong> disponível. '
+                    f'<a href="/almoxarifado/{it.almoxarifado_id}" class="alert-link">Consultar Estoque</a>',
+                    'danger'
+                )
+                continue
+
+            it.quantidade -= qtd
+            db.session.add(Requisicao(
+                colaborador=colaborador,
+                observacao=observacao,
+                quantidade=qtd,
+                item_id=it.id
+            ))
+            db.session.add(Movimentacao(
+                tipo='saida', quantidade=qtd,
+                responsavel=colaborador,
+                observacao=f'Requisicao — {observacao}',
+                item_id=it.id
+            ))
+            criados += 1
+
+        if criados:
+            db.session.commit()
+            flash(
+                f'<strong>✅ Requisição registrada!</strong> '
+                f'{criados} item(ns) retirado(s) com sucesso para <strong>{colaborador}</strong>. '
+                f'<a href="/requisicoes" class="alert-link">Ver Requisições</a>',
+                'success'
+            )
+        elif not any(True for key in request.form.keys() if key.startswith('item_id_')):
+            flash('Adicione pelo menos um item antes de registrar.', 'warning')
+        return redirect(url_for('requisicoes'))
+
+    import json
+    return render_template('requisicao_nova.html',
+                           almoxarifados=almoxarifados,
+                           itens_json=json.dumps(itens_json))
+
+@app.route('/requisicoes/<int:id>/devolver', methods=['POST'])
+@login_required
+def devolver_requisicao(id):
+    req = Requisicao.query.get_or_404(id)
+    if req.status == 'aberta':
+        req.status = 'devolvida'
+        req.data_devolucao = datetime.utcnow()
+        req.item.quantidade += req.quantidade
+        db.session.add(Movimentacao(
+            tipo='entrada', quantidade=req.quantidade,
+            responsavel=req.colaborador,
+            observacao=f'Devolução de requisição #{req.id}',
+            item_id=req.item_id
+        ))
+        db.session.commit()
+        flash(f'Devolução de "{req.item.nome}" registrada!', 'success')
+    return redirect(url_for('requisicoes'))
 
 @app.route('/almoxarifado/<int:id>/importar', methods=['GET', 'POST'])
 @login_required
@@ -617,128 +717,28 @@ def modelo_excel(id):
 @app.route('/relatorios/consumo')
 @login_required
 def relatorio_consumo():
-    u = usuario_atual()
     alm_id = request.args.get('almoxarifado_id', type=int)
     data_ini = request.args.get('data_ini', str(date.today().replace(day=1)))
     data_fim = request.args.get('data_fim', str(date.today()))
-
-    query = Movimentacao.query.join(Item).filter(
+    query = Movimentacao.query.filter(
         Movimentacao.tipo == 'saida',
         Movimentacao.data >= data_ini,
         Movimentacao.data <= data_fim + ' 23:59:59'
     )
-
-    # Colaborador só vê os almoxarifados dele
-    if u.perfil != 'admin':
-        ids_permitidos = u.almoxarifados_permitidos()
-        query = query.filter(Item.almoxarifado_id.in_(ids_permitidos))
-        almoxarifados = Almoxarifado.query.filter(Almoxarifado.id.in_(ids_permitidos)).all()
-        if alm_id and alm_id not in ids_permitidos:
-            alm_id = None
-    else:
-        almoxarifados = Almoxarifado.query.all()
-
     if alm_id:
-        query = query.filter(Item.almoxarifado_id == alm_id)
-
+        query = query.join(Item).filter(Item.almoxarifado_id == alm_id)
     movs = query.order_by(Movimentacao.data.desc()).all()
+    almoxarifados = Almoxarifado.query.all()
     return render_template('relatorio_consumo.html', movimentacoes=movs,
                            almoxarifados=almoxarifados, data_ini=data_ini,
                            data_fim=data_fim, alm_id=alm_id)
 
-@app.route('/relatorios/consumo/exportar')
-@login_required
-def exportar_consumo():
-    u = usuario_atual()
-    alm_id = request.args.get('almoxarifado_id', type=int)
-    data_ini = request.args.get('data_ini', str(date.today().replace(day=1)))
-    data_fim = request.args.get('data_fim', str(date.today()))
-
-    query = Movimentacao.query.join(Item).filter(
-        Movimentacao.tipo == 'saida',
-        Movimentacao.data >= data_ini,
-        Movimentacao.data <= data_fim + ' 23:59:59'
-    )
-
-    if u.perfil != 'admin':
-        ids_permitidos = u.almoxarifados_permitidos()
-        query = query.filter(Item.almoxarifado_id.in_(ids_permitidos))
-        if alm_id and alm_id not in ids_permitidos:
-            alm_id = None
-    if alm_id:
-        query = query.filter(Item.almoxarifado_id == alm_id)
-
-    movs = query.order_by(Movimentacao.data.desc()).all()
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = 'Consumo'
-
-    h_fill = PatternFill('solid', fgColor='1A3A5C')
-    h_font = Font(bold=True, color='FFFFFF', size=11)
-    borda  = Border(left=Side(style='thin'), right=Side(style='thin'),
-                    top=Side(style='thin'), bottom=Side(style='thin'))
-
-    # Título
-    ws.merge_cells('A1:F1')
-    ws['A1'] = 'Relatório de Consumo'
-    ws['A1'].font = Font(bold=True, size=13, color='1A3A5C')
-    ws['A1'].alignment = Alignment(horizontal='center')
-
-    ws.merge_cells('A2:F2')
-    ws['A2'] = f'Período: {data_ini} a {data_fim}  |  Gerado em: {agora().strftime("%d/%m/%Y %H:%M")}'
-    ws['A2'].font = Font(italic=True, color='888888')
-    ws['A2'].alignment = Alignment(horizontal='center')
-
-    # Cabeçalho
-    headers = ['Data', 'Item', 'Código', 'Almoxarifado', 'Quantidade', 'Responsável', 'Observação']
-    for col, h in enumerate(headers, 1):
-        c = ws.cell(row=4, column=col, value=h)
-        c.font = h_font
-        c.fill = h_fill
-        c.alignment = Alignment(horizontal='center')
-        c.border = borda
-
-    # Dados
-    alt_fill = PatternFill('solid', fgColor='EEF2F7')
-    for r, mov in enumerate(movs, 5):
-        fill = alt_fill if r % 2 == 0 else None
-        valores = [
-            mov.data.strftime('%d/%m/%Y %H:%M'),
-            mov.item.nome,
-            mov.item.codigo,
-            mov.item.almoxarifado.nome,
-            f'{mov.quantidade} {mov.item.unidade}',
-            mov.responsavel or '',
-            mov.observacao or ''
-        ]
-        for c, v in enumerate(valores, 1):
-            cell = ws.cell(row=r, column=c, value=v)
-            cell.border = borda
-            cell.alignment = Alignment(horizontal='left' if c in (2, 3, 4, 6, 7) else 'center')
-            if fill:
-                cell.fill = fill
-
-    # Larguras
-    for i, w in enumerate([18, 35, 14, 30, 14, 20, 30], 1):
-        ws.column_dimensions[get_column_letter(i)].width = w
-
-    buf = io.BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-    nome = f'consumo_{data_ini}_a_{data_fim}.xlsx'
-    return send_file(buf, as_attachment=True, download_name=nome,
-                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-
 @app.route('/relatorios/alertas')
 @login_required
 def relatorio_alertas():
-    u = usuario_atual()
-    query = Item.query.filter(Item.quantidade <= Item.estoque_minimo, Item.ativo == True)
-    if u.perfil != 'admin':
-        ids = u.almoxarifados_permitidos()
-        query = query.filter(Item.almoxarifado_id.in_(ids))
-    itens = query.order_by(Item.fixado.desc(), Item.quantidade.asc()).all()
+    itens = Item.query.filter(Item.quantidade <= Item.estoque_minimo).order_by(
+        Item.fixado.desc(), Item.quantidade.asc()
+    ).all()
     return render_template('relatorio_alertas.html', itens=itens)
 
 @app.route('/item/<int:id>/status_compra', methods=['POST'])
@@ -760,6 +760,7 @@ def fixar_item(id):
 # ── EXPORTAR EXCEL ───────────────────────────────────────────────────────────
 
 @app.route('/almoxarifado/<int:id>/exportar')
+@login_required
 def exportar_almoxarifado(id):
     alm = Almoxarifado.query.get_or_404(id)
     itens = Item.query.filter_by(almoxarifado_id=id).all()
@@ -781,7 +782,7 @@ def exportar_almoxarifado(id):
         ws['A1'].font = Font(bold=True, size=13, color='1A3A5C')
         ws['A1'].alignment = Alignment(horizontal='center')
         ws.merge_cells(f'A2:{get_column_letter(cols)}2')
-        ws['A2'] = f'Gerado em: {agora().strftime("%d/%m/%Y %H:%M")}'
+        ws['A2'] = f'Gerado em: {datetime.now().strftime("%d/%m/%Y %H:%M")}'
         ws['A2'].font = Font(italic=True, color='888888')
         ws['A2'].alignment = Alignment(horizontal='center')
 
@@ -854,12 +855,7 @@ def exportar_almoxarifado(id):
 @app.route('/api/alertas')
 @login_required
 def api_alertas():
-    u = usuario_atual()
-    query = Item.query.filter(Item.quantidade <= Item.estoque_minimo, Item.ativo == True)
-    if u.perfil != 'admin':
-        ids = u.almoxarifados_permitidos()
-        query = query.filter(Item.almoxarifado_id.in_(ids))
-    itens = query.all()
+    itens = Item.query.filter(Item.quantidade <= Item.estoque_minimo).all()
     return jsonify([{
         'id': i.id, 'nome': i.nome, 'codigo': i.codigo,
         'quantidade': i.quantidade, 'estoque_minimo': i.estoque_minimo,
@@ -966,6 +962,10 @@ def seed_data():
         admin.set_senha('admin123')
         db.session.add(admin)
         db.session.commit()
+        print('=' * 60)
+        print('AVISO: Usuário admin criado com senha padrão: admin123')
+        print('Altere a senha imediatamente após o primeiro login!')
+        print('=' * 60)
 
 with app.app_context():
     db.create_all()

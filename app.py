@@ -1010,6 +1010,7 @@ if __name__ == '__main__':
             print(f'Migração: {e}')
         seed_data()
     port = int(os.environ.get('PORT', 5000))
+    print(f"Iniciando servidor na porta {port}")
     app.run(debug=False, host='0.0.0.0', port=port)
 
 # Inicialização para produção (gunicorn)

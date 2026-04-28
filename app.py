@@ -40,6 +40,7 @@ class Item(db.Model):
     almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=False)
     status_compra = db.Column(db.String(30), default='pendente')
     fixado = db.Column(db.Boolean, default=False)
+    ativo = db.Column(db.Boolean, default=True)
     movimentacoes = db.relationship('Movimentacao', backref='item', lazy=True, cascade='all, delete-orphan')
 
     @property
@@ -182,6 +183,10 @@ def run_migrations():
                 conn.commit()
             except: pass
             try:
+                conn.execute(text("ALTER TABLE item ADD COLUMN ativo BOOLEAN DEFAULT 1"))
+                conn.commit()
+            except: pass
+            try:
                 conn.execute(text("ALTER TABLE usuario ADD COLUMN senha_hash_new VARCHAR(256)"))
                 conn.commit()
             except: pass
@@ -250,7 +255,8 @@ def almoxarifado(id):
     if u.perfil != 'admin' and id not in u.almoxarifados_permitidos():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('index'))
-    itens = Item.query.filter_by(almoxarifado_id=id).all()
+    # Mostrar todos os itens (ativos e desativados) para permitir reativação
+    itens = Item.query.filter_by(almoxarifado_id=id).order_by(Item.ativo.desc(), Item.nome).all()
     return render_template('almoxarifado.html', almoxarifado=alm, itens=itens)
 
 @app.route('/item/<int:id>')
@@ -761,6 +767,46 @@ def fixar_item(id):
     db.session.commit()
     return jsonify({'fixado': it.fixado})
 
+@app.route('/item/<int:id>/desativar', methods=['POST'])
+@login_required
+def desativar_item(id):
+    it = Item.query.get_or_404(id)
+    u = usuario_atual()
+    if u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('item', id=id))
+    
+    # Registrar saída do saldo restante se houver
+    if it.quantidade > 0:
+        mov = Movimentacao(
+            tipo='saida',
+            quantidade=it.quantidade,
+            responsavel=u.nome,
+            observacao=f'Item desativado - saldo restante: {it.quantidade} {it.unidade}',
+            item_id=id
+        )
+        db.session.add(mov)
+        it.quantidade = 0
+    
+    it.ativo = False
+    db.session.commit()
+    flash(f'Item "{it.nome}" desativado com sucesso!', 'warning')
+    return redirect(url_for('item', id=id))
+
+@app.route('/item/<int:id>/reativar', methods=['POST'])
+@login_required
+def reativar_item(id):
+    it = Item.query.get_or_404(id)
+    u = usuario_atual()
+    if u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('item', id=id))
+    
+    it.ativo = True
+    db.session.commit()
+    flash(f'Item "{it.nome}" reativado com sucesso!', 'success')
+    return redirect(url_for('item', id=id))
+
 # ── EXPORTAR EXCEL ───────────────────────────────────────────────────────────
 
 @app.route('/almoxarifado/<int:id>/exportar')
@@ -991,6 +1037,11 @@ if __name__ == '__main__':
                 # Item: fixado
                 try:
                     conn.execute(text("ALTER TABLE item ADD COLUMN fixado BOOLEAN DEFAULT 0"))
+                    conn.commit()
+                except: pass
+                # Item: ativo
+                try:
+                    conn.execute(text("ALTER TABLE item ADD COLUMN ativo BOOLEAN DEFAULT 1"))
                     conn.commit()
                 except: pass
                 # Usuario: acessos_extras (tabela nova)

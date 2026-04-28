@@ -999,6 +999,83 @@ def revogar_acesso_extra(id):
     flash('Acesso revogado!', 'warning')
     return redirect(url_for('editar_usuario', id=uid))
 
+# ── ROTA ESPECIAL PARA REATIVAR TODOS OS ITENS ──────────────────────────────
+
+@app.route('/admin/reativar-todos-itens', methods=['GET', 'POST'])
+@admin_required
+def reativar_todos_itens():
+    if request.method == 'POST':
+        try:
+            # Reativar todos os itens
+            itens_desativados = Item.query.filter_by(ativo=False).all()
+            count = 0
+            for item in itens_desativados:
+                item.ativo = True
+                count += 1
+            
+            # Também garantir que itens com ativo=None sejam ativados
+            from sqlalchemy import text
+            with db.engine.connect() as conn:
+                result = conn.execute(text("UPDATE item SET ativo = 1 WHERE ativo IS NULL OR ativo = 0"))
+                conn.commit()
+            
+            db.session.commit()
+            
+            total_ativos = Item.query.filter_by(ativo=True).count()
+            flash(f'✅ Sucesso! {count} itens reativados. Total de itens ativos: {total_ativos}', 'success')
+            
+        except Exception as e:
+            flash(f'❌ Erro ao reativar itens: {str(e)}', 'danger')
+        
+        return redirect(url_for('reativar_todos_itens'))
+    
+    # GET - mostrar página de confirmação
+    itens_desativados = Item.query.filter_by(ativo=False).count()
+    total_itens = Item.query.count()
+    
+    return f'''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Reativar Todos os Itens</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-light">
+        <div class="container mt-5">
+            <div class="row justify-content-center">
+                <div class="col-md-6">
+                    <div class="card shadow">
+                        <div class="card-header bg-primary text-white">
+                            <h4 class="mb-0">🔧 Reativar Todos os Itens</h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-info">
+                                <strong>📊 Status atual:</strong><br>
+                                • Total de itens: {total_itens}<br>
+                                • Itens desativados: {itens_desativados}<br>
+                                • Itens ativos: {total_itens - itens_desativados}
+                            </div>
+                            
+                            <p>Esta ação irá reativar todos os itens que estão marcados como "desativado" no sistema.</p>
+                            
+                            <form method="POST" onsubmit="return confirm('Tem certeza que deseja reativar todos os itens desativados?')">
+                                <button type="submit" class="btn btn-success btn-lg w-100">
+                                    ✅ Reativar Todos os Itens
+                                </button>
+                            </form>
+                            
+                            <div class="mt-3">
+                                <a href="/" class="btn btn-secondary">← Voltar ao Sistema</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+
 def seed_data():
     if Almoxarifado.query.count() == 0:
         db.session.add_all([

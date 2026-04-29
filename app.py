@@ -187,8 +187,8 @@ def run_migrations():
                 conn.commit()
             except: pass
             try:
-                # Aumentar limite do campo nome para 300 caracteres (SQLite ignora, mas garante compatibilidade)
-                conn.execute(text("UPDATE item SET nome = nome WHERE length(nome) > 0"))
+                # Aumentar limite do campo nome para 300 caracteres
+                conn.execute(text("ALTER TABLE item ALTER COLUMN nome TYPE VARCHAR(300)"))
                 conn.commit()
             except: pass
             try:

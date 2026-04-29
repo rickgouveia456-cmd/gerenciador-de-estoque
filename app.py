@@ -32,7 +32,7 @@ class Almoxarifado(db.Model):
 
 class Item(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(100), nullable=False)
+    nome = db.Column(db.String(300), nullable=False)
     codigo = db.Column(db.String(50), unique=True, nullable=False)
     unidade = db.Column(db.String(20), nullable=False)
     quantidade = db.Column(db.Float, default=0)
@@ -184,6 +184,11 @@ def run_migrations():
             except: pass
             try:
                 conn.execute(text("ALTER TABLE item ADD COLUMN ativo BOOLEAN DEFAULT 1"))
+                conn.commit()
+            except: pass
+            try:
+                # Aumentar limite do campo nome para 300 caracteres (SQLite ignora, mas garante compatibilidade)
+                conn.execute(text("UPDATE item SET nome = nome WHERE length(nome) > 0"))
                 conn.commit()
             except: pass
             try:

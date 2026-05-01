@@ -136,13 +136,33 @@
         <a href="/" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">
             <i class="bi bi-speedometer2 me-2"></i> Dashboard
         </a>
+        {% if usuario_atual and usuario_atual.perfil != 'mestre' %}
         <a href="/movimentacao/lote" class="nav-link {% if request.endpoint == 'movimentacao_lote' %}active{% endif %}">
             <i class="bi bi-arrow-left-right me-2"></i> Registro de Movimentação
         </a>
+        {% endif %}
         <a href="/relatorios/alertas" class="nav-link {% if request.endpoint == 'relatorio_alertas' %}active{% endif %}">
             <i class="bi bi-bell me-2"></i> Alertas de Estoque
             <span id="badge-alertas" class="badge bg-danger ms-1" style="display:none"></span>
         </a>
+
+        {% if usuario_atual and usuario_atual.perfil == 'mestre' %}
+        <span class="nav-section" style="color:#f0a500">Mestre de Obra</span>
+        <a href="/mestre/requisicoes/nova" class="nav-link {% if request.endpoint == 'mestre_requisicao_nova' %}active{% endif %}">
+            <i class="bi bi-plus-circle me-2"></i> Nova Requisição
+        </a>
+        <a href="/mestre/requisicoes" class="nav-link {% if request.endpoint == 'mestre_requisicoes' %}active{% endif %}">
+            <i class="bi bi-clipboard-list me-2"></i> Minhas Requisições
+        </a>
+        {% endif %}
+
+        {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
+        <span class="nav-section">Requisições</span>
+        <a href="/mestre/requisicoes" class="nav-link {% if request.endpoint == 'mestre_requisicoes' %}active{% endif %}">
+            <i class="bi bi-clipboard-check me-2"></i> Req. dos Mestres
+            <span id="badge-req-pendentes" class="badge bg-warning text-dark ms-1" style="display:none"></span>
+        </a>
+        {% endif %}
 
         <span class="nav-section">Almoxarifados</span>
         {% for alm in sidebar_alms %}
@@ -157,6 +177,7 @@
         </a>
         {% endif %}
 
+        {% if usuario_atual and usuario_atual.perfil != 'mestre' %}
         <span class="nav-section">Relatórios</span>
         <a href="/relatorios/consumo" class="nav-link {% if request.endpoint == 'relatorio_consumo' %}active{% endif %}">
             <i class="bi bi-graph-down me-2"></i> Consumo
@@ -164,6 +185,8 @@
         <a href="/relatorios/alertas" class="nav-link">
             <i class="bi bi-exclamation-triangle me-2"></i> Pedidos de Compra
         </a>
+        {% endif %}
+
         {% if usuario_atual and usuario_atual.perfil == 'admin' %}
         <span class="nav-section">Administração</span>
         <a href="/usuarios" class="nav-link {% if request.endpoint == 'usuarios' %}active{% endif %}">
@@ -199,7 +222,17 @@
                         <span class="d-none d-sm-inline">{{ usuario_atual.nome.split()[0] }}</span>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><span class="dropdown-item-text small text-muted">{{ usuario_atual.perfil | upper }}</span></li>
+                        <li><span class="dropdown-item-text small text-muted">
+                            {% if usuario_atual.perfil == 'admin' %}
+                                <span class="badge bg-primary">Administrador</span>
+                            {% elif usuario_atual.perfil == 'mestre' %}
+                                <span class="badge" style="background:#f0a500;color:#000">Mestre de Obra</span>
+                            {% elif usuario_atual.perfil == 'almoxarife' %}
+                                <span class="badge bg-info text-dark">Almoxarife</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Colaborador</span>
+                            {% endif %}
+                        </span></li>
                         <li><hr class="dropdown-divider"></li>
                         {% if usuario_atual.perfil == 'admin' %}
                         <li><a class="dropdown-item" href="/usuarios"><i class="bi bi-people me-2"></i>Gerenciar Usuários</a></li>

@@ -36,10 +36,20 @@
                                 <option value="colaborador" {% if usuario and usuario.perfil == 'colaborador' %}selected{% endif %}>
                                     👤 Colaborador
                                 </option>
+                                <option value="almoxarife" {% if usuario and usuario.perfil == 'almoxarife' %}selected{% endif %}>
+                                    📦 Almoxarife
+                                </option>
+                                <option value="mestre" {% if usuario and usuario.perfil == 'mestre' %}selected{% endif %}>
+                                    🦺 Mestre de Obra
+                                </option>
                                 <option value="admin" {% if usuario and usuario.perfil == 'admin' %}selected{% endif %}>
                                     👑 Administrador
                                 </option>
                             </select>
+                            <div class="form-text">
+                                <strong>Mestre</strong>: faz requisições ao almoxarifado ·
+                                <strong>Almoxarife</strong>: gerencia e entrega materiais
+                            </div>
                         </div>
                         <div class="col-md-6" id="divAlmox">
                             <label class="form-label fw-semibold">Almoxarifado</label>

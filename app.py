@@ -71,12 +71,49 @@ class Requisicao(db.Model):
     item_id = db.Column(db.Integer, db.ForeignKey('item.id'), nullable=False)
     item = db.relationship('Item', backref='requisicoes')
 
+# ── REQUISIÇÃO DO MESTRE ──────────────────────────────────────────────────────
+
+class RequisicaoMestre(db.Model):
+    """Requisição feita pelo mestre de obra ao almoxarifado.
+    Fluxo: pendente → aprovada (almoxarife separa) → entregue (baixa no estoque)
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    # Quem pediu
+    mestre_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    mestre = db.relationship('Usuario', foreign_keys=[mestre_id])
+    # Colaborador que vai buscar
+    colaborador = db.Column(db.String(100), nullable=False)
+    # Almoxarifado destino
+    almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=False)
+    almoxarifado = db.relationship('Almoxarifado')
+    # Observação geral
+    observacao = db.Column(db.String(300))
+    # Status: pendente | aprovada | entregue | cancelada
+    status = db.Column(db.String(20), default='pendente')
+    # Datas
+    data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
+    data_entrega = db.Column(db.DateTime, nullable=True)
+    # Quem entregou
+    entregue_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    entregue_por = db.relationship('Usuario', foreign_keys=[entregue_por_id])
+    # Itens da requisição
+    itens = db.relationship('RequisicaoMestreItem', backref='requisicao', lazy=True, cascade='all, delete-orphan')
+
+class RequisicaoMestreItem(db.Model):
+    """Cada item dentro de uma RequisicaoMestre."""
+    id = db.Column(db.Integer, primary_key=True)
+    requisicao_id = db.Column(db.Integer, db.ForeignKey('requisicao_mestre.id'), nullable=False)
+    item_id = db.Column(db.Integer, db.ForeignKey('item.id'), nullable=False)
+    item = db.relationship('Item')
+    quantidade = db.Column(db.Float, nullable=False)
+    observacao = db.Column(db.String(200))
+
 class Usuario(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
     login = db.Column(db.String(50), unique=True, nullable=False)
     senha_hash = db.Column(db.String(256), nullable=False)
-    perfil = db.Column(db.String(20), default='colaborador')  # admin | colaborador
+    perfil = db.Column(db.String(20), default='colaborador')  # admin | colaborador | mestre | almoxarife
     almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=True)
     ativo = db.Column(db.Boolean, default=True)
     almoxarifado = db.relationship('Almoxarifado', backref='usuarios')
@@ -151,6 +188,19 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
+def almoxarife_required(f):
+    """Permite acesso a admin e almoxarife."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if 'usuario_id' not in session:
+            return redirect(url_for('login'))
+        u = Usuario.query.get(session['usuario_id'])
+        if not u or u.perfil not in ('admin', 'almoxarife'):
+            flash('Acesso restrito ao almoxarife.', 'danger')
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated
+
 def usuario_atual():
     if 'usuario_id' in session:
         return Usuario.query.get(session['usuario_id'])
@@ -165,6 +215,9 @@ def inject_sidebar():
         return dict(sidebar_alms=[], usuario_atual=None)
     if u.perfil == 'admin':
         alms = Almoxarifado.query.all()
+    elif u.perfil == 'mestre':
+        # Mestre vê só o almoxarifado dele
+        alms = [u.almoxarifado] if u.almoxarifado_id else []
     else:
         ids = u.almoxarifados_permitidos()
         alms = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).all() if ids else []
@@ -204,6 +257,31 @@ def run_migrations():
                     data_inicio DATETIME,
                     data_fim DATETIME,
                     concedido_por VARCHAR(100)
+                )
+            """))
+            conn.commit()
+            # Novas tabelas para requisição do mestre
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS requisicao_mestre (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    mestre_id INTEGER NOT NULL REFERENCES usuario(id),
+                    colaborador VARCHAR(100) NOT NULL,
+                    almoxarifado_id INTEGER NOT NULL REFERENCES almoxarifado(id),
+                    observacao VARCHAR(300),
+                    status VARCHAR(20) DEFAULT 'pendente',
+                    data_criacao DATETIME,
+                    data_entrega DATETIME,
+                    entregue_por_id INTEGER REFERENCES usuario(id)
+                )
+            """))
+            conn.commit()
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS requisicao_mestre_item (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    requisicao_id INTEGER NOT NULL REFERENCES requisicao_mestre(id),
+                    item_id INTEGER NOT NULL REFERENCES item(id),
+                    quantidade FLOAT NOT NULL,
+                    observacao VARCHAR(200)
                 )
             """))
             conn.commit()
@@ -1003,6 +1081,239 @@ def revogar_acesso_extra(id):
     db.session.commit()
     flash('Acesso revogado!', 'warning')
     return redirect(url_for('editar_usuario', id=uid))
+
+# ── REQUISIÇÕES DO MESTRE DE OBRA ────────────────────────────────────────────
+
+@app.route('/mestre/requisicoes')
+@login_required
+def mestre_requisicoes():
+    """Lista de requisições do mestre logado."""
+    u = usuario_atual()
+    if u.perfil == 'mestre':
+        reqs = RequisicaoMestre.query.filter_by(mestre_id=u.id).order_by(RequisicaoMestre.data_criacao.desc()).all()
+    elif u.perfil in ('admin', 'almoxarife'):
+        # Almoxarife vê requisições do seu almoxarifado
+        if u.perfil == 'almoxarife' and u.almoxarifado_id:
+            reqs = RequisicaoMestre.query.filter_by(almoxarifado_id=u.almoxarifado_id).order_by(RequisicaoMestre.data_criacao.desc()).all()
+        else:
+            reqs = RequisicaoMestre.query.order_by(RequisicaoMestre.data_criacao.desc()).all()
+    else:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('index'))
+    return render_template('mestre_requisicoes.html', requisicoes=reqs)
+
+@app.route('/mestre/requisicoes/nova', methods=['GET', 'POST'])
+@login_required
+def mestre_requisicao_nova():
+    """Mestre cria nova requisição."""
+    u = usuario_atual()
+    if u.perfil not in ('mestre', 'admin'):
+        flash('Apenas mestres podem criar requisições.', 'danger')
+        return redirect(url_for('index'))
+
+    # Almoxarifado do mestre
+    if u.perfil == 'mestre':
+        if not u.almoxarifado_id:
+            flash('Você não está vinculado a nenhum almoxarifado. Contate o administrador.', 'warning')
+            return redirect(url_for('mestre_requisicoes'))
+        almoxarifados = [u.almoxarifado]
+    else:
+        almoxarifados = Almoxarifado.query.all()
+
+    itens_json = {}
+    for alm in almoxarifados:
+        itens_json[str(alm.id)] = [
+            {'id': it.id, 'nome': it.nome, 'quantidade': it.quantidade, 'unidade': it.unidade}
+            for it in alm.itens if it.ativo
+        ]
+
+    if request.method == 'POST':
+        colaborador = request.form.get('colaborador', '').strip()
+        alm_id = int(request.form.get('almoxarifado_id', u.almoxarifado_id or 0))
+        observacao = request.form.get('observacao', '')
+
+        if not colaborador:
+            flash('Informe o nome do colaborador que vai buscar os materiais.', 'warning')
+            return redirect(url_for('mestre_requisicao_nova'))
+
+        # Coletar itens
+        indices = set()
+        for key in request.form.keys():
+            if key.startswith('item_id_'):
+                try:
+                    indices.add(int(key.split('_')[-1]))
+                except ValueError:
+                    pass
+
+        if not indices:
+            flash('Adicione pelo menos um item à requisição.', 'warning')
+            return redirect(url_for('mestre_requisicao_nova'))
+
+        req = RequisicaoMestre(
+            mestre_id=u.id,
+            colaborador=colaborador,
+            almoxarifado_id=alm_id,
+            observacao=observacao,
+            status='pendente',
+            data_criacao=datetime.utcnow()
+        )
+        db.session.add(req)
+        db.session.flush()  # gera o id
+
+        for i in sorted(indices):
+            item_id = request.form.get(f'item_id_{i}')
+            qtd_str = request.form.get(f'quantidade_{i}')
+            obs_item = request.form.get(f'observacao_{i}', '')
+            if not item_id or not qtd_str:
+                continue
+            try:
+                qtd = float(qtd_str)
+            except ValueError:
+                continue
+            if qtd <= 0:
+                continue
+            db.session.add(RequisicaoMestreItem(
+                requisicao_id=req.id,
+                item_id=int(item_id),
+                quantidade=qtd,
+                observacao=obs_item
+            ))
+
+        db.session.commit()
+        flash(f'✅ Requisição <strong>#{req.id}</strong> enviada ao almoxarifado! Aguarde a separação.', 'success')
+        return redirect(url_for('mestre_requisicoes'))
+
+    return render_template('mestre_requisicao_nova.html',
+                           almoxarifados=almoxarifados,
+                           itens_json=json.dumps(itens_json))
+
+@app.route('/mestre/requisicoes/<int:id>')
+@login_required
+def mestre_requisicao_detalhe(id):
+    """Detalhe de uma requisição do mestre."""
+    req = RequisicaoMestre.query.get_or_404(id)
+    u = usuario_atual()
+    # Mestre só vê as suas
+    if u.perfil == 'mestre' and req.mestre_id != u.id:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('mestre_requisicoes'))
+    # Almoxarife só vê do seu almoxarifado
+    if u.perfil == 'almoxarife' and req.almoxarifado_id != u.almoxarifado_id:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('mestre_requisicoes'))
+    return render_template('mestre_requisicao_detalhe.html', req=req)
+
+@app.route('/mestre/requisicoes/<int:id>/editar', methods=['GET', 'POST'])
+@login_required
+def mestre_requisicao_editar(id):
+    """Almoxarife ou admin edita uma requisição pendente."""
+    req = RequisicaoMestre.query.get_or_404(id)
+    u = usuario_atual()
+    if u.perfil not in ('admin', 'almoxarife'):
+        flash('Apenas almoxarife ou admin pode editar requisições.', 'danger')
+        return redirect(url_for('mestre_requisicoes'))
+    if req.status == 'entregue':
+        flash('Não é possível editar uma requisição já entregue.', 'warning')
+        return redirect(url_for('mestre_requisicao_detalhe', id=id))
+
+    if request.method == 'POST':
+        req.colaborador = request.form.get('colaborador', req.colaborador).strip()
+        req.observacao = request.form.get('observacao', req.observacao)
+        # Atualizar quantidades dos itens
+        for ri in req.itens:
+            qtd_str = request.form.get(f'qtd_{ri.id}')
+            obs_str = request.form.get(f'obs_{ri.id}', ri.observacao)
+            if qtd_str:
+                try:
+                    ri.quantidade = float(qtd_str)
+                except ValueError:
+                    pass
+            ri.observacao = obs_str
+        db.session.commit()
+        flash('Requisição atualizada!', 'success')
+        return redirect(url_for('mestre_requisicao_detalhe', id=id))
+
+    return render_template('mestre_requisicao_editar.html', req=req)
+
+@app.route('/mestre/requisicoes/<int:id>/aprovar', methods=['POST'])
+@login_required
+def mestre_requisicao_aprovar(id):
+    """Almoxarife aprova (separa os itens) — ainda não baixa o estoque."""
+    req = RequisicaoMestre.query.get_or_404(id)
+    u = usuario_atual()
+    if u.perfil not in ('admin', 'almoxarife'):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('mestre_requisicoes'))
+    if req.status != 'pendente':
+        flash('Requisição não está pendente.', 'warning')
+        return redirect(url_for('mestre_requisicao_detalhe', id=id))
+
+    req.status = 'aprovada'
+    db.session.commit()
+    flash(f'✅ Requisição #{req.id} aprovada! Separe os materiais e confirme a entrega.', 'success')
+    return redirect(url_for('mestre_requisicao_detalhe', id=id))
+
+@app.route('/mestre/requisicoes/<int:id>/entregar', methods=['POST'])
+@login_required
+def mestre_requisicao_entregar(id):
+    """Almoxarife confirma entrega — AQUI baixa o estoque."""
+    req = RequisicaoMestre.query.get_or_404(id)
+    u = usuario_atual()
+    if u.perfil not in ('admin', 'almoxarife'):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('mestre_requisicoes'))
+    if req.status not in ('pendente', 'aprovada'):
+        flash('Requisição já foi entregue ou cancelada.', 'warning')
+        return redirect(url_for('mestre_requisicao_detalhe', id=id))
+
+    erros = []
+    for ri in req.itens:
+        it = ri.item
+        if ri.quantidade > it.quantidade:
+            erros.append(f'"{it.nome}": estoque insuficiente ({it.quantidade} {it.unidade} disponível, pedido {ri.quantidade})')
+
+    if erros:
+        for e in erros:
+            flash(f'⚠️ {e}', 'danger')
+        return redirect(url_for('mestre_requisicao_detalhe', id=id))
+
+    # Baixa o estoque e registra movimentações
+    for ri in req.itens:
+        it = ri.item
+        it.quantidade -= ri.quantidade
+        db.session.add(Movimentacao(
+            tipo='saida',
+            quantidade=ri.quantidade,
+            responsavel=req.mestre.nome,
+            observacao=f'Req. Mestre #{req.id} — Colaborador: {req.colaborador}',
+            item_id=it.id
+        ))
+
+    req.status = 'entregue'
+    req.data_entrega = datetime.utcnow()
+    req.entregue_por_id = u.id
+    db.session.commit()
+    flash(f'✅ Entrega confirmada! Estoque atualizado para {len(req.itens)} item(ns).', 'success')
+    return redirect(url_for('mestre_requisicao_detalhe', id=id))
+
+@app.route('/mestre/requisicoes/<int:id>/cancelar', methods=['POST'])
+@login_required
+def mestre_requisicao_cancelar(id):
+    """Cancela uma requisição pendente ou aprovada."""
+    req = RequisicaoMestre.query.get_or_404(id)
+    u = usuario_atual()
+    # Mestre cancela a sua, admin/almoxarife cancela qualquer uma
+    if u.perfil == 'mestre' and req.mestre_id != u.id:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('mestre_requisicoes'))
+    if req.status == 'entregue':
+        flash('Não é possível cancelar uma requisição já entregue.', 'warning')
+        return redirect(url_for('mestre_requisicao_detalhe', id=id))
+
+    req.status = 'cancelada'
+    db.session.commit()
+    flash(f'Requisição #{req.id} cancelada.', 'warning')
+    return redirect(url_for('mestre_requisicoes'))
 
 # ── ROTA ESPECIAL PARA REATIVAR TODOS OS ITENS ──────────────────────────────
 

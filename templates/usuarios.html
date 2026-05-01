@@ -30,6 +30,10 @@
                     <td>
                         {% if u.perfil == 'admin' %}
                             <span class="badge bg-danger">👑 Admin</span>
+                        {% elif u.perfil == 'mestre' %}
+                            <span class="badge" style="background:#f0a500;color:#000">🦺 Mestre de Obra</span>
+                        {% elif u.perfil == 'almoxarife' %}
+                            <span class="badge bg-info text-dark">📦 Almoxarife</span>
                         {% else %}
                             <span class="badge bg-primary">👤 Colaborador</span>
                         {% endif %}
@@ -74,6 +78,10 @@
                 </div>
                 {% if u.perfil == 'admin' %}
                     <span class="badge bg-danger">👑 Admin</span>
+                {% elif u.perfil == 'mestre' %}
+                    <span class="badge" style="background:#f0a500;color:#000">🦺 Mestre de Obra</span>
+                {% elif u.perfil == 'almoxarife' %}
+                    <span class="badge bg-info text-dark">📦 Almoxarife</span>
                 {% else %}
                     <span class="badge bg-primary">👤 Colaborador</span>
                 {% endif %}

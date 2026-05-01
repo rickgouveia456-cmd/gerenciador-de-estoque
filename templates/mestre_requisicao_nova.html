@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+{% block title %}Nova Requisição — Logi-Prime{% endblock %}
+{% block page_title %}Nova Requisição de Materiais{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-12 col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header fw-bold text-white" style="background:#f0a500;color:#000!important">
+                <i class="bi bi-clipboard-plus me-2"></i>
+                <span style="color:#000">Solicitar Materiais ao Almoxarifado</span>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="formReq">
+
+                    <!-- Almoxarifado -->
+                    {% if almoxarifados | length > 1 %}
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Almoxarifado *</label>
+                        <select name="almoxarifado_id" id="selAlmox" class="form-select" required onchange="carregarItens()">
+                            <option value="">Selecione...</option>
+                            {% for alm in almoxarifados %}
+                            <option value="{{ alm.id }}">{{ alm.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% else %}
+                    <input type="hidden" name="almoxarifado_id" value="{{ almoxarifados[0].id }}">
+                    <div class="alert alert-info py-2 small mb-3">
+                        <i class="bi bi-archive me-1"></i>
+                        Almoxarifado: <strong>{{ almoxarifados[0].nome }}</strong>
+                    </div>
+                    {% endif %}
+
+                    <!-- Colaborador -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Colaborador que vai buscar *</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-person-walking"></i></span>
+                            <input type="text" name="colaborador" class="form-control"
+                                   placeholder="Nome do colaborador" required>
+                        </div>
+                    </div>
+
+                    <!-- Observação -->
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">Observação</label>
+                        <textarea name="observacao" class="form-control" rows="2"
+                                  placeholder="Informações adicionais (opcional)"></textarea>
+                    </div>
+
+                    <!-- Itens -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label fw-semibold mb-0">Materiais Solicitados *</label>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addLinha()">
+                                <i class="bi bi-plus-lg me-1"></i> Adicionar Item
+                            </button>
+                        </div>
+                        <div id="linhas"></div>
+                        <div id="semItens" class="text-center text-muted py-3 border rounded-2">
+                            <i class="bi bi-box-seam d-block fs-3 mb-1"></i>
+                            Clique em "Adicionar Item" para incluir materiais
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary px-4">
+                            <i class="bi bi-send me-1"></i> Enviar Requisição
+                        </button>
+                        <a href="/mestre/requisicoes" class="btn btn-outline-secondary">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Instruções -->
+    <div class="col-12 col-lg-4">
+        <div class="card border-0 shadow-sm" style="border-left: 4px solid #f0a500!important">
+            <div class="card-body">
+                <h6 class="fw-bold mb-3"><i class="bi bi-info-circle me-2 text-warning"></i>Como funciona</h6>
+                <ol class="small text-muted ps-3">
+                    <li class="mb-2">Você envia a requisição com os materiais necessários</li>
+                    <li class="mb-2">O almoxarife recebe e <strong>separa os itens</strong></li>
+                    <li class="mb-2">O colaborador vai buscar no almoxarifado</li>
+                    <li class="mb-2">O almoxarife confirma a entrega e o <strong>estoque é baixado</strong></li>
+                </ol>
+                <div class="alert alert-warning py-2 small mt-3 mb-0">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    O estoque só é descontado após a confirmação de entrega pelo almoxarife.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const itensData = {{ itens_json | safe }};
+{% if almoxarifados | length == 1 %}
+const almoxId = '{{ almoxarifados[0].id }}';
+{% else %}
+const almoxId = null;
+{% endif %}
+
+let contador = 0;
+
+function getAlmoxId() {
+    const sel = document.getElementById('selAlmox');
+    return sel ? sel.value : almoxId;
+}
+
+function carregarItens() {
+    // Limpa linhas ao trocar almoxarifado
+    document.getElementById('linhas').innerHTML = '';
+    contador = 0;
+    atualizarVisibilidade();
+}
+
+function addLinha() {
+    const aid = getAlmoxId();
+    if (!aid) {
+        alert('Selecione o almoxarifado primeiro.');
+        return;
+    }
+    const itens = itensData[aid] || [];
+    if (itens.length === 0) {
+        alert('Nenhum item disponível neste almoxarifado.');
+        return;
+    }
+
+    const i = contador++;
+    const div = document.createElement('div');
+    div.className = 'border rounded-2 p-3 mb-2 bg-light';
+    div.id = `linha_${i}`;
+
+    let opts = '<option value="">Selecione o material...</option>';
+    itens.forEach(it => {
+        const cor = it.quantidade <= 0 ? 'text-danger' : 'text-success';
+        opts += `<option value="${it.id}" data-qtd="${it.quantidade}" data-un="${it.unidade}">
+            ${it.nome} (${it.quantidade} ${it.unidade} disponível)
+        </option>`;
+    });
+
+    div.innerHTML = `
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-6">
+                <label class="form-label small fw-semibold mb-1">Material</label>
+                <select name="item_id_${i}" class="form-select form-select-sm" required
+                        onchange="atualizarBadge(${i})">
+                    ${opts}
+                </select>
+            </div>
+            <div class="col-8 col-md-4">
+                <label class="form-label small fw-semibold mb-1">Quantidade</label>
+                <input type="number" name="quantidade_${i}" class="form-control form-control-sm"
+                       min="0.01" step="0.01" placeholder="0" required>
+            </div>
+            <div class="col-4 col-md-2 text-end">
+                <button type="button" class="btn btn-sm btn-outline-danger w-100"
+                        onclick="removerLinha(${i})">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+            <div class="col-12">
+                <span id="badge_${i}" class="badge bg-secondary small"></span>
+            </div>
+        </div>
+    `;
+    document.getElementById('linhas').appendChild(div);
+    atualizarVisibilidade();
+}
+
+function atualizarBadge(i) {
+    const sel = document.querySelector(`[name="item_id_${i}"]`);
+    const opt = sel.options[sel.selectedIndex];
+    const badge = document.getElementById(`badge_${i}`);
+    if (opt && opt.dataset.qtd !== undefined) {
+        const qtd = parseFloat(opt.dataset.qtd);
+        badge.className = qtd <= 0 ? 'badge bg-danger small' : 'badge bg-success small';
+        badge.textContent = `Disponível: ${qtd} ${opt.dataset.un}`;
+    } else {
+        badge.textContent = '';
+    }
+}
+
+function removerLinha(i) {
+    const el = document.getElementById(`linha_${i}`);
+    if (el) el.remove();
+    atualizarVisibilidade();
+}
+
+function atualizarVisibilidade() {
+    const linhas = document.getElementById('linhas');
+    const semItens = document.getElementById('semItens');
+    semItens.style.display = linhas.children.length === 0 ? 'block' : 'none';
+}
+
+// Auto-carregar se só tem um almoxarifado
+{% if almoxarifados | length == 1 %}
+window.addEventListener('DOMContentLoaded', () => atualizarVisibilidade());
+{% endif %}
+</script>
+{% endblock %}

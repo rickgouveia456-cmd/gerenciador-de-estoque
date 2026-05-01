@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+{% block title %}Requisições — Logi-Prime{% endblock %}
+{% block page_title %}Requisições de Materiais{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <p class="text-muted mb-0 small">
+            {% if usuario_atual.perfil == 'mestre' %}
+                Suas requisições enviadas ao almoxarifado
+            {% else %}
+                Requisições recebidas dos mestres de obra
+            {% endif %}
+        </p>
+    </div>
+    {% if usuario_atual.perfil in ('mestre', 'admin') %}
+    <a href="/mestre/requisicoes/nova" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i> Nova Requisição
+    </a>
+    {% endif %}
+</div>
+
+<!-- Resumo -->
+<div class="row g-3 mb-4">
+    {% set pendentes = requisicoes | selectattr('status', 'eq', 'pendente') | list %}
+    {% set aprovadas = requisicoes | selectattr('status', 'eq', 'aprovada') | list %}
+    {% set entregues = requisicoes | selectattr('status', 'eq', 'entregue') | list %}
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-3 fw-bold text-warning">{{ pendentes | length }}</div>
+            <div class="small text-muted">Pendentes</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-3 fw-bold text-info">{{ aprovadas | length }}</div>
+            <div class="small text-muted">Em Separação</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-3 fw-bold text-success">{{ entregues | length }}</div>
+            <div class="small text-muted">Entregues</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-3 fw-bold" style="color:#1a3a5c">{{ requisicoes | length }}</div>
+            <div class="small text-muted">Total</div>
+        </div>
+    </div>
+</div>
+
+{% if requisicoes %}
+<!-- Desktop -->
+<div class="card border-0 shadow-sm d-none d-md-block">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Mestre</th>
+                    <th>Colaborador</th>
+                    <th>Almoxarifado</th>
+                    <th>Itens</th>
+                    <th>Data</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in requisicoes %}
+                <tr>
+                    <td><strong>#{{ req.id }}</strong></td>
+                    <td>
+                        <span class="badge" style="background:#f0a500;color:#000">
+                            <i class="bi bi-person-badge me-1"></i>{{ req.mestre.nome }}
+                        </span>
+                    </td>
+                    <td>{{ req.colaborador }}</td>
+                    <td><small>{{ req.almoxarifado.nome }}</small></td>
+                    <td><span class="badge bg-secondary">{{ req.itens | length }} item(ns)</span></td>
+                    <td><small>{{ req.data_criacao.strftime('%d/%m/%Y %H:%M') }}</small></td>
+                    <td>
+                        {% if req.status == 'pendente' %}
+                            <span class="badge bg-warning text-dark">⏳ Pendente</span>
+                        {% elif req.status == 'aprovada' %}
+                            <span class="badge bg-info text-dark">📦 Em Separação</span>
+                        {% elif req.status == 'entregue' %}
+                            <span class="badge bg-success">✅ Entregue</span>
+                        {% elif req.status == 'cancelada' %}
+                            <span class="badge bg-secondary">❌ Cancelada</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="/mestre/requisicoes/{{ req.id }}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        {% if usuario_atual.perfil in ('admin', 'almoxarife') and req.status != 'entregue' and req.status != 'cancelada' %}
+                        <a href="/mestre/requisicoes/{{ req.id }}/editar" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Mobile -->
+<div class="d-md-none">
+    {% for req in requisicoes %}
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                    <strong>#{{ req.id }}</strong>
+                    <span class="badge ms-1" style="background:#f0a500;color:#000">{{ req.mestre.nome }}</span>
+                </div>
+                {% if req.status == 'pendente' %}
+                    <span class="badge bg-warning text-dark">⏳ Pendente</span>
+                {% elif req.status == 'aprovada' %}
+                    <span class="badge bg-info text-dark">📦 Separando</span>
+                {% elif req.status == 'entregue' %}
+                    <span class="badge bg-success">✅ Entregue</span>
+                {% elif req.status == 'cancelada' %}
+                    <span class="badge bg-secondary">❌ Cancelada</span>
+                {% endif %}
+            </div>
+            <div class="small text-muted mb-1">
+                <i class="bi bi-person me-1"></i>{{ req.colaborador }} · {{ req.almoxarifado.nome }}
+            </div>
+            <div class="small text-muted mb-2">
+                <i class="bi bi-calendar me-1"></i>{{ req.data_criacao.strftime('%d/%m/%Y %H:%M') }}
+                · <strong>{{ req.itens | length }}</strong> item(ns)
+            </div>
+            <a href="/mestre/requisicoes/{{ req.id }}" class="btn btn-sm btn-outline-primary w-100">
+                <i class="bi bi-eye me-1"></i> Ver Detalhes
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% else %}
+<div class="text-center py-5 text-muted">
+    <i class="bi bi-clipboard-x fs-1 d-block mb-3"></i>
+    <p>Nenhuma requisição encontrada.</p>
+    {% if usuario_atual.perfil in ('mestre', 'admin') %}
+    <a href="/mestre/requisicoes/nova" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i> Criar Primeira Requisição
+    </a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

@@ -123,6 +123,9 @@
 <!-- Overlay mobile -->
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 
+<!-- Container de notificações toast -->
+<div id="toast-container" style="position:fixed;top:20px;right:20px;z-index:9999;max-width:320px"></div>
+
 <!-- Sidebar -->
 <div class="sidebar" id="sidebar">
     <div class="brand">
@@ -132,6 +135,19 @@
         </button>
     </div>
     <nav class="nav flex-column mt-1">
+        {% if usuario_atual and usuario_atual.perfil == 'mestre' %}
+        <!-- SIDEBAR EXCLUSIVA DO MESTRE -->
+        <span class="nav-section" style="color:#f0a500">Mestre de Obra</span>
+        <a href="/mestre/requisicoes/nova" class="nav-link {% if request.endpoint == 'mestre_requisicao_nova' %}active{% endif %}">
+            <i class="bi bi-plus-circle me-2"></i> Nova Requisição
+        </a>
+        <a href="/mestre/requisicoes" class="nav-link {% if request.endpoint in ('mestre_requisicoes','mestre_requisicao_detalhe','mestre_requisicao_editar') %}active{% endif %}">
+            <i class="bi bi-clipboard-list me-2"></i> Minhas Requisições
+            <span id="badge-notif-mestre" class="badge ms-1" style="background:#f0a500;color:#000;display:none"></span>
+        </a>
+
+        {% else %}
+        <!-- SIDEBAR PARA ADMIN / ALMOXARIFE / COLABORADOR -->
         <span class="nav-section">Principal</span>
         <a href="/" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">
             <i class="bi bi-speedometer2 me-2"></i> Dashboard
@@ -145,16 +161,6 @@
             <i class="bi bi-bell me-2"></i> Alertas de Estoque
             <span id="badge-alertas" class="badge bg-danger ms-1" style="display:none"></span>
         </a>
-
-        {% if usuario_atual and usuario_atual.perfil == 'mestre' %}
-        <span class="nav-section" style="color:#f0a500">Mestre de Obra</span>
-        <a href="/mestre/requisicoes/nova" class="nav-link {% if request.endpoint == 'mestre_requisicao_nova' %}active{% endif %}">
-            <i class="bi bi-plus-circle me-2"></i> Nova Requisição
-        </a>
-        <a href="/mestre/requisicoes" class="nav-link {% if request.endpoint == 'mestre_requisicoes' %}active{% endif %}">
-            <i class="bi bi-clipboard-list me-2"></i> Minhas Requisições
-        </a>
-        {% endif %}
 
         {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
         <span class="nav-section">Requisições</span>
@@ -177,7 +183,6 @@
         </a>
         {% endif %}
 
-        {% if usuario_atual and usuario_atual.perfil != 'mestre' %}
         <span class="nav-section">Relatórios</span>
         <a href="/relatorios/consumo" class="nav-link {% if request.endpoint == 'relatorio_consumo' %}active{% endif %}">
             <i class="bi bi-graph-down me-2"></i> Consumo
@@ -185,13 +190,13 @@
         <a href="/relatorios/alertas" class="nav-link">
             <i class="bi bi-exclamation-triangle me-2"></i> Pedidos de Compra
         </a>
-        {% endif %}
 
         {% if usuario_atual and usuario_atual.perfil == 'admin' %}
         <span class="nav-section">Administração</span>
         <a href="/usuarios" class="nav-link {% if request.endpoint == 'usuarios' %}active{% endif %}">
             <i class="bi bi-people me-2"></i> Usuários
         </a>
+        {% endif %}
         {% endif %}
     </nav>
 </div>
@@ -279,11 +284,54 @@
         document.getElementById('sidebar').classList.remove('open');
         document.getElementById('sidebarOverlay').classList.remove('show');
     }
-    // Badge de alertas
+    // Badge de alertas (só para não-mestres)
+    {% if usuario_atual and usuario_atual.perfil != 'mestre' %}
     fetch('/api/alertas').then(r => r.json()).then(data => {
         const b = document.getElementById('badge-alertas');
-        if (data.length > 0) { b.textContent = data.length; b.style.display = 'inline'; }
+        if (b && data.length > 0) { b.textContent = data.length; b.style.display = 'inline'; }
     });
+    {% endif %}
+
+    // Notificações do mestre
+    {% if usuario_atual and usuario_atual.perfil == 'mestre' %}
+    function verificarNotificacoesMestre() {
+        fetch('/api/mestre/notificacoes').then(r => r.json()).then(notifs => {
+            const badge = document.getElementById('badge-notif-mestre');
+            if (notifs.length > 0) {
+                if (badge) { badge.textContent = notifs.length; badge.style.display = 'inline'; }
+                // Mostrar toast para cada notificação
+                notifs.forEach(n => mostrarToastMestre(n));
+                // Marcar como lidas após mostrar
+                fetch('/api/mestre/notificacoes/marcar-lidas', {method: 'POST'});
+            }
+        });
+    }
+
+    function mostrarToastMestre(n) {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+        const id = 'toast_' + Date.now() + Math.random();
+        const cores = {success: '#198754', warning: '#f0a500', danger: '#dc3545', info: '#0dcaf0'};
+        const cor = cores[n.tipo] || '#1a3a5c';
+        const div = document.createElement('div');
+        div.innerHTML = `
+            <div id="${id}" class="toast align-items-center border-0 show mb-2"
+                 style="background:${cor};color:${n.tipo === 'warning' ? '#000' : '#fff'};min-width:280px"
+                 role="alert">
+                <div class="d-flex">
+                    <div class="toast-body fw-semibold">${n.msg}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto"
+                            onclick="this.closest('.toast').remove()"></button>
+                </div>
+            </div>`;
+        container.appendChild(div.firstElementChild);
+        setTimeout(() => { const el = document.getElementById(id); if(el) el.remove(); }, 8000);
+    }
+
+    // Verificar ao carregar e a cada 30 segundos
+    verificarNotificacoesMestre();
+    setInterval(verificarNotificacoesMestre, 30000);
+    {% endif %}
 </script>
 {% block scripts %}{% endblock %}
 </body>

@@ -245,7 +245,6 @@ def run_migrations():
                 conn.commit()
             except: pass
             try:
-                # Aumentar limite do campo nome para 300 caracteres
                 conn.execute(text("ALTER TABLE item ALTER COLUMN nome TYPE VARCHAR(300)"))
                 conn.commit()
             except: pass
@@ -254,6 +253,16 @@ def run_migrations():
                 conn.commit()
             except: pass
             conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS acesso_extra (
+                    id SERIAL PRIMARY KEY,
+                    usuario_id INTEGER NOT NULL REFERENCES usuario(id),
+                    almoxarifado_id INTEGER NOT NULL REFERENCES almoxarifado(id),
+                    motivo VARCHAR(200),
+                    data_inicio TIMESTAMP,
+                    data_fim TIMESTAMP,
+                    concedido_por VARCHAR(100)
+                )
+            """) if 'postgresql' in str(db.engine.url) else text("""
                 CREATE TABLE IF NOT EXISTS acesso_extra (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     usuario_id INTEGER NOT NULL REFERENCES usuario(id),
@@ -265,25 +274,28 @@ def run_migrations():
                 )
             """))
             conn.commit()
-            # Novas tabelas para requisição do mestre
-            conn.execute(text("""
+            # Tabelas do mestre
+            is_pg = 'postgresql' in str(db.engine.url)
+            pk_type = 'SERIAL PRIMARY KEY' if is_pg else 'INTEGER PRIMARY KEY AUTOINCREMENT'
+            dt_type = 'TIMESTAMP' if is_pg else 'DATETIME'
+            conn.execute(text(f"""
                 CREATE TABLE IF NOT EXISTS requisicao_mestre (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id {pk_type},
                     mestre_id INTEGER NOT NULL REFERENCES usuario(id),
                     colaborador VARCHAR(100) NOT NULL,
                     almoxarifado_id INTEGER NOT NULL REFERENCES almoxarifado(id),
                     observacao VARCHAR(300),
                     status VARCHAR(20) DEFAULT 'pendente',
-                    data_criacao DATETIME,
-                    data_entrega DATETIME,
+                    data_criacao {dt_type},
+                    data_entrega {dt_type},
                     entregue_por_id INTEGER REFERENCES usuario(id),
-                    notificado BOOLEAN DEFAULT 0
+                    notificado BOOLEAN DEFAULT FALSE
                 )
             """))
             conn.commit()
-            conn.execute(text("""
+            conn.execute(text(f"""
                 CREATE TABLE IF NOT EXISTS requisicao_mestre_item (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id {pk_type},
                     requisicao_id INTEGER NOT NULL REFERENCES requisicao_mestre(id),
                     item_id INTEGER NOT NULL REFERENCES item(id),
                     quantidade FLOAT NOT NULL,
@@ -293,17 +305,23 @@ def run_migrations():
                 )
             """))
             conn.commit()
-            # Migrar colunas novas se tabelas já existirem
+            # Garantir colunas novas em tabelas já existentes (SQLite e PostgreSQL)
+            for col_sql in [
+                "ALTER TABLE requisicao_mestre ADD COLUMN notificado BOOLEAN DEFAULT 0",
+                "ALTER TABLE requisicao_mestre_item ADD COLUMN status_item VARCHAR(20) DEFAULT 'pendente'",
+                "ALTER TABLE requisicao_mestre_item ADD COLUMN motivo_recusa VARCHAR(200)",
+            ]:
+                try:
+                    conn.execute(text(col_sql))
+                    conn.commit()
+                except: pass
+            # Garantir que status_item existente tenha valor padrão
             try:
-                conn.execute(text("ALTER TABLE requisicao_mestre ADD COLUMN notificado BOOLEAN DEFAULT 0"))
+                conn.execute(text("UPDATE requisicao_mestre_item SET status_item = 'pendente' WHERE status_item IS NULL"))
                 conn.commit()
             except: pass
             try:
-                conn.execute(text("ALTER TABLE requisicao_mestre_item ADD COLUMN status_item VARCHAR(20) DEFAULT 'pendente'"))
-                conn.commit()
-            except: pass
-            try:
-                conn.execute(text("ALTER TABLE requisicao_mestre_item ADD COLUMN motivo_recusa VARCHAR(200)"))
+                conn.execute(text("UPDATE requisicao_mestre SET notificado = 0 WHERE notificado IS NULL"))
                 conn.commit()
             except: pass
     except Exception as e:

@@ -78,26 +78,18 @@ class RequisicaoMestre(db.Model):
     Fluxo: pendente → aprovada (almoxarife separa) → entregue (baixa no estoque)
     """
     id = db.Column(db.Integer, primary_key=True)
-    # Quem pediu
     mestre_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
     mestre = db.relationship('Usuario', foreign_keys=[mestre_id])
-    # Colaborador que vai buscar
     colaborador = db.Column(db.String(100), nullable=False)
-    # Almoxarifado destino
     almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=False)
     almoxarifado = db.relationship('Almoxarifado')
-    # Observação geral
     observacao = db.Column(db.String(300))
     # Status: pendente | aprovada | parcial | recusada | entregue | cancelada
     status = db.Column(db.String(20), default='pendente')
-    # Datas
     data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
     data_entrega = db.Column(db.DateTime, nullable=True)
-    # Quem entregou
     entregue_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
     entregue_por = db.relationship('Usuario', foreign_keys=[entregue_por_id])
-    # Notificação lida pelo mestre
-    notificado = db.Column(db.Boolean, default=False)
     # Itens da requisição
     itens = db.relationship('RequisicaoMestreItem', backref='requisicao', lazy=True, cascade='all, delete-orphan')
 
@@ -109,9 +101,6 @@ class RequisicaoMestreItem(db.Model):
     item = db.relationship('Item')
     quantidade = db.Column(db.Float, nullable=False)
     observacao = db.Column(db.String(200))
-    # Status por item: pendente | aprovado | recusado
-    status_item = db.Column(db.String(20), default='pendente')
-    motivo_recusa = db.Column(db.String(200))
 
 class Usuario(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -1284,7 +1273,7 @@ def mestre_requisicao_editar(id):
 @app.route('/mestre/requisicoes/<int:id>/aprovar', methods=['POST'])
 @login_required
 def mestre_requisicao_aprovar(id):
-    """Almoxarife aprova/recusa itens individualmente."""
+    """Almoxarife aprova ou recusa a requisição inteira."""
     req = RequisicaoMestre.query.get_or_404(id)
     u = usuario_atual()
     if u.perfil not in ('admin', 'almoxarife'):
@@ -1294,33 +1283,12 @@ def mestre_requisicao_aprovar(id):
         flash('Requisição não está pendente.', 'warning')
         return redirect(url_for('mestre_requisicao_detalhe', id=id))
 
-    aprovados = 0
-    recusados = 0
-    for ri in req.itens:
-        decisao = request.form.get(f'decisao_{ri.id}', 'aprovado')
-        motivo = request.form.get(f'motivo_{ri.id}', '')
-        ri.status_item = decisao
-        ri.motivo_recusa = motivo if decisao == 'recusado' else ''
-        if decisao == 'aprovado':
-            aprovados += 1
-        else:
-            recusados += 1
-
-    # Definir status geral
-    if aprovados == 0:
-        req.status = 'recusada'
-    elif recusados == 0:
-        req.status = 'aprovada'
-    else:
-        req.status = 'parcial'
-
-    req.notificado = False  # mestre ainda não viu
+    decisao = request.form.get('decisao', 'aprovada')
+    req.status = decisao  # 'aprovada' ou 'recusada'
     db.session.commit()
 
     if req.status == 'aprovada':
         flash(f'✅ Requisição #{req.id} aprovada! Separe os materiais e confirme a entrega.', 'success')
-    elif req.status == 'parcial':
-        flash(f'⚠️ Requisição #{req.id} aprovada parcialmente ({aprovados} aprovados, {recusados} recusados).', 'warning')
     else:
         flash(f'❌ Requisição #{req.id} recusada.', 'danger')
 
@@ -1329,46 +1297,41 @@ def mestre_requisicao_aprovar(id):
 @app.route('/mestre/requisicoes/<int:id>/entregar', methods=['POST'])
 @login_required
 def mestre_requisicao_entregar(id):
-    """Almoxarife confirma entrega — AQUI baixa o estoque dos itens aprovados."""
+    """Almoxarife confirma entrega — baixa o estoque."""
     req = RequisicaoMestre.query.get_or_404(id)
     u = usuario_atual()
     if u.perfil not in ('admin', 'almoxarife'):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('mestre_requisicoes'))
-    if req.status not in ('pendente', 'aprovada', 'parcial'):
-        flash('Requisição já foi entregue ou cancelada.', 'warning')
+    if req.status not in ('pendente', 'aprovada'):
+        flash('Requisição já foi entregue, recusada ou cancelada.', 'warning')
         return redirect(url_for('mestre_requisicao_detalhe', id=id))
 
-    itens_entregar = [ri for ri in req.itens if ri.status_item != 'recusado']
     erros = []
-    for ri in itens_entregar:
-        it = ri.item
-        if ri.quantidade > it.quantidade:
-            erros.append(f'"{it.nome}": apenas {it.quantidade} {it.unidade} disponível')
+    for ri in req.itens:
+        if ri.quantidade > ri.item.quantidade:
+            erros.append(f'"{ri.item.nome}": apenas {ri.item.quantidade} {ri.item.unidade} disponível')
 
     if erros:
         for e in erros:
             flash(f'⚠️ {e}', 'danger')
         return redirect(url_for('mestre_requisicao_detalhe', id=id))
 
-    for ri in itens_entregar:
-        it = ri.item
-        it.quantidade -= ri.quantidade
-        ri.status_item = 'aprovado'
+    for ri in req.itens:
+        ri.item.quantidade -= ri.quantidade
         db.session.add(Movimentacao(
             tipo='saida',
             quantidade=ri.quantidade,
             responsavel=req.mestre.nome,
             observacao=f'Req. Mestre #{req.id} — Colaborador: {req.colaborador}',
-            item_id=it.id
+            item_id=ri.item.id
         ))
 
     req.status = 'entregue'
     req.data_entrega = datetime.utcnow()
     req.entregue_por_id = u.id
-    req.notificado = False
     db.session.commit()
-    flash(f'✅ Entrega confirmada! Estoque atualizado para {len(itens_entregar)} item(ns).', 'success')
+    flash(f'✅ Entrega confirmada! Estoque atualizado para {len(req.itens)} item(ns).', 'success')
     return redirect(url_for('mestre_requisicao_detalhe', id=id))
 
 @app.route('/mestre/requisicoes/<int:id>/cancelar', methods=['POST'])
@@ -1392,46 +1355,39 @@ def mestre_requisicao_cancelar(id):
 @app.route('/api/mestre/notificacoes')
 @login_required
 def api_mestre_notificacoes():
-    """Retorna notificações não lidas do mestre logado."""
+    """Retorna notificações baseadas no status das requisições do mestre."""
     u = usuario_atual()
     if u.perfil != 'mestre':
         return jsonify([])
-    reqs = RequisicaoMestre.query.filter_by(
-        mestre_id=u.id,
-        notificado=False
-    ).filter(
+    # Busca requisições não-pendentes e não-canceladas do mestre
+    # A notificação é baseada no status atual — o frontend controla o que já foi visto via localStorage
+    reqs = RequisicaoMestre.query.filter_by(mestre_id=u.id).filter(
         RequisicaoMestre.status.in_(['aprovada', 'parcial', 'recusada', 'entregue'])
-    ).all()
+    ).order_by(RequisicaoMestre.data_criacao.desc()).limit(10).all()
+
     result = []
     for r in reqs:
         if r.status == 'aprovada':
-            msg = f'✅ Requisição #{r.id} foi aprovada! Envie o colaborador buscar.'
+            msg = f'✅ Requisição #{r.id} aprovada! Envie o colaborador buscar.'
             tipo = 'success'
         elif r.status == 'parcial':
-            aprovados = sum(1 for i in r.itens if i.status_item == 'aprovado')
-            recusados = sum(1 for i in r.itens if i.status_item == 'recusado')
-            msg = f'⚠️ Requisição #{r.id} aprovada parcialmente ({aprovados} aprovados, {recusados} recusados).'
+            msg = f'⚠️ Requisição #{r.id} aprovada parcialmente. Verifique os itens.'
             tipo = 'warning'
         elif r.status == 'recusada':
             msg = f'❌ Requisição #{r.id} foi recusada pelo almoxarifado.'
             tipo = 'danger'
         elif r.status == 'entregue':
-            msg = f'📦 Requisição #{r.id} foi entregue ao colaborador {r.colaborador}.'
+            msg = f'📦 Requisição #{r.id} entregue ao colaborador {r.colaborador}.'
             tipo = 'info'
         else:
             continue
-        result.append({'id': r.id, 'msg': msg, 'tipo': tipo})
+        result.append({'id': r.id, 'msg': msg, 'tipo': tipo, 'status': r.status})
     return jsonify(result)
 
 @app.route('/api/mestre/notificacoes/marcar-lidas', methods=['POST'])
 @login_required
 def marcar_notificacoes_lidas():
-    """Marca todas as notificações do mestre como lidas."""
-    u = usuario_atual()
-    if u.perfil != 'mestre':
-        return jsonify({'ok': False})
-    RequisicaoMestre.query.filter_by(mestre_id=u.id, notificado=False).update({'notificado': True})
-    db.session.commit()
+    """Endpoint mantido para compatibilidade — controle feito no frontend."""
     return jsonify({'ok': True})
 
 # ── ROTA ESPECIAL PARA REATIVAR TODOS OS ITENS ──────────────────────────────

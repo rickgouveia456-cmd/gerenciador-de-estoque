@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login — Estoque Obra</title>
+    <title>Login — Logi-Prime</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <style>
@@ -22,10 +22,22 @@
         }
         .logo {
             color: #1a3a5c;
-            font-size: 1.6rem;
-            font-weight: 800;
+            font-size: 2rem;
+            font-weight: 900;
             text-align: center;
-            margin-bottom: 8px;
+            margin-bottom: 4px;
+            letter-spacing: -1px;
+        }
+        .logo span {
+            color: #f0a500;
+        }
+        .logo-sub {
+            text-align: center;
+            font-size: 0.75rem;
+            color: #888;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 28px;
         }
         .btn-login {
             background: #1a3a5c;
@@ -36,16 +48,27 @@
             border-radius: 8px;
             width: 100%;
             font-size: 1rem;
+            transition: background 0.2s;
         }
         .btn-login:hover { background: #0f2540; color: #fff; }
+        .divider {
+            border-top: 1px solid #eee;
+            margin: 24px 0 16px;
+        }
+        .version {
+            text-align: center;
+            font-size: 0.7rem;
+            color: #bbb;
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
     <div class="login-card">
         <div class="logo">
-            <i class="bi bi-box-seam me-2"></i>Estoque Obra
+            <i class="bi bi-boxes me-1"></i>Logi<span>-Prime</span>
         </div>
-        <p class="text-center text-muted small mb-4">Controle de Estoque Obra Patamares</p>
+        <p class="logo-sub">Gestão de Estoque</p>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -74,6 +97,7 @@
                 <i class="bi bi-box-arrow-in-right me-2"></i>Entrar
             </button>
         </form>
+        <p class="version">Logi-Prime v1.0 · Gestão Inteligente de Estoque</p>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>

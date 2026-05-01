@@ -307,7 +307,7 @@ def run_migrations():
             conn.commit()
             # Garantir colunas novas em tabelas já existentes (SQLite e PostgreSQL)
             for col_sql in [
-                "ALTER TABLE requisicao_mestre ADD COLUMN notificado BOOLEAN DEFAULT 0",
+                "ALTER TABLE requisicao_mestre ADD COLUMN notificado BOOLEAN DEFAULT FALSE",
                 "ALTER TABLE requisicao_mestre_item ADD COLUMN status_item VARCHAR(20) DEFAULT 'pendente'",
                 "ALTER TABLE requisicao_mestre_item ADD COLUMN motivo_recusa VARCHAR(200)",
             ]:
@@ -321,7 +321,7 @@ def run_migrations():
                 conn.commit()
             except: pass
             try:
-                conn.execute(text("UPDATE requisicao_mestre SET notificado = 0 WHERE notificado IS NULL"))
+                conn.execute(text("UPDATE requisicao_mestre SET notificado = FALSE WHERE notificado IS NULL"))
                 conn.commit()
             except: pass
     except Exception as e:
@@ -1530,47 +1530,14 @@ def seed_data():
         print('=' * 60)
 
 with app.app_context():
-    db.create_all()
-    run_migrations()
+    run_migrations()  # primeiro migra colunas existentes
+    db.create_all()   # depois cria tabelas novas se não existirem
     seed_data()
 
 if __name__ == '__main__':
     with app.app_context():
+        run_migrations()
         db.create_all()
-        # Migração: adicionar colunas novas se não existirem
-        try:
-            from sqlalchemy import text
-            with db.engine.connect() as conn:
-                # Item: status_compra
-                try:
-                    conn.execute(text("ALTER TABLE item ADD COLUMN status_compra VARCHAR(30) DEFAULT 'pendente'"))
-                    conn.commit()
-                except: pass
-                # Item: fixado
-                try:
-                    conn.execute(text("ALTER TABLE item ADD COLUMN fixado BOOLEAN DEFAULT 0"))
-                    conn.commit()
-                except: pass
-                # Item: ativo
-                try:
-                    conn.execute(text("ALTER TABLE item ADD COLUMN ativo BOOLEAN DEFAULT 1"))
-                    conn.commit()
-                except: pass
-                # Usuario: acessos_extras (tabela nova)
-                conn.execute(text("""
-                    CREATE TABLE IF NOT EXISTS acesso_extra (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        usuario_id INTEGER NOT NULL REFERENCES usuario(id),
-                        almoxarifado_id INTEGER NOT NULL REFERENCES almoxarifado(id),
-                        motivo VARCHAR(200),
-                        data_inicio DATETIME,
-                        data_fim DATETIME,
-                        concedido_por VARCHAR(100)
-                    )
-                """))
-                conn.commit()
-        except Exception as e:
-            print(f'Migração: {e}')
         seed_data()
     port = int(os.environ.get('PORT', 5000))
     app.run(debug=False, host='0.0.0.0', port=port)
@@ -1578,6 +1545,7 @@ if __name__ == '__main__':
 # Inicialização para produção (gunicorn)
 with app.app_context():
     try:
+        run_migrations()
         db.create_all()
         seed_data()
     except Exception as e:

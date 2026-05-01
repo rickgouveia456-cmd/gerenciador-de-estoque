@@ -861,6 +861,56 @@ def relatorio_consumo():
                            almoxarifados=almoxarifados, data_ini=data_ini,
                            data_fim=data_fim, alm_id=alm_id)
 
+@app.route('/relatorios/consumo-por-pessoa')
+@login_required
+def relatorio_consumo_pessoa():
+    """Relatório de consumo agrupado por responsável/colaborador."""
+    alm_id = request.args.get('almoxarifado_id', type=int)
+    data_ini = request.args.get('data_ini', str(date.today().replace(day=1)))
+    data_fim = request.args.get('data_fim', str(date.today()))
+    responsavel_filtro = request.args.get('responsavel', '').strip()
+
+    query = Movimentacao.query.filter(
+        Movimentacao.tipo == 'saida',
+        Movimentacao.data >= data_ini,
+        Movimentacao.data <= data_fim + ' 23:59:59'
+    )
+    if alm_id:
+        query = query.join(Item).filter(Item.almoxarifado_id == alm_id)
+    if responsavel_filtro:
+        query = query.filter(Movimentacao.responsavel.ilike(f'%{responsavel_filtro}%'))
+
+    movs = query.order_by(Movimentacao.responsavel, Movimentacao.data.desc()).all()
+
+    # Agrupar por responsável
+    from collections import defaultdict
+    por_pessoa = defaultdict(list)
+    for mov in movs:
+        nome = mov.responsavel or 'Sem responsável'
+        por_pessoa[nome].append(mov)
+
+    # Calcular totais por pessoa
+    resumo = []
+    for nome, lista in sorted(por_pessoa.items()):
+        total_movs = len(lista)
+        itens_distintos = len(set(m.item_id for m in lista))
+        resumo.append({
+            'nome': nome,
+            'movimentacoes': lista,
+            'total_movs': total_movs,
+            'itens_distintos': itens_distintos,
+        })
+
+    almoxarifados = Almoxarifado.query.all()
+    return render_template('relatorio_consumo_pessoa.html',
+                           resumo=resumo,
+                           almoxarifados=almoxarifados,
+                           data_ini=data_ini,
+                           data_fim=data_fim,
+                           alm_id=alm_id,
+                           responsavel_filtro=responsavel_filtro,
+                           total_geral=len(movs))
+
 @app.route('/relatorios/alertas')
 @login_required
 def relatorio_alertas():

@@ -1513,6 +1513,7 @@ def reativar_todos_itens():
                 </div>
             </div>
         </div>
+        <!-- Tema laranja v2.0 -->
     </body>
     </html>
     '''

@@ -9,8 +9,8 @@
         <div class="card card-stat h-100">
             <div class="card-body d-flex align-items-center gap-3">
                 <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                     style="width:48px;height:48px;background:#e8f0fe">
-                    <i class="bi bi-archive fs-5 text-primary"></i>
+                     style="width:48px;height:48px;background:var(--info-light)">
+                    <i class="bi bi-archive fs-5" style="color:var(--info)"></i>
                 </div>
                 <div>
                     <div class="text-muted small">Almoxarifados</div>
@@ -23,8 +23,8 @@
         <div class="card card-stat h-100">
             <div class="card-body d-flex align-items-center gap-3">
                 <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                     style="width:48px;height:48px;background:#e8f5e9">
-                    <i class="bi bi-box-seam fs-5 text-success"></i>
+                     style="width:48px;height:48px;background:var(--success-light)">
+                    <i class="bi bi-box-seam fs-5" style="color:var(--success)"></i>
                 </div>
                 <div>
                     <div class="text-muted small">Total de Itens</div>
@@ -37,12 +37,12 @@
         <div class="card card-stat h-100">
             <div class="card-body d-flex align-items-center gap-3">
                 <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                     style="width:48px;height:48px;background:#fff8e1">
-                    <i class="bi bi-exclamation-triangle fs-5 text-warning"></i>
+                     style="width:48px;height:48px;background:var(--warning-light)">
+                    <i class="bi bi-exclamation-triangle fs-5" style="color:var(--warning)"></i>
                 </div>
                 <div>
                     <div class="text-muted small">Em Alerta</div>
-                    <div class="fs-3 fw-bold text-warning">{{ stats.itens_alerta }}</div>
+                    <div class="fs-3 fw-bold" style="color:var(--warning)">{{ stats.itens_alerta }}</div>
                 </div>
             </div>
         </div>
@@ -51,12 +51,12 @@
         <div class="card card-stat h-100">
             <div class="card-body d-flex align-items-center gap-3">
                 <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                     style="width:48px;height:48px;background:#fdecea">
-                    <i class="bi bi-x-circle fs-5 text-danger"></i>
+                     style="width:48px;height:48px;background:var(--danger-light)">
+                    <i class="bi bi-x-circle fs-5" style="color:var(--danger)"></i>
                 </div>
                 <div>
                     <div class="text-muted small">Críticos</div>
-                    <div class="fs-3 fw-bold text-danger">{{ stats.itens_criticos }}</div>
+                    <div class="fs-3 fw-bold" style="color:var(--danger)">{{ stats.itens_criticos }}</div>
                 </div>
             </div>
         </div>
@@ -66,8 +66,8 @@
 <!-- Alertas de Estoque Mínimo -->
 {% if alertas %}
 <div class="card border-0 shadow-sm mb-4">
-    <div class="card-header d-flex align-items-center gap-2" style="background:#fff3cd;border-bottom:2px solid #ffc107">
-        <i class="bi bi-bell-fill text-warning alert-pulse"></i>
+    <div class="card-header d-flex align-items-center gap-2" style="background:var(--warning-light);border-bottom:2px solid var(--warning)">
+        <i class="bi bi-bell-fill alert-pulse" style="color:var(--warning)"></i>
         <strong>⚠️ Itens que precisam de pedido de compra ({{ alertas|length }})</strong>
     </div>
     <div class="card-body p-0">
@@ -114,7 +114,7 @@
     {% for alm in almoxarifados %}
     <div class="col-md-4">
         <div class="card card-stat h-100">
-            <div class="card-header fw-bold" style="background:var(--primary);color:#fff">
+            <div class="card-header fw-bold" style="background:var(--gradient-primary);color:#fff">
                 <i class="bi bi-archive me-2"></i>{{ alm.nome }}
             </div>
             <div class="card-body">

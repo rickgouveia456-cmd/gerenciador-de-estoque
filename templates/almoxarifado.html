@@ -31,7 +31,7 @@
 <!-- Barra de pesquisa -->
 <div class="mb-3">
     <div class="input-group">
-        <span class="input-group-text bg-white border-end-0">
+        <span class="input-group-text border-end-0">
             <i class="bi bi-search text-muted"></i>
         </span>
         <input type="text" id="buscaItem" class="form-control border-start-0"
@@ -84,11 +84,11 @@
                     </td>
                     <td>
                         {% if not item.ativo %}
-                            <span class="badge bg-warning text-dark">⚠️ Desativado</span>
+                            <span class="badge bg-secondary">⚠️ Desativado</span>
                         {% elif item.status == 'critico' %}
                             <span class="badge bg-danger">🔴 Zerado</span>
                         {% elif item.status == 'alerta' %}
-                            <span class="badge bg-warning text-dark">🟡 Alerta</span>
+                            <span class="badge bg-warning">🟡 Alerta</span>
                         {% else %}
                             <span class="badge bg-success">🟢 OK</span>
                         {% endif %}
@@ -125,11 +125,11 @@
                     <small class="text-muted"><code>{{ item.codigo }}</code></small>
                 </div>
                 {% if not item.ativo %}
-                    <span class="badge bg-warning text-dark">⚠️ Desativado</span>
+                    <span class="badge bg-secondary">⚠️ Desativado</span>
                 {% elif item.status == 'critico' %}
                     <span class="badge bg-danger">🔴 Zerado</span>
                 {% elif item.status == 'alerta' %}
-                    <span class="badge bg-warning text-dark">🟡 Alerta</span>
+                    <span class="badge bg-warning">🟡 Alerta</span>
                 {% else %}
                     <span class="badge bg-success">🟢 OK</span>
                 {% endif %}

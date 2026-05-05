@@ -130,7 +130,6 @@ class Usuario(db.Model):
             if self.senha_hash == hashlib.sha256(senha.encode()).hexdigest():
                 # Migra automaticamente para o novo hash seguro
                 self.set_senha(senha)
-                from flask_sqlalchemy import SQLAlchemy
                 db.session.commit()
                 return True
             return False
@@ -1045,9 +1044,17 @@ def excluir_movimentacoes():
 @app.route('/relatorios/alertas')
 @login_required
 def relatorio_alertas():
-    itens = Item.query.filter(Item.quantidade <= Item.estoque_minimo).order_by(
-        Item.fixado.desc(), Item.quantidade.asc()
-    ).all()
+    u = usuario_atual()
+    if u.perfil == 'admin':
+        itens = Item.query.filter(Item.quantidade <= Item.estoque_minimo).order_by(
+            Item.fixado.desc(), Item.quantidade.asc()
+        ).all()
+    else:
+        ids = u.almoxarifados_permitidos()
+        itens = Item.query.filter(
+            Item.quantidade <= Item.estoque_minimo,
+            Item.almoxarifado_id.in_(ids)
+        ).order_by(Item.fixado.desc(), Item.quantidade.asc()).all() if ids else []
     return render_template('relatorio_alertas.html', itens=itens)
 
 @app.route('/item/<int:id>/status_compra', methods=['POST'])

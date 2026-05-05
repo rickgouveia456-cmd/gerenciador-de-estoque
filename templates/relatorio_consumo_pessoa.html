@@ -135,7 +135,14 @@
                                                 <th>Item</th>
                                                 <th class="text-center">Qtd</th>
                                                 <th>Almoxarifado</th>
+                                                <th>Liberado por</th>
                                                 <th>Observação</th>
+                                                {% if usuario_atual and usuario_atual.perfil == 'admin' %}
+                                                <th style="width:50px">
+                                                    <input type="checkbox" class="form-check-input check-todos-{{ loop.index }}"
+                                                           onchange="toggleTodosGrupo(this, '{{ loop.index }}')">
+                                                </th>
+                                                {% endif %}
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -152,12 +159,29 @@
                                                     {{ mov.quantidade }} {{ mov.item.unidade }}
                                                 </td>
                                                 <td class="small">{{ mov.item.almoxarifado.nome }}</td>
+                                                <td class="small fw-semibold">{{ mov.responsavel or '—' }}</td>
                                                 <td class="small text-muted">{{ mov.observacao or '—' }}</td>
+                                                {% if usuario_atual and usuario_atual.perfil == 'admin' %}
+                                                <td class="text-center">
+                                                    <input type="checkbox" class="form-check-input check-mov check-grupo-{{ loop.index }}"
+                                                           name="mov_ids" value="{{ mov.id }}" form="formExcluir">
+                                                </td>
+                                                {% endif %}
                                             </tr>
                                             {% endfor %}
                                         </tbody>
                                     </table>
                                 </div>
+                                {% if usuario_atual and usuario_atual.perfil == 'admin' %}
+                                <div class="mt-2 d-flex gap-2 align-items-center">
+                                    <span class="small text-muted" id="contador-{{ loop.index }}">0 selecionada(s)</span>
+                                    <button type="submit" form="formExcluir"
+                                            class="btn btn-sm btn-danger"
+                                            onclick="return confirmarExclusao()">
+                                        <i class="bi bi-trash me-1"></i> Excluir Selecionadas
+                                    </button>
+                                </div>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>
@@ -175,11 +199,47 @@
 </div>
 {% endif %}
 
+{% if usuario_atual and usuario_atual.perfil == 'admin' %}
+<form id="formExcluir" action="/movimentacoes/excluir" method="POST" style="display:none"></form>
+{% endif %}
+
 {% block scripts %}
 <script>
 function toggleDetalhe(id) {
     const el = document.getElementById(id);
     el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+
+function toggleTodosGrupo(cb, grupo) {
+    document.querySelectorAll(`.check-grupo-${grupo}`).forEach(el => el.checked = cb.checked);
+    atualizarContador(grupo);
+}
+
+function atualizarContador(grupo) {
+    const total = document.querySelectorAll(`.check-grupo-${grupo}:checked`).length;
+    const el = document.getElementById(`contador-${grupo}`);
+    if (el) el.textContent = `${total} selecionada(s)`;
+}
+
+// Atualizar contador ao marcar individualmente
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('check-mov')) {
+        const classes = [...e.target.classList];
+        const grupoClass = classes.find(c => c.startsWith('check-grupo-'));
+        if (grupoClass) {
+            const grupo = grupoClass.replace('check-grupo-', '');
+            atualizarContador(grupo);
+        }
+    }
+});
+
+function confirmarExclusao() {
+    const total = document.querySelectorAll('[name="mov_ids"]:checked').length;
+    if (total === 0) {
+        alert('Selecione pelo menos uma movimentação para excluir.');
+        return false;
+    }
+    return confirm(`Excluir ${total} movimentação(ões)? Esta ação não pode ser desfeita.`);
 }
 </script>
 {% endblock %}

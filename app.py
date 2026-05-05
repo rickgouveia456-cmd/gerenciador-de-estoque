@@ -994,6 +994,30 @@ def relatorio_consumo_pessoa():
                            responsavel_filtro=responsavel_filtro,
                            total_geral=sum(p['total_movs'] for p in resumo))
 
+@app.route('/movimentacoes/excluir', methods=['POST'])
+@admin_required
+def excluir_movimentacoes():
+    ids = request.form.getlist('mov_ids')
+    if not ids:
+        flash('Nenhuma movimentação selecionada.', 'warning')
+        return redirect(request.referrer or url_for('relatorio_consumo_pessoa'))
+    
+    excluidas = 0
+    for mov_id in ids:
+        mov = Movimentacao.query.get(mov_id)
+        if mov:
+            # Reverter o estoque ao excluir saída
+            if mov.tipo == 'saida':
+                mov.item.quantidade += mov.quantidade
+            elif mov.tipo == 'entrada':
+                mov.item.quantidade -= mov.quantidade
+            db.session.delete(mov)
+            excluidas += 1
+    
+    db.session.commit()
+    flash(f'{excluidas} movimentação(ões) excluída(s) e estoque revertido.', 'success')
+    return redirect(request.referrer or url_for('relatorio_consumo_pessoa'))
+
 @app.route('/relatorios/alertas')
 @login_required
 def relatorio_alertas():

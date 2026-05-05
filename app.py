@@ -931,7 +931,7 @@ def exportar_consumo():
 @app.route('/relatorios/consumo-por-pessoa')
 @login_required
 def relatorio_consumo_pessoa():
-    """Relatório de consumo agrupado por responsável/colaborador."""
+    """Relatório de consumo agrupado por colaborador (extraído da observação)."""
     alm_id = request.args.get('almoxarifado_id', type=int)
     data_ini = request.args.get('data_ini', str(date.today().replace(day=1)))
     data_fim = request.args.get('data_fim', str(date.today()))
@@ -944,17 +944,33 @@ def relatorio_consumo_pessoa():
     )
     if alm_id:
         query = query.join(Item).filter(Item.almoxarifado_id == alm_id)
-    if responsavel_filtro:
-        query = query.filter(Movimentacao.responsavel.ilike(f'%{responsavel_filtro}%'))
 
-    movs = query.order_by(Movimentacao.responsavel, Movimentacao.data.desc()).all()
+    movs = query.order_by(Movimentacao.data.desc()).all()
 
-    # Agrupar por responsável
+    import re
+
+    def extrair_colaborador(mov):
+        """Extrai o nome do colaborador da observação ou usa o responsável."""
+        obs = mov.observacao or ''
+        # Formato: "req XXXX | Colaborador: Nome"
+        m = re.search(r'[Cc]olaborador[:\s]+([^|]+)', obs)
+        if m:
+            return m.group(1).strip()
+        # Formato: "Req. Mestre #X — Colaborador: Nome"
+        m = re.search(r'Colaborador[:\s]+(.+)', obs)
+        if m:
+            return m.group(1).strip()
+        # Se não achou colaborador na obs, usa o responsável
+        return mov.responsavel or 'Sem responsável'
+
+    # Filtrar por nome se informado
     from collections import defaultdict
     por_pessoa = defaultdict(list)
     for mov in movs:
-        nome = mov.responsavel or 'Sem responsável'
-        por_pessoa[nome].append(mov)
+        colaborador = extrair_colaborador(mov)
+        if responsavel_filtro and responsavel_filtro.lower() not in colaborador.lower():
+            continue
+        por_pessoa[colaborador].append(mov)
 
     # Calcular totais por pessoa
     resumo = []
@@ -976,7 +992,7 @@ def relatorio_consumo_pessoa():
                            data_fim=data_fim,
                            alm_id=alm_id,
                            responsavel_filtro=responsavel_filtro,
-                           total_geral=len(movs))
+                           total_geral=sum(p['total_movs'] for p in resumo))
 
 @app.route('/relatorios/alertas')
 @login_required

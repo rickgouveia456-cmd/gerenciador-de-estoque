@@ -482,10 +482,10 @@
 
         {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
         <span class="nav-section">Requisições</span>
-        <a href="/mestre/requisicoes" class="nav-link {% if request.endpoint == 'mestre_requisicoes' %}active{% endif %}">
+        <span class="nav-link text-muted" style="cursor:default;opacity:0.6">
             <i class="bi bi-clipboard-check me-2"></i> Req. dos Mestres
-            <span id="badge-req-pendentes" class="badge bg-warning text-dark ms-1" style="display:none"></span>
-        </a>
+            <span class="badge ms-1" style="background:#94a3b8;color:#fff;font-size:0.65rem">Em breve</span>
+        </span>
         {% endif %}
 
         <span class="nav-section">Almoxarifados</span>

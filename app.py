@@ -461,6 +461,26 @@ def editar_item(id):
         it.unidade = request.form['unidade']
         it.estoque_minimo = float(request.form.get('estoque_minimo', 0))
         it.almoxarifado_id = int(request.form['almoxarifado_id'])
+        # Atualizar quantidade se informada (admin pode corrigir o valor)
+        qtd_str = request.form.get('quantidade')
+        if qtd_str is not None and qtd_str != '':
+            try:
+                nova_qtd = float(qtd_str)
+                if nova_qtd != it.quantidade:
+                    # Registrar ajuste como movimentação
+                    u = usuario_atual()
+                    diff = nova_qtd - it.quantidade
+                    tipo = 'entrada' if diff > 0 else 'saida'
+                    db.session.add(Movimentacao(
+                        tipo=tipo,
+                        quantidade=abs(diff),
+                        responsavel=u.nome if u else 'Sistema',
+                        observacao='Ajuste de estoque via edição',
+                        item_id=it.id
+                    ))
+                    it.quantidade = nova_qtd
+            except ValueError:
+                pass
         db.session.commit()
         flash('Item atualizado!', 'success')
         return redirect(url_for('almoxarifado', id=it.almoxarifado_id))

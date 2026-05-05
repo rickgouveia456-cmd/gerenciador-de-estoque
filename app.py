@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, send_file, session
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
 from functools import wraps
 import io
 import os
@@ -10,6 +10,13 @@ import secrets
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+
+# Fuso horário de Brasília (UTC-3)
+TZ_BRASILIA = timezone(timedelta(hours=-3))
+
+def agora():
+    """Retorna o datetime atual no horário de Brasília"""
+    return datetime.now(TZ_BRASILIA).replace(tzinfo=None)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
@@ -57,7 +64,7 @@ class Movimentacao(db.Model):
     quantidade = db.Column(db.Float, nullable=False)
     responsavel = db.Column(db.String(100))
     observacao = db.Column(db.String(200))
-    data = db.Column(db.DateTime, default=datetime.utcnow)
+    data = db.Column(db.DateTime, default=agora)
     item_id = db.Column(db.Integer, db.ForeignKey('item.id'), nullable=False)
 
 class Requisicao(db.Model):
@@ -66,7 +73,7 @@ class Requisicao(db.Model):
     observacao = db.Column(db.String(200))
     quantidade = db.Column(db.Float, nullable=False)
     status = db.Column(db.String(20), default='aberta')  # aberta | devolvida
-    data_retirada = db.Column(db.DateTime, default=datetime.utcnow)
+    data_retirada = db.Column(db.DateTime, default=agora)
     data_devolucao = db.Column(db.DateTime, nullable=True)
     item_id = db.Column(db.Integer, db.ForeignKey('item.id'), nullable=False)
     item = db.relationship('Item', backref='requisicoes')
@@ -86,7 +93,7 @@ class RequisicaoMestre(db.Model):
     observacao = db.Column(db.String(300))
     # Status: pendente | aprovada | parcial | recusada | entregue | cancelada
     status = db.Column(db.String(20), default='pendente')
-    data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
+    data_criacao = db.Column(db.DateTime, default=agora)
     data_entrega = db.Column(db.DateTime, nullable=True)
     entregue_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
     entregue_por = db.relationship('Usuario', foreign_keys=[entregue_por_id])
@@ -143,14 +150,14 @@ class AcessoExtra(db.Model):
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
     almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=False)
     motivo = db.Column(db.String(200))
-    data_inicio = db.Column(db.DateTime, default=datetime.utcnow)
+    data_inicio = db.Column(db.DateTime, default=agora)
     data_fim = db.Column(db.DateTime, nullable=True)
     concedido_por = db.Column(db.String(100))
     almoxarifado = db.relationship('Almoxarifado')
 
     @property
     def ativo(self):
-        if self.data_fim and datetime.utcnow() > self.data_fim:
+        if self.data_fim and agora() > self.data_fim:
             return False
         return True
 
@@ -717,7 +724,7 @@ def devolver_requisicao(id):
     req = Requisicao.query.get_or_404(id)
     if req.status == 'aberta':
         req.status = 'devolvida'
-        req.data_devolucao = datetime.utcnow()
+        req.data_devolucao = agora()
         req.item.quantidade += req.quantidade
         db.session.add(Movimentacao(
             tipo='entrada', quantidade=req.quantidade,
@@ -1300,7 +1307,7 @@ def mestre_requisicao_nova():
             almoxarifado_id=alm_id,
             observacao=observacao,
             status='pendente',
-            data_criacao=datetime.utcnow()
+            data_criacao=agora()
         )
         db.session.add(req)
         db.session.flush()  # gera o id
@@ -1438,7 +1445,7 @@ def mestre_requisicao_entregar(id):
         ))
 
     req.status = 'entregue'
-    req.data_entrega = datetime.utcnow()
+    req.data_entrega = agora()
     req.entregue_por_id = u.id
     db.session.commit()
     flash(f'✅ Entrega confirmada! Estoque atualizado para {len(req.itens)} item(ns).', 'success')

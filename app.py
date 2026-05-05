@@ -861,6 +861,66 @@ def relatorio_consumo():
                            almoxarifados=almoxarifados, data_ini=data_ini,
                            data_fim=data_fim, alm_id=alm_id)
 
+@app.route('/relatorios/consumo/exportar')
+@login_required
+def exportar_consumo():
+    alm_id = request.args.get('almoxarifado_id', type=int)
+    data_ini = request.args.get('data_ini', str(date.today().replace(day=1)))
+    data_fim = request.args.get('data_fim', str(date.today()))
+    query = Movimentacao.query.filter(
+        Movimentacao.tipo == 'saida',
+        Movimentacao.data >= data_ini,
+        Movimentacao.data <= data_fim + ' 23:59:59'
+    )
+    if alm_id:
+        query = query.join(Item).filter(Item.almoxarifado_id == alm_id)
+    movs = query.order_by(Movimentacao.data.desc()).all()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Consumo'
+    h_fill = PatternFill('solid', fgColor='1A3A5C')
+    h_font = Font(bold=True, color='FFFFFF', size=11)
+    borda   = Border(left=Side(style='thin'), right=Side(style='thin'),
+                     top=Side(style='thin'), bottom=Side(style='thin'))
+
+    alm_nome = Almoxarifado.query.get(alm_id).nome if alm_id else 'Todos os Almoxarifados'
+    ws.merge_cells('A1:G1')
+    ws['A1'] = f'Relatório de Consumo — {alm_nome}'
+    ws['A1'].font = Font(bold=True, size=13, color='1A3A5C')
+    ws.merge_cells('A2:G2')
+    ws['A2'] = f'Período: {data_ini} a {data_fim}   |   Gerado em: {agora().strftime("%d/%m/%Y %H:%M")}'
+    ws['A2'].font = Font(italic=True, size=10, color='666666')
+
+    headers = ['Data', 'Código', 'Item', 'Almoxarifado', 'Quantidade', 'Responsável', 'Observação']
+    for col, h in enumerate(headers, 1):
+        c = ws.cell(row=4, column=col, value=h)
+        c.font = h_font; c.fill = h_fill
+        c.alignment = Alignment(horizontal='center'); c.border = borda
+
+    for row_num, mov in enumerate(movs, 5):
+        dados = [
+            mov.data.strftime('%d/%m/%Y %H:%M'),
+            mov.item.codigo, mov.item.nome,
+            mov.item.almoxarifado.nome,
+            f'{mov.quantidade} {mov.item.unidade}',
+            mov.responsavel or '', mov.observacao or ''
+        ]
+        for col, val in enumerate(dados, 1):
+            c = ws.cell(row=row_num, column=col, value=val)
+            c.border = borda
+            if row_num % 2 == 0:
+                c.fill = PatternFill('solid', fgColor='F0F4F8')
+
+    for i, w in enumerate([18, 14, 45, 35, 14, 20, 40], 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+
+    buf = io.BytesIO()
+    wb.save(buf); buf.seek(0)
+    return send_file(buf, as_attachment=True,
+                     download_name=f'consumo_{data_ini}_a_{data_fim}.xlsx',
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
 @app.route('/relatorios/consumo-por-pessoa')
 @login_required
 def relatorio_consumo_pessoa():

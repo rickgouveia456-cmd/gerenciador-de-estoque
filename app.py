@@ -952,6 +952,10 @@ def relatorio_consumo_pessoa():
     def extrair_colaborador(mov):
         """Extrai o nome do colaborador da observação ou usa o responsável."""
         obs = mov.observacao or ''
+        # Formato: "liberado P/ Nome" ou "liberado para Nome"
+        m = re.search(r'liberado\s+[Pp][/\s]+(.+)', obs, re.IGNORECASE)
+        if m:
+            return m.group(1).strip()
         # Formato: "req XXXX | Colaborador: Nome"
         m = re.search(r'[Cc]olaborador[:\s]+([^|]+)', obs)
         if m:

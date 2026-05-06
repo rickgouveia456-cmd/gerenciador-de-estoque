@@ -819,11 +819,16 @@ def importar_itens(id):
                         item_existente.nome = nome
                         item_existente.unidade = unidade
                         item_existente.estoque_minimo = est_min
-                        if modo == 'substituir':
-                            item_existente.quantidade = quantidade
-                        else:
-                            item_existente.quantidade += quantidade
                         item_existente.almoxarifado_id = id
+                        if modo == 'substituir':
+                            # Só sobrescreve a quantidade se o item não tiver movimentações
+                            # Isso protege contra reimportação acidental de dados antigos
+                            tem_movimentacoes = Movimentacao.query.filter_by(item_id=item_existente.id).count() > 0
+                            if not tem_movimentacoes:
+                                item_existente.quantidade = quantidade
+                            # Se tiver movimentações, ignora a quantidade do Excel (protege o saldo real)
+                        else:  # atualizar = somar
+                            item_existente.quantidade += quantidade
                         atualizados += 1
                     # modo 'adicionar' ignora duplicatas
                 else:

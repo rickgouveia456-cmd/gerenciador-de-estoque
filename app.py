@@ -609,19 +609,30 @@ def movimentar(id):
     it = Item.query.get_or_404(id)
     tipo = request.form['tipo']
     qtd = float(request.form['quantidade'])
+    responsavel = request.form.get('responsavel', '').strip()
+    observacao = request.form.get('observacao', '').strip()
+
     if tipo == 'saida' and qtd > it.quantidade:
         flash('Quantidade insuficiente em estoque!', 'danger')
         return redirect(url_for('item', id=id))
+
+    # Na saída, o campo observacao vem com o nome do colaborador
+    # Formatar para o padrão reconhecido pelo relatório de consumo por pessoa
+    if tipo == 'saida' and observacao:
+        obs_final = f'liberado P/ {observacao}'
+    else:
+        obs_final = observacao
+
     it.quantidade += qtd if tipo == 'entrada' else -qtd
     mov = Movimentacao(
         tipo=tipo, quantidade=qtd,
-        responsavel=request.form.get('responsavel', ''),
-        observacao=request.form.get('observacao', ''),
+        responsavel=responsavel,
+        observacao=obs_final,
         item_id=id
     )
     db.session.add(mov)
     db.session.commit()
-    flash(f'{"Entrada" if tipo == "entrada" else "Saida"} de {qtd} {it.unidade} registrada!', 'success')
+    flash(f'{"Entrada" if tipo == "entrada" else "Saída"} de {qtd} {it.unidade} registrada!', 'success')
     return redirect(url_for('item', id=id))
 
 # ── REQUISIÇÕES ──────────────────────────────────────────────────────────────

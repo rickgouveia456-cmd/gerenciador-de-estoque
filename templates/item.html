@@ -84,11 +84,11 @@
                 <i class="bi bi-arrow-left-right me-2"></i>Registrar Movimentação
             </div>
             <div class="card-body">
-                <form action="/item/{{ item.id }}/movimentar" method="POST">
+                <form action="/item/{{ item.id }}/movimentar" method="POST" id="formMov">
                     <div class="row g-3">
                         <div class="col-md-3">
                             <label class="form-label fw-semibold">Tipo</label>
-                            <select name="tipo" class="form-select" required>
+                            <select name="tipo" id="tipoMov" class="form-select" required onchange="toggleColaborador(this.value)">
                                 <option value="entrada">📥 Entrada</option>
                                 <option value="saida">📤 Saída</option>
                             </select>
@@ -100,10 +100,18 @@
                         </div>
                         <div class="col-md-3">
                             <label class="form-label fw-semibold">Responsável</label>
-                            <input type="text" name="responsavel" class="form-control"
-                                   placeholder="Nome">
+                            <input type="text" name="responsavel" id="responsavelMov" class="form-control"
+                                   placeholder="Almoxarife">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-4" id="divColaborador">
+                            <label class="form-label fw-semibold">
+                                Colaborador <span class="text-danger">*</span>
+                                <small class="text-muted fw-normal">(obrigatório na saída)</small>
+                            </label>
+                            <input type="text" name="observacao" id="colaboradorMov" class="form-control"
+                                   placeholder="Nome do colaborador que retirou">
+                        </div>
+                        <div class="col-md-4" id="divObservacao" style="display:none">
                             <label class="form-label fw-semibold">Observação</label>
                             <input type="text" name="observacao" class="form-control"
                                    placeholder="Opcional">
@@ -161,4 +169,38 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleColaborador(tipo) {
+    const divColab = document.getElementById('divColaborador');
+    const divObs = document.getElementById('divObservacao');
+    const colaboradorInput = document.getElementById('colaboradorMov');
+
+    if (tipo === 'saida') {
+        divColab.style.display = '';
+        divObs.style.display = 'none';
+        colaboradorInput.required = true;
+    } else {
+        divColab.style.display = 'none';
+        divObs.style.display = '';
+        colaboradorInput.required = false;
+    }
+}
+
+// Validar antes de enviar
+document.getElementById('formMov').addEventListener('submit', function(e) {
+    const tipo = document.getElementById('tipoMov').value;
+    const colaborador = document.getElementById('colaboradorMov').value.trim();
+    if (tipo === 'saida' && !colaborador) {
+        e.preventDefault();
+        alert('Informe o nome do colaborador que está retirando o material.');
+        document.getElementById('colaboradorMov').focus();
+    }
+});
+
+// Inicializar no estado correto
+toggleColaborador(document.getElementById('tipoMov').value);
+</script>
 {% endblock %}

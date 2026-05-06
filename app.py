@@ -474,7 +474,7 @@ def editar_item(id):
                         tipo=tipo,
                         quantidade=abs(diff),
                         responsavel=u.nome if u else 'Sistema',
-                        observacao='Ajuste de estoque via edição',
+                        observacao=f'Ajuste manual: {it.quantidade} → {nova_qtd} {it.unidade}',
                         item_id=it.id
                     ))
                     it.quantidade = nova_qtd

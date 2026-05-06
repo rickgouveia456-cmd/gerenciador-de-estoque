@@ -616,12 +616,8 @@ def movimentar(id):
         flash('Quantidade insuficiente em estoque!', 'danger')
         return redirect(url_for('item', id=id))
 
-    # Na saída, o campo observacao vem com o nome do colaborador
-    # Formatar para o padrão reconhecido pelo relatório de consumo por pessoa
-    if tipo == 'saida' and observacao:
-        obs_final = f'liberado P/ {observacao}'
-    else:
-        obs_final = observacao
+    # Na saída, a observação já vem montada pelo JS como "liberado P/ Nome | req X"
+    obs_final = observacao
 
     it.quantidade += qtd if tipo == 'entrada' else -qtd
     mov = Movimentacao(

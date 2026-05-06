@@ -103,15 +103,19 @@
                             <input type="text" name="responsavel" id="responsavelMov" class="form-control"
                                    placeholder="Almoxarife">
                         </div>
-                        <div class="col-md-4" id="divColaborador">
+                        <div class="col-md-2" id="divColaborador">
                             <label class="form-label fw-semibold">
                                 Colaborador <span class="text-danger">*</span>
-                                <small class="text-muted fw-normal">(obrigatório na saída)</small>
                             </label>
-                            <input type="text" name="observacao" id="colaboradorMov" class="form-control"
-                                   placeholder="Nome do colaborador que retirou">
+                            <input type="text" name="colaborador_nome" id="colaboradorMov" class="form-control"
+                                   placeholder="Nome do colaborador">
                         </div>
-                        <div class="col-md-4" id="divObservacao" style="display:none">
+                        <div class="col-md-2" id="divRequisicao">
+                            <label class="form-label fw-semibold">Requisição</label>
+                            <input type="text" name="requisicao_num" id="requisicaoMov" class="form-control"
+                                   placeholder="Nº da requisição">
+                        </div>
+                        <div class="col-md-2" id="divObservacao" style="display:none">
                             <label class="form-label fw-semibold">Observação</label>
                             <input type="text" name="observacao" class="form-control"
                                    placeholder="Opcional">
@@ -175,21 +179,23 @@
 <script>
 function toggleColaborador(tipo) {
     const divColab = document.getElementById('divColaborador');
+    const divReq = document.getElementById('divRequisicao');
     const divObs = document.getElementById('divObservacao');
     const colaboradorInput = document.getElementById('colaboradorMov');
 
     if (tipo === 'saida') {
         divColab.style.display = '';
+        divReq.style.display = '';
         divObs.style.display = 'none';
         colaboradorInput.required = true;
     } else {
         divColab.style.display = 'none';
+        divReq.style.display = 'none';
         divObs.style.display = '';
         colaboradorInput.required = false;
     }
 }
 
-// Validar antes de enviar
 document.getElementById('formMov').addEventListener('submit', function(e) {
     const tipo = document.getElementById('tipoMov').value;
     const colaborador = document.getElementById('colaboradorMov').value.trim();
@@ -197,10 +203,22 @@ document.getElementById('formMov').addEventListener('submit', function(e) {
         e.preventDefault();
         alert('Informe o nome do colaborador que está retirando o material.');
         document.getElementById('colaboradorMov').focus();
+        return;
+    }
+    // Montar observação combinando colaborador + requisição
+    if (tipo === 'saida') {
+        const req = document.getElementById('requisicaoMov').value.trim();
+        let obs = 'liberado P/ ' + colaborador;
+        if (req) obs += ' | req ' + req;
+        // Criar campo hidden com a observação montada
+        const hidden = document.createElement('input');
+        hidden.type = 'hidden';
+        hidden.name = 'observacao';
+        hidden.value = obs;
+        this.appendChild(hidden);
     }
 });
 
-// Inicializar no estado correto
 toggleColaborador(document.getElementById('tipoMov').value);
 </script>
 {% endblock %}

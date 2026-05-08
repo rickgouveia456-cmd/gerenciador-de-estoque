@@ -511,11 +511,19 @@
         <a href="/relatorios/alertas" class="nav-link">
             <i class="bi bi-exclamation-triangle me-2"></i> Pedidos de Compra
         </a>
+        {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
+        <a href="/colaboradores" class="nav-link {% if request.endpoint == 'colaboradores' %}active{% endif %}">
+            <i class="bi bi-person-badge me-2"></i> Colaboradores
+        </a>
+        {% endif %}
 
         {% if usuario_atual and usuario_atual.perfil == 'admin' %}
         <span class="nav-section">Administração</span>
         <a href="/usuarios" class="nav-link {% if request.endpoint == 'usuarios' %}active{% endif %}">
             <i class="bi bi-people me-2"></i> Usuários
+        </a>
+        <a href="/colaboradores" class="nav-link {% if request.endpoint == 'colaboradores' %}active{% endif %}">
+            <i class="bi bi-person-badge me-2"></i> Colaboradores
         </a>
         {% endif %}
         {% endif %}

@@ -157,6 +157,14 @@ class Usuario(db.Model):
                 ids.add(a.almoxarifado_id)
         return ids
 
+class Colaborador(db.Model):
+    """Banco de dados de colaboradores/peões que retiram material no almoxarifado."""
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), nullable=False)
+    funcao = db.Column(db.String(50))  # ex: pedreiro, servente, eletricista
+    ativo = db.Column(db.Boolean, default=True)
+    data_cadastro = db.Column(db.DateTime, default=agora)
+
 class AcessoExtra(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
@@ -310,6 +318,17 @@ def run_migrations():
                     observacao VARCHAR(200),
                     status_item VARCHAR(20) DEFAULT 'pendente',
                     motivo_recusa VARCHAR(200)
+                )
+            """))
+            conn.commit()
+            # Tabela de colaboradores
+            conn.execute(text(f"""
+                CREATE TABLE IF NOT EXISTS colaborador (
+                    id {pk_type},
+                    nome VARCHAR(100) NOT NULL,
+                    funcao VARCHAR(50),
+                    ativo BOOLEAN DEFAULT TRUE,
+                    data_cadastro {dt_type}
                 )
             """))
             conn.commit()
@@ -1243,6 +1262,96 @@ def api_alertas():
         'unidade': i.unidade, 'status': i.status,
         'almoxarifado': i.almoxarifado.nome
     } for i in itens])
+
+@app.route('/api/colaboradores')
+@login_required
+def api_colaboradores():
+    """Autocomplete de colaboradores — busca nomes já usados nas requisições anteriores."""
+    q = request.args.get('q', '').strip()
+    from sqlalchemy import text, union
+    nomes = set()
+
+    # Busca em RequisicaoMestre
+    reqs_mestre = db.session.execute(
+        text("SELECT DISTINCT colaborador FROM requisicao_mestre WHERE colaborador ILIKE :q ORDER BY colaborador LIMIT 10")
+        if 'postgresql' in str(db.engine.url) else
+        text("SELECT DISTINCT colaborador FROM requisicao_mestre WHERE colaborador LIKE :q ORDER BY colaborador LIMIT 10"),
+        {"q": f"%{q}%"}
+    ).fetchall()
+    for r in reqs_mestre:
+        nomes.add(r[0])
+
+    # Busca em Requisicao simples
+    reqs = db.session.execute(
+        text("SELECT DISTINCT colaborador FROM requisicao WHERE colaborador ILIKE :q ORDER BY colaborador LIMIT 10")
+        if 'postgresql' in str(db.engine.url) else
+        text("SELECT DISTINCT colaborador FROM requisicao WHERE colaborador LIKE :q ORDER BY colaborador LIMIT 10"),
+        {"q": f"%{q}%"}
+    ).fetchall()
+    for r in reqs:
+        nomes.add(r[0])
+
+    resultado = sorted(nomes)[:10]
+    return jsonify([{'nome': n} for n in resultado])
+
+# ── GERENCIAR COLABORADORES ──────────────────────────────────────────────────
+
+@app.route('/colaboradores')
+@login_required
+def colaboradores():
+    u = usuario_atual()
+    if u.perfil not in ('admin', 'almoxarife'):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('index'))
+    cols = Colaborador.query.order_by(Colaborador.ativo.desc(), Colaborador.nome).all()
+    return render_template('colaboradores.html', colaboradores=cols)
+
+@app.route('/colaboradores/novo', methods=['POST'])
+@login_required
+def novo_colaborador():
+    u = usuario_atual()
+    if u.perfil not in ('admin', 'almoxarife'):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('index'))
+    nome = request.form.get('nome', '').strip()
+    funcao = request.form.get('funcao', '').strip()
+    if not nome:
+        flash('Informe o nome do colaborador.', 'warning')
+        return redirect(url_for('colaboradores'))
+    # Evita duplicata
+    if Colaborador.query.filter(Colaborador.nome.ilike(nome)).first():
+        flash(f'Colaborador "{nome}" já está cadastrado.', 'warning')
+        return redirect(url_for('colaboradores'))
+    db.session.add(Colaborador(nome=nome, funcao=funcao or None))
+    db.session.commit()
+    flash(f'✅ Colaborador "{nome}" cadastrado!', 'success')
+    return redirect(url_for('colaboradores'))
+
+@app.route('/colaboradores/<int:id>/desativar', methods=['POST'])
+@login_required
+def desativar_colaborador(id):
+    u = usuario_atual()
+    if u.perfil not in ('admin', 'almoxarife'):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('index'))
+    c = Colaborador.query.get_or_404(id)
+    c.ativo = False
+    db.session.commit()
+    flash(f'Colaborador "{c.nome}" desativado.', 'warning')
+    return redirect(url_for('colaboradores'))
+
+@app.route('/colaboradores/<int:id>/reativar', methods=['POST'])
+@login_required
+def reativar_colaborador(id):
+    u = usuario_atual()
+    if u.perfil not in ('admin', 'almoxarife'):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('index'))
+    c = Colaborador.query.get_or_404(id)
+    c.ativo = True
+    db.session.commit()
+    flash(f'Colaborador "{c.nome}" reativado.', 'success')
+    return redirect(url_for('colaboradores'))
 
 # ── GERENCIAR USUÁRIOS (só admin) ────────────────────────────────────────────
 

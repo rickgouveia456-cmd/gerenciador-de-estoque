@@ -12,8 +12,10 @@
             <div class="row g-3">
                 <div class="col-12 col-md-4">
                     <label class="form-label fw-semibold">Colaborador *</label>
-                    <input type="text" name="colaborador" class="form-control"
-                           placeholder="Nome do colaborador" required>
+                    <input type="text" name="colaborador" id="inputColaborador" class="form-control"
+                           placeholder="Nome do colaborador" required autocomplete="off">
+                    <div id="sugestoesColab" class="list-group position-absolute shadow-sm"
+                         style="z-index:1000;display:none;min-width:300px"></div>
                 </div>
                 <div class="col-12 col-md-4">
                     <label class="form-label fw-semibold">Almoxarifado *</label>
@@ -112,5 +114,45 @@ document.getElementById('selectAlmox').addEventListener('change', () => {
 });
 
 adicionarLinha();
+
+// ── AUTOCOMPLETE DE COLABORADORES ────────────────────────────────────────────
+(function() {
+    const input = document.getElementById('inputColaborador');
+    const lista = document.getElementById('sugestoesColab');
+    if (!input || !lista) return;
+
+    let timer;
+    input.addEventListener('input', function() {
+        clearTimeout(timer);
+        const q = this.value.trim();
+        if (q.length < 1) { lista.style.display = 'none'; return; }
+        timer = setTimeout(() => {
+            fetch(`/api/colaboradores?q=${encodeURIComponent(q)}`)
+                .then(r => r.json())
+                .then(data => {
+                    lista.innerHTML = '';
+                    if (data.length === 0) { lista.style.display = 'none'; return; }
+                    data.forEach(c => {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'list-group-item list-group-item-action py-2';
+                        btn.innerHTML = `<i class="bi bi-person me-2 text-success"></i><strong>${c.nome}</strong>`;
+                        btn.addEventListener('click', () => {
+                            input.value = c.nome;
+                            lista.style.display = 'none';
+                        });
+                        lista.appendChild(btn);
+                    });
+                    lista.style.display = 'block';
+                });
+        }, 200);
+    });
+
+    document.addEventListener('click', e => {
+        if (!input.contains(e.target) && !lista.contains(e.target)) {
+            lista.style.display = 'none';
+        }
+    });
+})();
 </script>
 {% endblock %}

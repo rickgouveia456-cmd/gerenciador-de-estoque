@@ -70,7 +70,7 @@
                     </td>
                     <td>{{ item.unidade }}</td>
                     <td class="fw-bold {% if not item.ativo %}text-muted{% elif item.status == 'critico' %}text-danger{% elif item.status == 'alerta' %}text-warning{% else %}text-success{% endif %}">
-                        {{ item.quantidade }}
+                        {{ item.quantidade|fmt_qtd }}
                     </td>
                     <td>{{ item.estoque_minimo }}</td>
                     <td style="min-width:120px">
@@ -140,7 +140,7 @@
                 <div class="col-4">
                     <div class="small text-muted">Atual</div>
                     <div class="fw-bold {% if item.status == 'critico' %}text-danger{% elif item.status == 'alerta' %}text-warning{% else %}text-success{% endif %}">
-                        {{ item.quantidade }} {{ item.unidade }}
+                        {{ item.quantidade|fmt_qtd }} {{ item.unidade }}
                     </div>
                 </div>
                 <div class="col-4">

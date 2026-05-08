@@ -29,7 +29,7 @@
                     {% if item.status == 'critico' %}text-danger
                     {% elif item.status == 'alerta' %}text-warning
                     {% else %}text-success{% endif %}">
-                    {{ item.quantidade }}
+                    {{ item.quantidade|fmt_qtd }}
                 </div>
                 <div class="text-muted">{{ item.unidade }}</div>
                 {% if item.status == 'critico' %}
@@ -96,7 +96,8 @@
                         <div class="col-md-2">
                             <label class="form-label fw-semibold">Quantidade</label>
                             <input type="number" name="quantidade" class="form-control"
-                                   step="0.01" min="0.01" required>
+                                   step="0.01" min="0.01" max="99999" required
+                                   oninput="this.value = this.value.replace(',','.')">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label fw-semibold">Responsável <span class="text-danger">*</span></label>

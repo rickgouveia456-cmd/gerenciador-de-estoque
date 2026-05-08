@@ -29,6 +29,19 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
+# ── FILTRO JINJA2 — formata quantidades sem ponto flutuante feio ─────────────
+@app.template_filter('fmt_qtd')
+def fmt_qtd(value):
+    """Formata quantidade: inteiros sem decimal, decimais com até 4 casas limpas."""
+    try:
+        v = round(float(value), 4)
+        if v == int(v):
+            return str(int(v))
+        # Remove zeros à direita
+        return f"{v:.4f}".rstrip('0').rstrip('.')
+    except (TypeError, ValueError):
+        return value
+
 # ── MODELOS ──────────────────────────────────────────────────────────────────
 
 class Almoxarifado(db.Model):
@@ -564,7 +577,7 @@ def movimentacao_lote():
                 erros.append(f'"{it.nome}": estoque insuficiente ({it.quantidade} {it.unidade})')
                 continue
 
-            it.quantidade += qtd if tipo == 'entrada' else -qtd
+            it.quantidade = round(it.quantidade + qtd if tipo == 'entrada' else it.quantidade - qtd, 4)
             obs_linha = f'{observacao} | Colaborador: {colab}' if colab else observacao
             movs.append(Movimentacao(
                 tipo=tipo, quantidade=qtd,
@@ -619,7 +632,7 @@ def movimentar(id):
     # Na saída, a observação já vem montada pelo JS como "liberado P/ Nome | req X"
     obs_final = observacao
 
-    it.quantidade += qtd if tipo == 'entrada' else -qtd
+    it.quantidade = round(it.quantidade + qtd if tipo == 'entrada' else it.quantidade - qtd, 4)
     mov = Movimentacao(
         tipo=tipo, quantidade=qtd,
         responsavel=responsavel,
@@ -1518,7 +1531,7 @@ def mestre_requisicao_entregar(id):
         return redirect(url_for('mestre_requisicao_detalhe', id=id))
 
     for ri in req.itens:
-        ri.item.quantidade -= ri.quantidade
+        ri.item.quantidade = round(ri.item.quantidade - ri.quantidade, 4)
         db.session.add(Movimentacao(
             tipo='saida',
             quantidade=ri.quantidade,

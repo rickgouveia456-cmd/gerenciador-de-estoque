@@ -485,6 +485,8 @@
         <a href="/mestre/requisicoes" class="nav-link {% if request.endpoint in ('mestre_requisicoes','mestre_requisicao_detalhe','mestre_requisicao_editar','mestre_requisicao_nova') %}active{% endif %}">
             <i class="bi bi-clipboard-check me-2"></i> Req. dos Mestres
         </a>
+        {% endif %}
+        {% if usuario_atual and usuario_atual.perfil == 'admin' %}
         <a href="/colaboradores" class="nav-link {% if request.endpoint == 'colaboradores' %}active{% endif %}">
             <i class="bi bi-person-badge me-2"></i> Colaboradores
         </a>

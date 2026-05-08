@@ -482,10 +482,9 @@
 
         {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
         <span class="nav-section">Requisições</span>
-        <span class="nav-link text-muted" style="cursor:default;opacity:0.6">
+        <a href="/mestre/requisicoes" class="nav-link {% if request.endpoint in ('mestre_requisicoes','mestre_requisicao_detalhe','mestre_requisicao_editar','mestre_requisicao_nova') %}active{% endif %}">
             <i class="bi bi-clipboard-check me-2"></i> Req. dos Mestres
-            <span class="badge ms-1" style="background:#94a3b8;color:#fff;font-size:0.65rem">Em breve</span>
-        </span>
+        </a>
         {% endif %}
 
         <span class="nav-section">Almoxarifados</span>

@@ -1266,29 +1266,37 @@ def api_alertas():
 @app.route('/api/colaboradores')
 @login_required
 def api_colaboradores():
-    """Autocomplete de colaboradores — busca nomes já usados nas requisições anteriores."""
+    """Autocomplete — busca nomes do banco de colaboradores + histórico de requisições."""
     q = request.args.get('q', '').strip()
-    from sqlalchemy import text, union
     nomes = set()
+    like = f"%{q}%"
+    is_pg = 'postgresql' in str(db.engine.url)
+    ilike = 'ILIKE' if is_pg else 'LIKE'
 
-    # Busca em RequisicaoMestre
-    reqs_mestre = db.session.execute(
-        text("SELECT DISTINCT colaborador FROM requisicao_mestre WHERE colaborador ILIKE :q ORDER BY colaborador LIMIT 10")
-        if 'postgresql' in str(db.engine.url) else
-        text("SELECT DISTINCT colaborador FROM requisicao_mestre WHERE colaborador LIKE :q ORDER BY colaborador LIMIT 10"),
-        {"q": f"%{q}%"}
+    from sqlalchemy import text
+
+    # 1. Banco de colaboradores cadastrados
+    rows = db.session.execute(
+        text(f"SELECT nome FROM colaborador WHERE ativo = TRUE AND nome {ilike} :q ORDER BY nome LIMIT 10"),
+        {"q": like}
     ).fetchall()
-    for r in reqs_mestre:
+    for r in rows:
         nomes.add(r[0])
 
-    # Busca em Requisicao simples
-    reqs = db.session.execute(
-        text("SELECT DISTINCT colaborador FROM requisicao WHERE colaborador ILIKE :q ORDER BY colaborador LIMIT 10")
-        if 'postgresql' in str(db.engine.url) else
-        text("SELECT DISTINCT colaborador FROM requisicao WHERE colaborador LIKE :q ORDER BY colaborador LIMIT 10"),
-        {"q": f"%{q}%"}
+    # 2. Histórico de requisições do mestre
+    rows = db.session.execute(
+        text(f"SELECT DISTINCT colaborador FROM requisicao_mestre WHERE colaborador {ilike} :q ORDER BY colaborador LIMIT 10"),
+        {"q": like}
     ).fetchall()
-    for r in reqs:
+    for r in rows:
+        nomes.add(r[0])
+
+    # 3. Histórico de requisições simples
+    rows = db.session.execute(
+        text(f"SELECT DISTINCT colaborador FROM requisicao WHERE colaborador {ilike} :q ORDER BY colaborador LIMIT 10"),
+        {"q": like}
+    ).fetchall()
+    for r in rows:
         nomes.add(r[0])
 
     resultado = sorted(nomes)[:10]

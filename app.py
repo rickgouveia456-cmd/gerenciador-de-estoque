@@ -2112,27 +2112,22 @@ def seed_data():
         print('Altere a senha imediatamente após o primeiro login!')
         print('=' * 60)
 
-with app.app_context():
-    run_migrations()  # primeiro migra colunas existentes
-    db.create_all()   # depois cria tabelas novas se não existirem
-    seed_data()
-
-if __name__ == '__main__':
-    with app.app_context():
-        run_migrations()
-        db.create_all()
-        seed_data()
-    port = int(os.environ.get('PORT', 5000))
-    app.run(debug=False, host='0.0.0.0', port=port)
-
-# Inicialização para produção (gunicorn)
-with app.app_context():
+def inicializar_banco():
+    """Roda migrações, cria tabelas e seed — executado uma única vez."""
     try:
         run_migrations()
         db.create_all()
         seed_data()
     except Exception as e:
-        print(f'Inicialização: {e}')
+        print(f'Inicialização do banco: {e}')
+
+# Inicialização única — funciona tanto para gunicorn quanto para python app.py
+with app.app_context():
+    inicializar_banco()
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=False, host='0.0.0.0', port=port)
 
 # ── BACKUP AUTOMÁTICO DIÁRIO ─────────────────────────────────────────────────
 def job_backup_diario():

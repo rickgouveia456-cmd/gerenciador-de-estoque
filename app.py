@@ -253,56 +253,76 @@ def inject_sidebar():
     return dict(sidebar_alms=alms, usuario_atual=u)
 
 def run_migrations():
+    """Executa migrações de schema de forma segura usando SAVEPOINT no PostgreSQL."""
     try:
         from sqlalchemy import text
+        is_pg = 'postgresql' in str(db.engine.url)
+
+        def safe_exec(conn, sql):
+            """Executa um comando DDL isolado — usa SAVEPOINT no PG para não quebrar a transação."""
+            try:
+                if is_pg:
+                    conn.execute(text("SAVEPOINT mig"))
+                conn.execute(text(sql))
+                if is_pg:
+                    conn.execute(text("RELEASE SAVEPOINT mig"))
+                conn.commit()
+            except Exception:
+                if is_pg:
+                    try:
+                        conn.execute(text("ROLLBACK TO SAVEPOINT mig"))
+                        conn.execute(text("RELEASE SAVEPOINT mig"))
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        conn.rollback()
+                    except Exception:
+                        pass
+
         with db.engine.connect() as conn:
-            try:
-                conn.execute(text("ALTER TABLE item ADD COLUMN status_compra VARCHAR(30) DEFAULT 'pendente'"))
-                conn.commit()
-            except: pass
-            try:
-                conn.execute(text("ALTER TABLE item ADD COLUMN fixado BOOLEAN DEFAULT 0"))
-                conn.commit()
-            except: pass
-            try:
-                conn.execute(text("ALTER TABLE item ADD COLUMN ativo BOOLEAN DEFAULT 1"))
-                conn.commit()
-            except: pass
-            try:
-                conn.execute(text("ALTER TABLE item ALTER COLUMN nome TYPE VARCHAR(300)"))
-                conn.commit()
-            except: pass
-            try:
-                conn.execute(text("ALTER TABLE usuario ADD COLUMN senha_hash_new VARCHAR(256)"))
-                conn.commit()
-            except: pass
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS acesso_extra (
-                    id SERIAL PRIMARY KEY,
-                    usuario_id INTEGER NOT NULL REFERENCES usuario(id),
-                    almoxarifado_id INTEGER NOT NULL REFERENCES almoxarifado(id),
-                    motivo VARCHAR(200),
-                    data_inicio TIMESTAMP,
-                    data_fim TIMESTAMP,
-                    concedido_por VARCHAR(100)
-                )
-            """) if 'postgresql' in str(db.engine.url) else text("""
-                CREATE TABLE IF NOT EXISTS acesso_extra (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    usuario_id INTEGER NOT NULL REFERENCES usuario(id),
-                    almoxarifado_id INTEGER NOT NULL REFERENCES almoxarifado(id),
-                    motivo VARCHAR(200),
-                    data_inicio DATETIME,
-                    data_fim DATETIME,
-                    concedido_por VARCHAR(100)
-                )
-            """))
-            conn.commit()
-            # Tabelas do mestre
-            is_pg = 'postgresql' in str(db.engine.url)
             pk_type = 'SERIAL PRIMARY KEY' if is_pg else 'INTEGER PRIMARY KEY AUTOINCREMENT'
             dt_type = 'TIMESTAMP' if is_pg else 'DATETIME'
-            conn.execute(text(f"""
+
+            # ── Colunas em item ──────────────────────────────────────────────
+            safe_exec(conn, "ALTER TABLE item ADD COLUMN status_compra VARCHAR(30) DEFAULT 'pendente'")
+            safe_exec(conn, "ALTER TABLE item ADD COLUMN fixado BOOLEAN DEFAULT 0")
+            safe_exec(conn, "ALTER TABLE item ADD COLUMN ativo BOOLEAN DEFAULT 1")
+            if is_pg:
+                safe_exec(conn, "ALTER TABLE item ALTER COLUMN nome TYPE VARCHAR(300)")
+
+            # ── Coluna email em usuario (crítica — deve rodar cedo) ──────────
+            safe_exec(conn, "ALTER TABLE usuario ADD COLUMN email VARCHAR(120)")
+            safe_exec(conn, "ALTER TABLE usuario ADD COLUMN senha_hash_new VARCHAR(256)")
+
+            # ── Tabela acesso_extra ──────────────────────────────────────────
+            if is_pg:
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS acesso_extra (
+                        id SERIAL PRIMARY KEY,
+                        usuario_id INTEGER NOT NULL REFERENCES usuario(id),
+                        almoxarifado_id INTEGER NOT NULL REFERENCES almoxarifado(id),
+                        motivo VARCHAR(200),
+                        data_inicio TIMESTAMP,
+                        data_fim TIMESTAMP,
+                        concedido_por VARCHAR(100)
+                    )
+                """)
+            else:
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS acesso_extra (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        usuario_id INTEGER NOT NULL REFERENCES usuario(id),
+                        almoxarifado_id INTEGER NOT NULL REFERENCES almoxarifado(id),
+                        motivo VARCHAR(200),
+                        data_inicio DATETIME,
+                        data_fim DATETIME,
+                        concedido_por VARCHAR(100)
+                    )
+                """)
+
+            # ── Tabelas do mestre ────────────────────────────────────────────
+            safe_exec(conn, f"""
                 CREATE TABLE IF NOT EXISTS requisicao_mestre (
                     id {pk_type},
                     mestre_id INTEGER NOT NULL REFERENCES usuario(id),
@@ -315,9 +335,8 @@ def run_migrations():
                     entregue_por_id INTEGER REFERENCES usuario(id),
                     notificado BOOLEAN DEFAULT FALSE
                 )
-            """))
-            conn.commit()
-            conn.execute(text(f"""
+            """)
+            safe_exec(conn, f"""
                 CREATE TABLE IF NOT EXISTS requisicao_mestre_item (
                     id {pk_type},
                     requisicao_id INTEGER NOT NULL REFERENCES requisicao_mestre(id),
@@ -327,10 +346,8 @@ def run_migrations():
                     status_item VARCHAR(20) DEFAULT 'pendente',
                     motivo_recusa VARCHAR(200)
                 )
-            """))
-            conn.commit()
-            # Tabela de colaboradores
-            conn.execute(text(f"""
+            """)
+            safe_exec(conn, f"""
                 CREATE TABLE IF NOT EXISTS colaborador (
                     id {pk_type},
                     nome VARCHAR(100) NOT NULL,
@@ -338,28 +355,17 @@ def run_migrations():
                     ativo BOOLEAN DEFAULT TRUE,
                     data_cadastro {dt_type}
                 )
-            """))
-            conn.commit()
-            # Garantir colunas novas em tabelas já existentes (SQLite e PostgreSQL)
-            for col_sql in [
-                "ALTER TABLE requisicao_mestre ADD COLUMN notificado BOOLEAN DEFAULT FALSE",
-                "ALTER TABLE requisicao_mestre_item ADD COLUMN status_item VARCHAR(20) DEFAULT 'pendente'",
-                "ALTER TABLE requisicao_mestre_item ADD COLUMN motivo_recusa VARCHAR(200)",
-                "ALTER TABLE usuario ADD COLUMN email VARCHAR(120)",
-            ]:
-                try:
-                    conn.execute(text(col_sql))
-                    conn.commit()
-                except: pass
-            # Garantir que status_item existente tenha valor padrão
-            try:
-                conn.execute(text("UPDATE requisicao_mestre_item SET status_item = 'pendente' WHERE status_item IS NULL"))
-                conn.commit()
-            except: pass
-            try:
-                conn.execute(text("UPDATE requisicao_mestre SET notificado = FALSE WHERE notificado IS NULL"))
-                conn.commit()
-            except: pass
+            """)
+
+            # ── Colunas adicionais em tabelas existentes ─────────────────────
+            safe_exec(conn, "ALTER TABLE requisicao_mestre ADD COLUMN notificado BOOLEAN DEFAULT FALSE")
+            safe_exec(conn, "ALTER TABLE requisicao_mestre_item ADD COLUMN status_item VARCHAR(20) DEFAULT 'pendente'")
+            safe_exec(conn, "ALTER TABLE requisicao_mestre_item ADD COLUMN motivo_recusa VARCHAR(200)")
+
+            # ── Valores padrão para colunas que podem estar NULL ─────────────
+            safe_exec(conn, "UPDATE requisicao_mestre_item SET status_item = 'pendente' WHERE status_item IS NULL")
+            safe_exec(conn, "UPDATE requisicao_mestre SET notificado = FALSE WHERE notificado IS NULL")
+
     except Exception as e:
         print(f'Migração: {e}')
 

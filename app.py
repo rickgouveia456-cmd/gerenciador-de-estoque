@@ -129,6 +129,7 @@ class Usuario(db.Model):
     senha_hash = db.Column(db.String(256), nullable=False)
     perfil = db.Column(db.String(20), default='colaborador')  # admin | colaborador | mestre | almoxarife
     almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=True)
+    email = db.Column(db.String(120), nullable=True)
     ativo = db.Column(db.Boolean, default=True)
     almoxarifado = db.relationship('Almoxarifado', backref='usuarios')
     acessos_extras = db.relationship('AcessoExtra', backref='usuario', lazy=True, cascade='all, delete-orphan')
@@ -337,6 +338,7 @@ def run_migrations():
                 "ALTER TABLE requisicao_mestre ADD COLUMN notificado BOOLEAN DEFAULT FALSE",
                 "ALTER TABLE requisicao_mestre_item ADD COLUMN status_item VARCHAR(20) DEFAULT 'pendente'",
                 "ALTER TABLE requisicao_mestre_item ADD COLUMN motivo_recusa VARCHAR(200)",
+                "ALTER TABLE usuario ADD COLUMN email VARCHAR(120)",
             ]:
                 try:
                     conn.execute(text(col_sql))
@@ -1377,7 +1379,8 @@ def novo_usuario():
             nome=request.form['nome'],
             login=request.form['login'],
             perfil=request.form['perfil'],
-            almoxarifado_id=request.form.get('almoxarifado_id') or None
+            almoxarifado_id=request.form.get('almoxarifado_id') or None,
+            email=request.form.get('email', '').strip() or None
         )
         u.set_senha(request.form['senha'])
         db.session.add(u)
@@ -1396,6 +1399,7 @@ def editar_usuario(id):
         u.login = request.form['login']
         u.perfil = request.form['perfil']
         u.almoxarifado_id = request.form.get('almoxarifado_id') or None
+        u.email = request.form.get('email', '').strip() or None
         u.ativo = 'ativo' in request.form
         if request.form.get('senha'):
             u.set_senha(request.form['senha'])
@@ -1800,6 +1804,53 @@ def reativar_todos_itens():
 
 # ── BACKUP ───────────────────────────────────────────────────────────────────
 
+def gerar_excel_backup_almoxarifado(alm):
+    """Gera um Excel com apenas um almoxarifado (para envio ao almoxarife)."""
+    wb = openpyxl.Workbook()
+    h_fill = PatternFill('solid', fgColor='1A3A5C')
+    h_font = Font(bold=True, color='FFFFFF', size=11)
+    ok_fill  = PatternFill('solid', fgColor='D4EDDA')
+    al_fill  = PatternFill('solid', fgColor='FFF3CD')
+    cr_fill  = PatternFill('solid', fgColor='F8D7DA')
+    borda = Border(left=Side(style='thin'), right=Side(style='thin'),
+                   top=Side(style='thin'), bottom=Side(style='thin'))
+
+    itens = Item.query.filter_by(almoxarifado_id=alm.id).all()
+    ws = wb.active
+    ws.title = alm.nome[:31]
+
+    ws.merge_cells('A1:G1')
+    ws['A1'] = f'Backup — {alm.nome}'
+    ws['A1'].font = Font(bold=True, size=13, color='1A3A5C')
+    ws['A1'].alignment = Alignment(horizontal='center')
+    ws.merge_cells('A2:G2')
+    ws['A2'] = f'Gerado em: {datetime.now().strftime("%d/%m/%Y %H:%M")}'
+    ws['A2'].font = Font(italic=True, color='888888')
+    ws['A2'].alignment = Alignment(horizontal='center')
+
+    headers = ['Codigo', 'Item', 'Unidade', 'Qtd. Atual', 'Est. Minimo', 'Status', 'Ativo']
+    for col, h in enumerate(headers, 1):
+        c = ws.cell(row=4, column=col, value=h)
+        c.font = h_font; c.fill = h_fill
+        c.alignment = Alignment(horizontal='center'); c.border = borda
+
+    for r, it in enumerate(itens, 5):
+        status = 'ZERADO' if it.status == 'critico' else ('ABAIXO DO MINIMO' if it.status == 'alerta' else 'OK')
+        fill = cr_fill if it.status == 'critico' else (al_fill if it.status == 'alerta' else ok_fill)
+        for c, v in enumerate([it.codigo, it.nome, it.unidade, it.quantidade,
+                                it.estoque_minimo, status, 'Sim' if it.ativo else 'Não'], 1):
+            cell = ws.cell(row=r, column=c, value=v)
+            cell.fill = fill; cell.border = borda
+            cell.alignment = Alignment(horizontal='left' if c == 2 else 'center')
+
+    for i, w in enumerate([14, 40, 10, 12, 14, 20, 8], 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf
+
 def gerar_excel_backup():
     """Gera um Excel completo com todos os almoxarifados como backup."""
     wb = openpyxl.Workbook()
@@ -1855,7 +1906,7 @@ def gerar_excel_backup():
     return buf
 
 def enviar_backup_email(buf):
-    """Envia o arquivo de backup por email."""
+    """Envia o backup completo por email (para admin ou destinatário fixo)."""
     import smtplib
     from email.mime.multipart import MIMEMultipart
     from email.mime.base import MIMEBase
@@ -1901,6 +1952,123 @@ def enviar_backup_email(buf):
         print(f'BACKUP: erro ao enviar email — {e}')
         return False
 
+
+def _smtp_connect():
+    """Retorna conexão SMTP autenticada ou None se não configurado."""
+    import smtplib
+    remetente = os.environ.get('BACKUP_EMAIL_FROM')
+    senha     = os.environ.get('BACKUP_EMAIL_PASS')
+    if not remetente or not senha:
+        return None, None, None
+    smtp = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+    smtp.login(remetente, senha)
+    return smtp, remetente, senha
+
+
+def enviar_backup_por_almoxarifado():
+    """Envia backup individual para cada almoxarife com email cadastrado,
+    e o backup completo para admins com email cadastrado e para o destinatário fixo."""
+    import smtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.base import MIMEBase
+    from email.mime.text import MIMEText
+    from email import encoders
+
+    remetente = os.environ.get('BACKUP_EMAIL_FROM')
+    senha_smtp = os.environ.get('BACKUP_EMAIL_PASS')
+    destinatario_fixo = os.environ.get('BACKUP_EMAIL_TO', 'rickgouveia17@gmail.com')
+
+    if not remetente or not senha_smtp:
+        print('BACKUP: variáveis BACKUP_EMAIL_FROM e BACKUP_EMAIL_PASS não configuradas.')
+        return False
+
+    hoje = date.today().strftime('%d/%m/%Y')
+    enviados = 0
+    erros = 0
+
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+            smtp.login(remetente, senha_smtp)
+
+            # 1. Envia backup individual para cada almoxarife com email
+            almoxarifados = Almoxarifado.query.all()
+            for alm in almoxarifados:
+                destinatarios_alm = [
+                    u.email for u in alm.usuarios
+                    if u.perfil == 'almoxarife' and u.ativo and u.email
+                ]
+                if not destinatarios_alm:
+                    continue
+
+                buf_alm = gerar_excel_backup_almoxarifado(alm)
+
+                msg = MIMEMultipart()
+                msg['From'] = remetente
+                msg['To'] = ', '.join(destinatarios_alm)
+                msg['Subject'] = f'Backup {alm.nome} — {hoje}'
+                corpo = (
+                    f'Backup automático do almoxarifado: {alm.nome}\n'
+                    f'Data: {datetime.now().strftime("%d/%m/%Y %H:%M")}\n\n'
+                    f'Este arquivo contém o estoque atual do seu almoxarifado.\n'
+                    f'Guarde em local seguro.'
+                )
+                msg.attach(MIMEText(corpo, 'plain'))
+                part = MIMEBase('application', 'octet-stream')
+                part.set_payload(buf_alm.read())
+                encoders.encode_base64(part)
+                nome_arquivo = f"backup_{alm.nome.replace(' ', '_')}_{date.today()}.xlsx"
+                part.add_header('Content-Disposition', f'attachment; filename="{nome_arquivo}"')
+                msg.attach(part)
+
+                try:
+                    smtp.send_message(msg)
+                    print(f'BACKUP: enviado para almoxarife(s) de "{alm.nome}": {destinatarios_alm}')
+                    enviados += 1
+                except Exception as e:
+                    print(f'BACKUP: erro ao enviar para "{alm.nome}" — {e}')
+                    erros += 1
+
+            # 2. Envia backup completo para admins com email
+            admins_emails = [
+                u.email for u in Usuario.query.filter_by(perfil='admin', ativo=True).all()
+                if u.email
+            ]
+            # Inclui o destinatário fixo se não estiver na lista
+            todos_admins = list(set(admins_emails + [destinatario_fixo]))
+
+            buf_completo = gerar_excel_backup()
+            msg_admin = MIMEMultipart()
+            msg_admin['From'] = remetente
+            msg_admin['To'] = ', '.join(todos_admins)
+            msg_admin['Subject'] = f'Backup Completo Estoque — {hoje}'
+            corpo_admin = (
+                f'Backup automático completo do sistema de estoque.\n'
+                f'Data: {datetime.now().strftime("%d/%m/%Y %H:%M")}\n\n'
+                f'Este arquivo contém todos os almoxarifados.\n'
+                f'Guarde em local seguro.'
+            )
+            msg_admin.attach(MIMEText(corpo_admin, 'plain'))
+            part_admin = MIMEBase('application', 'octet-stream')
+            part_admin.set_payload(buf_completo.read())
+            encoders.encode_base64(part_admin)
+            part_admin.add_header('Content-Disposition',
+                                  f'attachment; filename="backup_completo_{date.today()}.xlsx"')
+            msg_admin.attach(part_admin)
+
+            try:
+                smtp.send_message(msg_admin)
+                print(f'BACKUP: backup completo enviado para admins: {todos_admins}')
+                enviados += 1
+            except Exception as e:
+                print(f'BACKUP: erro ao enviar backup completo — {e}')
+                erros += 1
+
+    except Exception as e:
+        print(f'BACKUP: erro de conexão SMTP — {e}')
+        return False
+
+    return erros == 0
+
 @app.route('/admin/backup', methods=['GET', 'POST'])
 @admin_required
 def backup_manual():
@@ -1910,9 +2078,9 @@ def backup_manual():
         buf = gerar_excel_backup()
 
         if acao == 'email':
-            ok = enviar_backup_email(buf)
+            ok = enviar_backup_por_almoxarifado()
             if ok:
-                flash('✅ Backup enviado por email com sucesso!', 'success')
+                flash('✅ Backup enviado por email com sucesso! Admins receberam o backup completo e cada almoxarife recebeu o seu.', 'success')
             else:
                 flash('❌ Erro ao enviar email. Verifique as configurações BACKUP_EMAIL_FROM e BACKUP_EMAIL_PASS no Railway.', 'danger')
             return redirect(url_for('backup_manual'))
@@ -1972,10 +2140,9 @@ def job_backup_diario():
     print(f'BACKUP AUTOMÁTICO: iniciando às {datetime.now().strftime("%d/%m/%Y %H:%M")}')
     with app.app_context():
         try:
-            buf = gerar_excel_backup()
-            ok = enviar_backup_email(buf)
+            ok = enviar_backup_por_almoxarifado()
             if ok:
-                print('BACKUP AUTOMÁTICO: enviado com sucesso!')
+                print('BACKUP AUTOMÁTICO: enviado com sucesso! Admins receberam backup completo, almoxarifes receberam o seu.')
             else:
                 print('BACKUP AUTOMÁTICO: falha no envio do email.')
         except Exception as e:

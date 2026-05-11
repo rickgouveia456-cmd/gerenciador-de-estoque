@@ -29,6 +29,12 @@
                                    {% if not usuario %}required{% endif %}
                                    placeholder="Senha de acesso">
                         </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Email <span class="text-muted small">(para receber backup)</span></label>
+                            <input type="email" name="email" class="form-control"
+                                   value="{{ usuario.email if usuario and usuario.email else '' }}"
+                                   placeholder="email@exemplo.com">
+                        </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Perfil *</label>
                             <select name="perfil" class="form-select" required id="selectPerfil"

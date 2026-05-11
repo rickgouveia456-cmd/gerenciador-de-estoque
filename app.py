@@ -1923,7 +1923,7 @@ def backup_manual():
                          mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
     # GET — mostra a página
-    email_configurado = bool(os.environ.get('BACKUP_EMAIL_FROM'))
+    email_configurado = bool(os.environ.get('BACKUP_EMAIL_FROM', '').strip())
     return render_template('backup.html', email_configurado=email_configurado)
 
 def seed_data():

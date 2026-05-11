@@ -20,11 +20,18 @@ def agora():
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
-app.config['SQLALCHEMY_DATABASE_URI'] = (
+
+# Railway fornece DATABASE_URL com prefixo "postgres://" (formato antigo),
+# mas o SQLAlchemy 1.4+ exige "postgresql://". Corrige automaticamente.
+_db_url = (
     os.environ.get('DATABASE_URL') or
     os.environ.get('URI_DO_BANCO_DE_DADOS') or
     f'sqlite:///{os.path.join(os.path.dirname(os.path.abspath(__file__)), "instance", "estoque.db")}'
 )
+if _db_url.startswith('postgres://'):
+    _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)

@@ -1798,6 +1798,134 @@ def reativar_todos_itens():
     </html>
     '''
 
+# ── BACKUP ───────────────────────────────────────────────────────────────────
+
+def gerar_excel_backup():
+    """Gera um Excel completo com todos os almoxarifados como backup."""
+    wb = openpyxl.Workbook()
+    h_fill = PatternFill('solid', fgColor='1A3A5C')
+    h_font = Font(bold=True, color='FFFFFF', size=11)
+    ok_fill  = PatternFill('solid', fgColor='D4EDDA')
+    al_fill  = PatternFill('solid', fgColor='FFF3CD')
+    cr_fill  = PatternFill('solid', fgColor='F8D7DA')
+    borda = Border(left=Side(style='thin'), right=Side(style='thin'),
+                   top=Side(style='thin'), bottom=Side(style='thin'))
+
+    almoxarifados = Almoxarifado.query.all()
+    primeira = True
+
+    for alm in almoxarifados:
+        itens = Item.query.filter_by(almoxarifado_id=alm.id).all()
+        ws = wb.active if primeira else wb.create_sheet()
+        primeira = False
+        ws.title = alm.nome[:31]  # Excel limita 31 chars no nome da aba
+
+        # Título
+        ws.merge_cells('A1:G1')
+        ws['A1'] = f'Backup — {alm.nome}'
+        ws['A1'].font = Font(bold=True, size=13, color='1A3A5C')
+        ws['A1'].alignment = Alignment(horizontal='center')
+        ws.merge_cells('A2:G2')
+        ws['A2'] = f'Gerado em: {datetime.now().strftime("%d/%m/%Y %H:%M")}'
+        ws['A2'].font = Font(italic=True, color='888888')
+        ws['A2'].alignment = Alignment(horizontal='center')
+
+        # Cabeçalho
+        headers = ['Codigo', 'Item', 'Unidade', 'Qtd. Atual', 'Est. Minimo', 'Status', 'Ativo']
+        for col, h in enumerate(headers, 1):
+            c = ws.cell(row=4, column=col, value=h)
+            c.font = h_font; c.fill = h_fill
+            c.alignment = Alignment(horizontal='center'); c.border = borda
+
+        for r, it in enumerate(itens, 5):
+            status = 'ZERADO' if it.status == 'critico' else ('ABAIXO DO MINIMO' if it.status == 'alerta' else 'OK')
+            fill = cr_fill if it.status == 'critico' else (al_fill if it.status == 'alerta' else ok_fill)
+            for c, v in enumerate([it.codigo, it.nome, it.unidade, it.quantidade,
+                                    it.estoque_minimo, status, 'Sim' if it.ativo else 'Não'], 1):
+                cell = ws.cell(row=r, column=c, value=v)
+                cell.fill = fill; cell.border = borda
+                cell.alignment = Alignment(horizontal='left' if c == 2 else 'center')
+
+        for i, w in enumerate([14, 40, 10, 12, 14, 20, 8], 1):
+            ws.column_dimensions[get_column_letter(i)].width = w
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf
+
+def enviar_backup_email(buf):
+    """Envia o arquivo de backup por email."""
+    import smtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.base import MIMEBase
+    from email.mime.text import MIMEText
+    from email import encoders
+
+    remetente = os.environ.get('BACKUP_EMAIL_FROM')
+    senha     = os.environ.get('BACKUP_EMAIL_PASS')
+    destinatario = os.environ.get('BACKUP_EMAIL_TO', 'rickgouveia17@gmail.com')
+
+    if not remetente or not senha:
+        print('BACKUP: variáveis BACKUP_EMAIL_FROM e BACKUP_EMAIL_PASS não configuradas.')
+        return False
+
+    msg = MIMEMultipart()
+    msg['From'] = remetente
+    msg['To'] = destinatario
+    msg['Subject'] = f'Backup Estoque Obra Patamares — {date.today().strftime("%d/%m/%Y")}'
+
+    corpo = f"""
+    Backup automático do sistema de estoque.
+    Data: {datetime.now().strftime("%d/%m/%Y %H:%M")}
+    
+    Este arquivo contém todos os dados de estoque de todos os almoxarifados.
+    Guarde em local seguro.
+    """
+    msg.attach(MIMEText(corpo, 'plain'))
+
+    part = MIMEBase('application', 'octet-stream')
+    part.set_payload(buf.read())
+    encoders.encode_base64(part)
+    part.add_header('Content-Disposition',
+                    f'attachment; filename="backup_estoque_{date.today()}.xlsx"')
+    msg.attach(part)
+
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+            smtp.login(remetente, senha)
+            smtp.send_message(msg)
+        print(f'BACKUP: enviado para {destinatario}')
+        return True
+    except Exception as e:
+        print(f'BACKUP: erro ao enviar email — {e}')
+        return False
+
+@app.route('/admin/backup', methods=['GET', 'POST'])
+@admin_required
+def backup_manual():
+    """Admin faz backup manual — baixa Excel ou envia por email."""
+    if request.method == 'POST':
+        acao = request.form.get('acao', 'download')
+        buf = gerar_excel_backup()
+
+        if acao == 'email':
+            ok = enviar_backup_email(buf)
+            if ok:
+                flash('✅ Backup enviado por email com sucesso!', 'success')
+            else:
+                flash('❌ Erro ao enviar email. Verifique as configurações BACKUP_EMAIL_FROM e BACKUP_EMAIL_PASS no Railway.', 'danger')
+            return redirect(url_for('backup_manual'))
+
+        # Download direto
+        nome = f"backup_estoque_{date.today()}.xlsx"
+        return send_file(buf, as_attachment=True, download_name=nome,
+                         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+    # GET — mostra a página
+    email_configurado = bool(os.environ.get('BACKUP_EMAIL_FROM'))
+    return render_template('backup.html', email_configurado=email_configurado)
+
 def seed_data():
     if Almoxarifado.query.count() == 0:
         db.session.add_all([

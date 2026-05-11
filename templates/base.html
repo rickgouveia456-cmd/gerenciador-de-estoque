@@ -520,6 +520,9 @@
         <a href="/usuarios" class="nav-link {% if request.endpoint == 'usuarios' %}active{% endif %}">
             <i class="bi bi-people me-2"></i> Usuários
         </a>
+        <a href="/admin/backup" class="nav-link {% if request.endpoint == 'backup_manual' %}active{% endif %}">
+            <i class="bi bi-cloud-download me-2"></i> Backup
+        </a>
         {% endif %}
         {% endif %}
     </nav>

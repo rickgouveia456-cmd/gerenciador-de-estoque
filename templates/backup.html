@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block title %}Backup do Sistema{% endblock %}
+{% block page_title %}Backup do Sistema{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-md-6">
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header fw-bold text-white" style="background:var(--accent)">
+                <i class="bi bi-cloud-download me-2"></i>Backup Manual
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-4">
+                    Gera um arquivo Excel completo com todos os almoxarifados e itens.
+                    Salve em local seguro (OneDrive, Google Drive, etc).
+                </p>
+
+                <!-- Download direto -->
+                <form method="POST" class="mb-3">
+                    <input type="hidden" name="acao" value="download">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-file-earmark-excel me-2"></i>
+                        Baixar Backup Excel Agora
+                    </button>
+                </form>
+
+                <!-- Enviar por email -->
+                <form method="POST">
+                    <input type="hidden" name="acao" value="email">
+                    <button type="submit" class="btn btn-outline-secondary w-100"
+                            {% if not email_configurado %}disabled title="Configure as variáveis de email no Railway"{% endif %}>
+                        <i class="bi bi-envelope me-2"></i>
+                        Enviar por Email
+                        {% if not email_configurado %}
+                        <span class="badge bg-warning text-dark ms-1">Não configurado</span>
+                        {% endif %}
+                    </button>
+                </form>
+
+                {% if not email_configurado %}
+                <div class="alert alert-warning mt-3 small">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Para ativar o envio por email, configure as variáveis
+                    <code>BACKUP_EMAIL_FROM</code> e <code>BACKUP_EMAIL_PASS</code>
+                    no painel do Railway.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-header fw-bold" style="background:#f8f9fa">
+                <i class="bi bi-shield-check me-2 text-success"></i>Boas Práticas
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0 small text-muted">
+                    <li class="mb-2">📅 <strong>Faça backup toda semana</strong> — especialmente após grandes movimentações</li>
+                    <li class="mb-2">☁️ <strong>Salve na nuvem</strong> — OneDrive, Google Drive ou similar</li>
+                    <li class="mb-2">📧 <strong>Configure o email</strong> — para receber automaticamente</li>
+                    <li>🗂️ <strong>Mantenha histórico</strong> — não sobrescreva backups antigos</li>
+                </ul>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

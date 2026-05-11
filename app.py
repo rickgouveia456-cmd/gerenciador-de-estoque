@@ -1965,3 +1965,34 @@ with app.app_context():
         seed_data()
     except Exception as e:
         print(f'Inicialização: {e}')
+
+# ── BACKUP AUTOMÁTICO DIÁRIO ─────────────────────────────────────────────────
+def job_backup_diario():
+    """Executa o backup automático todo dia às 20h (horário de Brasília)."""
+    print(f'BACKUP AUTOMÁTICO: iniciando às {datetime.now().strftime("%d/%m/%Y %H:%M")}')
+    with app.app_context():
+        try:
+            buf = gerar_excel_backup()
+            ok = enviar_backup_email(buf)
+            if ok:
+                print('BACKUP AUTOMÁTICO: enviado com sucesso!')
+            else:
+                print('BACKUP AUTOMÁTICO: falha no envio do email.')
+        except Exception as e:
+            print(f'BACKUP AUTOMÁTICO: erro — {e}')
+
+try:
+    from apscheduler.schedulers.background import BackgroundScheduler
+    from apscheduler.triggers.cron import CronTrigger
+
+    scheduler = BackgroundScheduler(timezone='America/Bahia')
+    scheduler.add_job(
+        job_backup_diario,
+        CronTrigger(hour=20, minute=0),  # Todo dia às 20:00 horário de Brasília
+        id='backup_diario',
+        replace_existing=True
+    )
+    scheduler.start()
+    print('BACKUP AUTOMÁTICO: agendado para todo dia às 20:00 (horário de Brasília)')
+except Exception as e:
+    print(f'BACKUP AUTOMÁTICO: erro ao iniciar agendador — {e}')

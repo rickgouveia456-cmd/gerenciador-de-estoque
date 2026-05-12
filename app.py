@@ -1999,6 +1999,9 @@ def enviar_backup_por_almoxarifado():
     enviados = 0
     erros = 0
 
+    # Remove espaços da senha (senhas de app do Gmail às vezes são copiadas com espaços)
+    senha_smtp = senha_smtp.replace(' ', '')
+
     try:
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
             smtp.login(remetente, senha_smtp)
@@ -2078,9 +2081,9 @@ def enviar_backup_por_almoxarifado():
 
     except Exception as e:
         print(f'BACKUP: erro de conexão SMTP — {e}')
-        return False
+        return False, str(e)
 
-    return erros == 0
+    return erros == 0, None
 
 @app.route('/admin/backup', methods=['GET', 'POST'])
 @admin_required
@@ -2091,11 +2094,12 @@ def backup_manual():
         buf = gerar_excel_backup()
 
         if acao == 'email':
-            ok = enviar_backup_por_almoxarifado()
+            ok, erro_msg = enviar_backup_por_almoxarifado()
             if ok:
                 flash('✅ Backup enviado por email com sucesso! Admins receberam o backup completo e cada almoxarife recebeu o seu.', 'success')
             else:
-                flash('❌ Erro ao enviar email. Verifique as configurações BACKUP_EMAIL_FROM e BACKUP_EMAIL_PASS no Railway.', 'danger')
+                detalhe = f' Detalhe: {erro_msg}' if erro_msg else ' Verifique as configurações BACKUP_EMAIL_FROM e BACKUP_EMAIL_PASS no Railway.'
+                flash(f'❌ Erro ao enviar email.{detalhe}', 'danger')
             return redirect(url_for('backup_manual'))
 
         # Download direto
@@ -2160,11 +2164,11 @@ def job_backup_diario():
             print(f'BACKUP AUTOMÁTICO: admins com email = {[u.email for u in admins]}')
             print(f'BACKUP AUTOMÁTICO: almoxarifes com email = {[u.email for u in almoxarifes]}')
 
-            ok = enviar_backup_por_almoxarifado()
+            ok, erro_msg = enviar_backup_por_almoxarifado()
             if ok:
                 print('BACKUP AUTOMÁTICO: ✅ enviado com sucesso!')
             else:
-                print('BACKUP AUTOMÁTICO: ❌ falha no envio. Verifique BACKUP_EMAIL_FROM e BACKUP_EMAIL_PASS no Railway.')
+                print(f'BACKUP AUTOMÁTICO: ❌ falha no envio. Detalhe: {erro_msg}')
         except Exception as e:
             print(f'BACKUP AUTOMÁTICO: erro — {e}')
 

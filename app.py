@@ -2138,21 +2138,33 @@ def inicializar_banco():
 with app.app_context():
     inicializar_banco()
 
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(debug=False, host='0.0.0.0', port=port)
-
 # ── BACKUP AUTOMÁTICO DIÁRIO ─────────────────────────────────────────────────
 def job_backup_diario():
     """Executa o backup automático todo dia às 20h (horário de Brasília)."""
-    print(f'BACKUP AUTOMÁTICO: iniciando às {datetime.now().strftime("%d/%m/%Y %H:%M")}')
+    agora_str = datetime.now().strftime("%d/%m/%Y %H:%M")
+    print(f'BACKUP AUTOMÁTICO: iniciando às {agora_str}')
+
+    # Diagnóstico das variáveis de ambiente
+    remetente = os.environ.get('BACKUP_EMAIL_FROM', '')
+    senha = os.environ.get('BACKUP_EMAIL_PASS', '')
+    destino_fixo = os.environ.get('BACKUP_EMAIL_TO', 'rickgouveia17@gmail.com')
+    print(f'BACKUP AUTOMÁTICO: remetente configurado = {"SIM (" + remetente + ")" if remetente else "NÃO — BACKUP_EMAIL_FROM não definido"}')
+    print(f'BACKUP AUTOMÁTICO: senha configurada = {"SIM" if senha else "NÃO — BACKUP_EMAIL_PASS não definido"}')
+    print(f'BACKUP AUTOMÁTICO: destino fixo = {destino_fixo}')
+
     with app.app_context():
         try:
+            # Log dos emails cadastrados
+            admins = [u for u in Usuario.query.filter_by(perfil='admin', ativo=True).all() if u.email]
+            almoxarifes = [u for u in Usuario.query.filter_by(perfil='almoxarife', ativo=True).all() if u.email]
+            print(f'BACKUP AUTOMÁTICO: admins com email = {[u.email for u in admins]}')
+            print(f'BACKUP AUTOMÁTICO: almoxarifes com email = {[u.email for u in almoxarifes]}')
+
             ok = enviar_backup_por_almoxarifado()
             if ok:
-                print('BACKUP AUTOMÁTICO: enviado com sucesso! Admins receberam backup completo, almoxarifes receberam o seu.')
+                print('BACKUP AUTOMÁTICO: ✅ enviado com sucesso!')
             else:
-                print('BACKUP AUTOMÁTICO: falha no envio do email.')
+                print('BACKUP AUTOMÁTICO: ❌ falha no envio. Verifique BACKUP_EMAIL_FROM e BACKUP_EMAIL_PASS no Railway.')
         except Exception as e:
             print(f'BACKUP AUTOMÁTICO: erro — {e}')
 
@@ -2160,14 +2172,20 @@ try:
     from apscheduler.schedulers.background import BackgroundScheduler
     from apscheduler.triggers.cron import CronTrigger
 
-    scheduler = BackgroundScheduler(timezone='America/Bahia')
+    # America/Sao_Paulo = UTC-3 (Brasília). Usar este em vez de America/Bahia
+    # para garantir compatibilidade com o horário de verão.
+    scheduler = BackgroundScheduler(timezone='America/Sao_Paulo')
     scheduler.add_job(
         job_backup_diario,
-        CronTrigger(hour=20, minute=0),  # Todo dia às 20:00 horário de Brasília
+        CronTrigger(hour=20, minute=0, timezone='America/Sao_Paulo'),
         id='backup_diario',
         replace_existing=True
     )
     scheduler.start()
-    print('BACKUP AUTOMÁTICO: agendado para todo dia às 20:00 (horário de Brasília)')
+    print('BACKUP AUTOMÁTICO: ✅ agendado para todo dia às 20:00 (horário de Brasília/São Paulo)')
 except Exception as e:
-    print(f'BACKUP AUTOMÁTICO: erro ao iniciar agendador — {e}')
+    print(f'BACKUP AUTOMÁTICO: ❌ erro ao iniciar agendador — {e}')
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=False, host='0.0.0.0', port=port)

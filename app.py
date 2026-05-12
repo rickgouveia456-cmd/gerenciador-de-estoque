@@ -11,6 +11,16 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
+# ── DIAGNÓSTICO DE VARIÁVEIS DE AMBIENTE (remover após resolver) ─────────────
+print('=' * 60)
+print('DIAGNÓSTICO DE VARIÁVEIS DE AMBIENTE:')
+print(f'  BACKUP_EMAIL_FROM = {os.environ.get("BACKUP_EMAIL_FROM", "NÃO DEFINIDO")}')
+_pass = os.environ.get("BACKUP_EMAIL_PASS", "")
+print(f'  BACKUP_EMAIL_PASS = {"SIM (" + _pass[:3] + "***)" if _pass else "NÃO DEFINIDO"}')
+print(f'  BACKUP_EMAIL_TO   = {os.environ.get("BACKUP_EMAIL_TO", "NÃO DEFINIDO")}')
+print(f'  DATABASE_URL      = {"SIM" if os.environ.get("DATABASE_URL") else "NÃO DEFINIDO"}')
+print('=' * 60)
+
 # Fuso horário de Brasília (UTC-3)
 TZ_BRASILIA = timezone(timedelta(hours=-3))
 

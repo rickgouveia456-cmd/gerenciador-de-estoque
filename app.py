@@ -1993,7 +1993,7 @@ def enviar_backup_por_almoxarifado():
 
     if not remetente or not senha_smtp:
         print('BACKUP: variáveis BACKUP_EMAIL_FROM e BACKUP_EMAIL_PASS não configuradas.')
-        return False
+        return False, 'Variáveis BACKUP_EMAIL_FROM e BACKUP_EMAIL_PASS não configuradas no Railway.'
 
     hoje = date.today().strftime('%d/%m/%Y')
     enviados = 0

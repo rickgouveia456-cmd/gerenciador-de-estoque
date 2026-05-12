@@ -2155,6 +2155,32 @@ def backup_manual():
     email_configurado = bool(os.environ.get('BACKUP_EMAIL_FROM', '').strip())
     return render_template('backup.html', email_configurado=email_configurado)
 
+@app.route('/api/backup-automatico', methods=['GET'])
+def api_backup_automatico():
+    """API pública para backup automático via cron job externo.
+    Acesse: https://seu-site.railway.app/api/backup-automatico
+    """
+    try:
+        ok, erro_msg = enviar_backup_por_almoxarifado()
+        if ok:
+            return jsonify({
+                'success': True,
+                'message': 'Backup enviado com sucesso!',
+                'timestamp': datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'message': f'Erro ao enviar backup: {erro_msg}',
+                'timestamp': datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+            }), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Erro inesperado: {str(e)}',
+            'timestamp': datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+        }), 500
+
 def seed_data():
     if Almoxarifado.query.count() == 0:
         db.session.add_all([

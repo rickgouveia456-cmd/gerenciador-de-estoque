@@ -11,7 +11,16 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
-# ── DIAGNÓSTICO DE VARIÁVEIS DE AMBIENTE (remover após resolver) ─────────────
+# ── CARREGA VARIÁVEIS DE AMBIENTE (com fallback para valores padrão) ─────────
+# Se as variáveis não estiverem definidas no Railway, usa valores padrão
+if not os.environ.get('BACKUP_EMAIL_FROM'):
+    os.environ['BACKUP_EMAIL_FROM'] = 'rickgouveia157@gmail.com'
+if not os.environ.get('BACKUP_EMAIL_PASS'):
+    os.environ['BACKUP_EMAIL_PASS'] = 'bzesuxmiqaupvnly'
+if not os.environ.get('BACKUP_EMAIL_TO'):
+    os.environ['BACKUP_EMAIL_TO'] = 'rickgouveia157@gmail.com'
+
+# ── DIAGNÓSTICO DE VARIÁVEIS DE AMBIENTE ─────────────────────────────────────
 print('=' * 60)
 print('DIAGNÓSTICO DE VARIÁVEIS DE AMBIENTE:')
 print(f'  BACKUP_EMAIL_FROM = {os.environ.get("BACKUP_EMAIL_FROM", "NÃO DEFINIDO")}')

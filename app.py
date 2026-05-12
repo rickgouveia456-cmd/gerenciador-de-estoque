@@ -2085,6 +2085,24 @@ def enviar_backup_por_almoxarifado():
 
     return erros == 0, None
 
+@app.route('/admin/debug-env')
+@admin_required
+def debug_env():
+    """Rota temporária de diagnóstico — remove após resolver o problema."""
+    from_val = os.environ.get('BACKUP_EMAIL_FROM', 'NÃO DEFINIDO')
+    pass_val = os.environ.get('BACKUP_EMAIL_PASS', 'NÃO DEFINIDO')
+    to_val   = os.environ.get('BACKUP_EMAIL_TO',   'NÃO DEFINIDO')
+    # Mostra apenas primeiros/últimos chars para não expor a senha
+    pass_preview = (pass_val[:3] + '***' + pass_val[-3:]) if len(pass_val) > 6 else pass_val
+    return f"""
+    <pre>
+    BACKUP_EMAIL_FROM = {from_val}
+    BACKUP_EMAIL_PASS = {pass_preview}
+    BACKUP_EMAIL_TO   = {to_val}
+    Todas as env vars: {[k for k in os.environ.keys() if 'BACKUP' in k]}
+    </pre>
+    """
+
 @app.route('/admin/backup', methods=['GET', 'POST'])
 @admin_required
 def backup_manual():

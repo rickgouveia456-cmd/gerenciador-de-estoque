@@ -2091,21 +2091,28 @@ def backup_manual():
     """Admin faz backup manual — baixa Excel ou envia por email."""
     if request.method == 'POST':
         acao = request.form.get('acao', 'download')
-        buf = gerar_excel_backup()
 
         if acao == 'email':
-            ok, erro_msg = enviar_backup_por_almoxarifado()
-            if ok:
-                flash('✅ Backup enviado por email com sucesso! Admins receberam o backup completo e cada almoxarife recebeu o seu.', 'success')
-            else:
-                detalhe = f' Detalhe: {erro_msg}' if erro_msg else ' Verifique as configurações BACKUP_EMAIL_FROM e BACKUP_EMAIL_PASS no Railway.'
-                flash(f'❌ Erro ao enviar email.{detalhe}', 'danger')
+            try:
+                ok, erro_msg = enviar_backup_por_almoxarifado()
+                if ok:
+                    flash('✅ Backup enviado por email com sucesso! Admins receberam o backup completo e cada almoxarife recebeu o seu.', 'success')
+                else:
+                    detalhe = f' Detalhe: {erro_msg}' if erro_msg else ' Verifique as configurações BACKUP_EMAIL_FROM e BACKUP_EMAIL_PASS no Railway.'
+                    flash(f'❌ Erro ao enviar email.{detalhe}', 'danger')
+            except Exception as e:
+                flash(f'❌ Erro inesperado ao enviar email: {str(e)}', 'danger')
             return redirect(url_for('backup_manual'))
 
         # Download direto
-        nome = f"backup_estoque_{date.today()}.xlsx"
-        return send_file(buf, as_attachment=True, download_name=nome,
-                         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        try:
+            buf = gerar_excel_backup()
+            nome = f"backup_estoque_{date.today()}.xlsx"
+            return send_file(buf, as_attachment=True, download_name=nome,
+                             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        except Exception as e:
+            flash(f'❌ Erro ao gerar backup: {str(e)}', 'danger')
+            return redirect(url_for('backup_manual'))
 
     # GET — mostra a página
     email_configurado = bool(os.environ.get('BACKUP_EMAIL_FROM', '').strip())

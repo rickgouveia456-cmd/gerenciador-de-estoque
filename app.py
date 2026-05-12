@@ -2159,27 +2159,34 @@ def backup_manual():
 def api_backup_automatico():
     """API pública para backup automático via cron job externo.
     Acesse: https://seu-site.railway.app/api/backup-automatico
+    
+    Executa o backup em background e retorna imediatamente.
     """
-    try:
-        ok, erro_msg = enviar_backup_por_almoxarifado()
-        if ok:
-            return jsonify({
-                'success': True,
-                'message': 'Backup enviado com sucesso!',
-                'timestamp': datetime.now().strftime('%d/%m/%Y %H:%M:%S')
-            }), 200
-        else:
-            return jsonify({
-                'success': False,
-                'message': f'Erro ao enviar backup: {erro_msg}',
-                'timestamp': datetime.now().strftime('%d/%m/%Y %H:%M:%S')
-            }), 500
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'Erro inesperado: {str(e)}',
-            'timestamp': datetime.now().strftime('%d/%m/%Y %H:%M:%S')
-        }), 500
+    import threading
+    
+    def executar_backup_background():
+        """Executa o backup em uma thread separada."""
+        with app.app_context():
+            try:
+                ok, erro_msg = enviar_backup_por_almoxarifado()
+                if ok:
+                    print(f'✅ BACKUP API: Backup enviado com sucesso às {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
+                else:
+                    print(f'❌ BACKUP API: Erro ao enviar backup: {erro_msg}')
+            except Exception as e:
+                print(f'❌ BACKUP API: Erro inesperado: {str(e)}')
+    
+    # Inicia o backup em background
+    thread = threading.Thread(target=executar_backup_background)
+    thread.daemon = True
+    thread.start()
+    
+    # Retorna imediatamente
+    return jsonify({
+        'success': True,
+        'message': 'Backup iniciado! Os emails serão enviados em alguns minutos.',
+        'timestamp': datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+    }), 200
 
 def seed_data():
     if Almoxarifado.query.count() == 0:

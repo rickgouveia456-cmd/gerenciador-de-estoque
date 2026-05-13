@@ -1999,107 +1999,102 @@ def _smtp_connect():
 
 def enviar_backup_por_almoxarifado():
     """Envia backup individual para cada almoxarife com email cadastrado,
-    e o backup completo para admins com email cadastrado e para o destinatário fixo."""
-    import smtplib
-    from email.mime.multipart import MIMEMultipart
-    from email.mime.base import MIMEBase
-    from email.mime.text import MIMEText
-    from email import encoders
+    e o backup completo para admins com email cadastrado e para o destinatário fixo.
+    Usa Resend API para envio de emails."""
+    import resend
+    import base64
 
-    remetente = os.environ.get('BACKUP_EMAIL_FROM')
-    senha_smtp = os.environ.get('BACKUP_EMAIL_PASS')
-    destinatario_fixo = os.environ.get('BACKUP_EMAIL_TO', 'rickgouveia17@gmail.com')
+    resend_api_key = os.environ.get('RESEND_API_KEY')
+    remetente = os.environ.get('BACKUP_EMAIL_FROM', 'rickgouveia157@gmail.com')
+    destinatario_fixo = os.environ.get('BACKUP_EMAIL_TO', 'rickgouveia157@gmail.com')
 
-    if not remetente or not senha_smtp:
-        print('BACKUP: variáveis BACKUP_EMAIL_FROM e BACKUP_EMAIL_PASS não configuradas.')
-        return False, 'Variáveis BACKUP_EMAIL_FROM e BACKUP_EMAIL_PASS não configuradas no Railway.'
+    if not resend_api_key:
+        print('BACKUP: variável RESEND_API_KEY não configurada.')
+        return False, 'Variável RESEND_API_KEY não configurada no Railway.'
 
+    resend.api_key = resend_api_key
     hoje = date.today().strftime('%d/%m/%Y')
     enviados = 0
     erros = 0
 
-    # Remove espaços da senha (senhas de app do Gmail às vezes são copiadas com espaços)
-    senha_smtp = senha_smtp.replace(' ', '')
-
     try:
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-            smtp.login(remetente, senha_smtp)
-
-            # 1. Envia backup individual para cada almoxarife com email
-            almoxarifados = Almoxarifado.query.all()
-            for alm in almoxarifados:
-                destinatarios_alm = [
-                    u.email for u in alm.usuarios
-                    if u.perfil == 'almoxarife' and u.ativo and u.email
-                ]
-                if not destinatarios_alm:
-                    continue
-
-                buf_alm = gerar_excel_backup_almoxarifado(alm)
-
-                msg = MIMEMultipart()
-                msg['From'] = remetente
-                msg['To'] = ', '.join(destinatarios_alm)
-                msg['Subject'] = f'Backup {alm.nome} — {hoje}'
-                corpo = (
-                    f'Backup automático do almoxarifado: {alm.nome}\n'
-                    f'Data: {datetime.now().strftime("%d/%m/%Y %H:%M")}\n\n'
-                    f'Este arquivo contém o estoque atual do seu almoxarifado.\n'
-                    f'Guarde em local seguro.'
-                )
-                msg.attach(MIMEText(corpo, 'plain'))
-                part = MIMEBase('application', 'octet-stream')
-                part.set_payload(buf_alm.read())
-                encoders.encode_base64(part)
-                nome_arquivo = f"backup_{alm.nome.replace(' ', '_')}_{date.today()}.xlsx"
-                part.add_header('Content-Disposition', f'attachment; filename="{nome_arquivo}"')
-                msg.attach(part)
-
-                try:
-                    smtp.send_message(msg)
-                    print(f'BACKUP: enviado para almoxarife(s) de "{alm.nome}": {destinatarios_alm}')
-                    enviados += 1
-                except Exception as e:
-                    print(f'BACKUP: erro ao enviar para "{alm.nome}" — {e}')
-                    erros += 1
-
-            # 2. Envia backup completo para admins com email
-            admins_emails = [
-                u.email for u in Usuario.query.filter_by(perfil='admin', ativo=True).all()
-                if u.email
+        # 1. Envia backup individual para cada almoxarife com email
+        almoxarifados = Almoxarifado.query.all()
+        for alm in almoxarifados:
+            destinatarios_alm = [
+                u.email for u in alm.usuarios
+                if u.perfil == 'almoxarife' and u.ativo and u.email
             ]
-            # Inclui o destinatário fixo se não estiver na lista
-            todos_admins = list(set(admins_emails + [destinatario_fixo]))
+            if not destinatarios_alm:
+                continue
 
-            buf_completo = gerar_excel_backup()
-            msg_admin = MIMEMultipart()
-            msg_admin['From'] = remetente
-            msg_admin['To'] = ', '.join(todos_admins)
-            msg_admin['Subject'] = f'Backup Completo Estoque — {hoje}'
-            corpo_admin = (
-                f'Backup automático completo do sistema de estoque.\n'
-                f'Data: {datetime.now().strftime("%d/%m/%Y %H:%M")}\n\n'
-                f'Este arquivo contém todos os almoxarifados.\n'
-                f'Guarde em local seguro.'
-            )
-            msg_admin.attach(MIMEText(corpo_admin, 'plain'))
-            part_admin = MIMEBase('application', 'octet-stream')
-            part_admin.set_payload(buf_completo.read())
-            encoders.encode_base64(part_admin)
-            part_admin.add_header('Content-Disposition',
-                                  f'attachment; filename="backup_completo_{date.today()}.xlsx"')
-            msg_admin.attach(part_admin)
+            buf_alm = gerar_excel_backup_almoxarifado(alm)
+            nome_arquivo = f"backup_{alm.nome.replace(' ', '_')}_{date.today()}.xlsx"
+            
+            # Converte o buffer para base64
+            buf_alm.seek(0)
+            arquivo_base64 = base64.b64encode(buf_alm.read()).decode('utf-8')
+
+            corpo = f"""Backup automático do almoxarifado: {alm.nome}
+Data: {datetime.now().strftime("%d/%m/%Y %H:%M")}
+
+Este arquivo contém o estoque atual do seu almoxarifado.
+Guarde em local seguro."""
 
             try:
-                smtp.send_message(msg_admin)
-                print(f'BACKUP: backup completo enviado para admins: {todos_admins}')
+                resend.Emails.send({
+                    "from": f"Sistema Estoque <{remetente}>",
+                    "to": destinatarios_alm,
+                    "subject": f"Backup {alm.nome} — {hoje}",
+                    "text": corpo,
+                    "attachments": [{
+                        "filename": nome_arquivo,
+                        "content": arquivo_base64
+                    }]
+                })
+                print(f'BACKUP: enviado para almoxarife(s) de "{alm.nome}": {destinatarios_alm}')
                 enviados += 1
             except Exception as e:
-                print(f'BACKUP: erro ao enviar backup completo — {e}')
+                print(f'BACKUP: erro ao enviar para "{alm.nome}" — {e}')
                 erros += 1
 
+        # 2. Envia backup completo para admins com email
+        admins_emails = [
+            u.email for u in Usuario.query.filter_by(perfil='admin', ativo=True).all()
+            if u.email
+        ]
+        # Inclui o destinatário fixo se não estiver na lista
+        todos_admins = list(set(admins_emails + [destinatario_fixo]))
+
+        buf_completo = gerar_excel_backup()
+        buf_completo.seek(0)
+        arquivo_completo_base64 = base64.b64encode(buf_completo.read()).decode('utf-8')
+
+        corpo_admin = f"""Backup automático completo do sistema de estoque.
+Data: {datetime.now().strftime("%d/%m/%Y %H:%M")}
+
+Este arquivo contém todos os almoxarifados.
+Guarde em local seguro."""
+
+        try:
+            resend.Emails.send({
+                "from": f"Sistema Estoque <{remetente}>",
+                "to": todos_admins,
+                "subject": f"Backup Completo Estoque — {hoje}",
+                "text": corpo_admin,
+                "attachments": [{
+                    "filename": f"backup_completo_{date.today()}.xlsx",
+                    "content": arquivo_completo_base64
+                }]
+            })
+            print(f'BACKUP: backup completo enviado para admins: {todos_admins}')
+            enviados += 1
+        except Exception as e:
+            print(f'BACKUP: erro ao enviar backup completo — {e}')
+            erros += 1
+
     except Exception as e:
-        print(f'BACKUP: erro de conexão SMTP — {e}')
+        print(f'BACKUP: erro ao enviar emails via Resend — {e}')
         return False, str(e)
 
     return erros == 0, None

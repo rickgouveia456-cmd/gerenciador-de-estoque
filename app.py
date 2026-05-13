@@ -1425,6 +1425,12 @@ def novo_usuario():
 @admin_required
 def editar_usuario(id):
     u = Usuario.query.get_or_404(id)
+    
+    # Proteção: Henrique (r111) não pode ser editado por outros admins
+    if u.login == 'r111' and usuario_atual().login != 'r111':
+        flash('❌ Este usuário está protegido e não pode ser editado.', 'danger')
+        return redirect(url_for('usuarios'))
+    
     almoxarifados = Almoxarifado.query.all()
     if request.method == 'POST':
         u.nome = request.form['nome']
@@ -1444,6 +1450,12 @@ def editar_usuario(id):
 @admin_required
 def deletar_usuario(id):
     u = Usuario.query.get_or_404(id)
+    
+    # Proteção: Henrique (r111) não pode ser deletado
+    if u.login == 'r111':
+        flash('❌ Este usuário está protegido e não pode ser removido.', 'danger')
+        return redirect(url_for('usuarios'))
+    
     db.session.delete(u)
     db.session.commit()
     flash('Usuário removido!', 'warning')

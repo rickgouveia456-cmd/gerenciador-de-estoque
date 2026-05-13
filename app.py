@@ -2005,7 +2005,6 @@ def enviar_backup_por_almoxarifado():
     import base64
 
     resend_api_key = os.environ.get('RESEND_API_KEY')
-    remetente = os.environ.get('BACKUP_EMAIL_FROM', 'rickgouveia157@gmail.com')
     destinatario_fixo = os.environ.get('BACKUP_EMAIL_TO', 'rickgouveia157@gmail.com')
 
     if not resend_api_key:
@@ -2013,6 +2012,9 @@ def enviar_backup_por_almoxarifado():
         return False, 'Variável RESEND_API_KEY não configurada no Railway.'
 
     resend.api_key = resend_api_key
+    # Usa o email verificado do Resend (onboarding@resend.dev é o padrão de teste)
+    remetente = "onboarding@resend.dev"
+    
     hoje = date.today().strftime('%d/%m/%Y')
     enviados = 0
     erros = 0

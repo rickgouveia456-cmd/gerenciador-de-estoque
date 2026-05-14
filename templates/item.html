@@ -100,9 +100,9 @@
                                    oninput="this.value = this.value.replace(',','.')">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold">Responsável <span class="text-danger">*</span></label>
+                            <label class="form-label fw-semibold">Liberado por <span class="text-danger">*</span></label>
                             <input type="text" name="responsavel" id="responsavelMov" class="form-control"
-                                   placeholder="Almoxarife" required>
+                                   placeholder="Nome do almoxarife" required>
                         </div>
                         <div class="col-md-2" id="divColaborador">
                             <label class="form-label fw-semibold">
@@ -142,8 +142,8 @@
                             <th>Data</th>
                             <th>Tipo</th>
                             <th>Quantidade</th>
-                            <th>Responsável</th>
-                            <th>Observação</th>
+                            <th>Colaborador (retirou)</th>
+                            <th>Liberado por</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -158,8 +158,22 @@
                                 {% endif %}
                             </td>
                             <td class="fw-bold">{{ mov.quantidade }} {{ item.unidade }}</td>
+                            <td>
+                                {% if mov.tipo == 'saida' %}
+                                    {% set obs = mov.observacao or '' %}
+                                    {% if 'liberado P/' in obs or 'liberado p/' in obs %}
+                                        {% set colab = obs.split('liberado P/')[-1].split('liberado p/')[-1].split(' | ')[0].strip() %}
+                                        <strong>{{ colab }}</strong>
+                                    {% elif 'Colaborador:' in obs %}
+                                        <strong>{{ obs.split('Colaborador:')[-1].split('|')[0].strip() }}</strong>
+                                    {% else %}
+                                        <span class="text-muted">—</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
                             <td>{{ mov.responsavel or '—' }}</td>
-                            <td class="text-muted">{{ mov.observacao or '—' }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -183,17 +197,23 @@ function toggleColaborador(tipo) {
     const divReq = document.getElementById('divRequisicao');
     const divObs = document.getElementById('divObservacao');
     const colaboradorInput = document.getElementById('colaboradorMov');
+    const responsavelInput = document.getElementById('responsavelMov');
 
     if (tipo === 'saida') {
         divColab.style.display = '';
         divReq.style.display = '';
         divObs.style.display = 'none';
         colaboradorInput.required = true;
+        responsavelInput.required = true;
+        responsavelInput.placeholder = 'Nome do almoxarife *';
     } else {
         divColab.style.display = 'none';
         divReq.style.display = 'none';
         divObs.style.display = '';
         colaboradorInput.required = false;
+        colaboradorInput.value = '';
+        responsavelInput.required = true;
+        responsavelInput.placeholder = 'Nome do almoxarife *';
     }
 }
 
@@ -211,7 +231,8 @@ document.getElementById('formMov').addEventListener('submit', function(e) {
         const req = document.getElementById('requisicaoMov').value.trim();
         let obs = 'liberado P/ ' + colaborador;
         if (req) obs += ' | req ' + req;
-        // Criar campo hidden com a observação montada
+        // Remover qualquer campo observacao existente e criar novo com valor correto
+        this.querySelectorAll('input[name="observacao"]').forEach(el => el.remove());
         const hidden = document.createElement('input');
         hidden.type = 'hidden';
         hidden.name = 'observacao';

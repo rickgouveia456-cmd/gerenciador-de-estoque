@@ -42,6 +42,16 @@
     </div>
 </div>
 
+<!-- Botão Exportar Excel -->
+{% if resumo %}
+<div class="d-flex justify-content-end mb-3">
+    <a href="/relatorios/consumo-por-pessoa/exportar?almoxarifado_id={{ alm_id or '' }}&data_ini={{ data_ini }}&data_fim={{ data_fim }}&responsavel={{ responsavel_filtro }}"
+       class="btn btn-success">
+        <i class="bi bi-file-earmark-excel me-1"></i> Exportar Excel
+    </a>
+</div>
+{% endif %}
+
 <!-- Resumo geral -->
 <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">

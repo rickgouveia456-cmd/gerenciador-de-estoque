@@ -11,7 +11,7 @@
         </div>
         <div class="card-body">
             <div class="row g-3">
-                <div class="col-6 col-md-3">
+                <div class="col-6 col-md-4">
                     <label class="form-label fw-semibold">Almoxarifado *</label>
                     <select name="almoxarifado_id" id="selectAlmox" class="form-select" required>
                         <option value="">Selecione...</option>
@@ -20,18 +20,14 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-6 col-md-3">
+                <div class="col-6 col-md-4">
                     <label class="form-label fw-semibold">Tipo *</label>
-                    <select name="tipo" class="form-select" required>
+                    <select name="tipo" id="tipoLote" class="form-select" required>
                         <option value="entrada">📥 Entrada</option>
                         <option value="saida">📤 Saída</option>
                     </select>
                 </div>
-                <div class="col-6 col-md-3">
-                    <label class="form-label fw-semibold">Responsável</label>
-                    <input type="text" name="responsavel" class="form-control" placeholder="Nome">
-                </div>
-                <div class="col-6 col-md-3">
+                <div class="col-6 col-md-4">
                     <label class="form-label fw-semibold">Observação</label>
                     <input type="text" name="observacao" class="form-control" placeholder="Opcional">
                 </div>
@@ -74,7 +70,8 @@
                     <th>Almoxarifado</th>
                     <th>Tipo</th>
                     <th>Quantidade</th>
-                    <th>Responsável</th>
+                    <th>Colaborador</th>
+                    <th>Liberado por</th>
                 </tr>
             </thead>
             <tbody>
@@ -91,6 +88,20 @@
                         {% endif %}
                     </td>
                     <td class="fw-bold">{{ mov.quantidade }} {{ mov.item.unidade }}</td>
+                    <td>
+                        {% if mov.tipo == 'saida' %}
+                            {% set obs = mov.observacao or '' %}
+                            {% if 'liberado P/' in obs or 'liberado p/' in obs %}
+                                <strong>{{ obs.split('liberado P/')[-1].split('liberado p/')[-1].split(' | ')[0].strip() }}</strong>
+                            {% elif 'Colaborador:' in obs %}
+                                <strong>{{ obs.split('Colaborador:')[-1].split('|')[0].strip() }}</strong>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
                     <td class="small">{{ mov.responsavel or '—' }}</td>
                 </tr>
                 {% endfor %}
@@ -152,17 +163,23 @@ function atualizarBadge(sel, idx) {
 
 function adicionarLinha() {
     const idx = linhaCount++;
+    const tipo = document.getElementById('tipoLote').value;
     const div = document.createElement('div');
     div.id = `linha_${idx}`;
     div.className = 'row g-2 align-items-center mb-2 p-2 border rounded';
     div.innerHTML = `
-        <div class="col-12 col-md-4">${buildSelect(idx)}</div>
-        <div class="col-5 col-md-2">
+        <div class="col-12 col-md-3">${buildSelect(idx)}</div>
+        <div class="col-4 col-md-2">
             <input type="number" name="quantidade_${idx}" class="form-control form-control-sm"
                    step="0.01" min="0.01" required placeholder="Qtd">
         </div>
-        <div class="col-5 col-md-3">
-            <input type="text" name="colaborador_${idx}" class="form-control form-control-sm" placeholder="Colaborador">
+        <div class="col-4 col-md-2">
+            <input type="text" name="responsavel_${idx}" class="form-control form-control-sm resp-linha" 
+                   placeholder="Liberado por *" required>
+        </div>
+        <div class="col-4 col-md-2 div-colab-${idx}" style="display:none">
+            <input type="text" name="colaborador_${idx}" class="form-control form-control-sm colab-linha" 
+                   placeholder="Colaborador *">
         </div>
         <div class="col-8 col-md-2" id="badge_${idx}"></div>
         <div class="col-4 col-md-1 text-end">
@@ -172,7 +189,33 @@ function adicionarLinha() {
         </div>
     `;
     document.getElementById('listaLinhas').appendChild(div);
+    // Aplicar visibilidade do colaborador conforme tipo atual
+    atualizarCamposLinha(idx, tipo);
 }
+
+function atualizarCamposLinha(idx, tipo) {
+    const divColab = document.querySelector(`.div-colab-${idx}`);
+    const inputColab = document.querySelector(`input[name="colaborador_${idx}"]`);
+    if (!divColab || !inputColab) return;
+    if (tipo === 'saida') {
+        divColab.style.display = '';
+        inputColab.required = true;
+    } else {
+        divColab.style.display = 'none';
+        inputColab.required = false;
+        inputColab.value = '';
+    }
+}
+
+// Quando o tipo muda, atualiza todas as linhas existentes
+document.addEventListener('change', function(e) {
+    if (e.target.id === 'tipoLote') {
+        const tipo = e.target.value;
+        for (let i = 0; i < linhaCount; i++) {
+            atualizarCamposLinha(i, tipo);
+        }
+    }
+});
 
 function remover(idx) {
     const el = document.getElementById(`linha_${idx}`);

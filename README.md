@@ -217,8 +217,8 @@ Para licenciamento e customizações, entre em contato.
 
 ### Suporte Técnico
 
-- **Email:** erick.cruz@stanza.com.br
-- **WhatsApp:** [Seu Telefone]
+- **Email:** rickgouveia157@gmail.com
+- **WhatsApp:** +5571999164873
 - **Horário:** Segunda a Sexta, 8h às 18h
 
 ### Reportar Problemas
@@ -242,11 +242,11 @@ Este sistema está disponível para licenciamento comercial.
 - 📅 **Mensalidade (SaaS)** - Hospedagem e suporte incluídos
 - 🎨 **Customização** - Desenvolvimento sob medida
 
-**Contato para vendas:** erick.cruz@stanza.com.br
+**Contato para vendas:** rickgouveia157@gmail.com
 
 ### Direitos Autorais
 
-© 2026 Erick Silva Cruz. Todos os direitos reservados.
+© 2026 Henrique Silva Gouveia Carvalho Todos os direitos reservados.
 
 Este software é proprietário. O uso, cópia, modificação ou distribuição não autorizada é estritamente proibido.
 

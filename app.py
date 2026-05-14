@@ -74,7 +74,6 @@ class Almoxarifado(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
     descricao = db.Column(db.String(200))
-    tipo = db.Column(db.String(20), default='geral')  # 'geral' ou 'epi'
     itens = db.relationship('Item', backref='almoxarifado', lazy=True, cascade='all, delete-orphan')
 
 class Item(db.Model):
@@ -88,7 +87,6 @@ class Item(db.Model):
     status_compra = db.Column(db.String(30), default='pendente')
     fixado = db.Column(db.Boolean, default=False)
     ativo = db.Column(db.Boolean, default=True)
-    categoria = db.Column(db.String(30), default='geral')  # 'epi', 'maquinario', 'geral'
     movimentacoes = db.relationship('Movimentacao', backref='item', lazy=True, cascade='all, delete-orphan')
 
     @property
@@ -312,12 +310,6 @@ def run_migrations():
             if is_pg:
                 safe_exec(conn, "ALTER TABLE item ALTER COLUMN nome TYPE VARCHAR(300)")
 
-            # ── Coluna tipo em almoxarifado ──────────────────────────────────
-            safe_exec(conn, "ALTER TABLE almoxarifado ADD COLUMN tipo VARCHAR(20) DEFAULT 'geral'")
-
-            # ── Coluna categoria em item ─────────────────────────────────────
-            safe_exec(conn, "ALTER TABLE item ADD COLUMN categoria VARCHAR(30) DEFAULT 'geral'")
-
             # ── Coluna email em usuario (crítica — deve rodar cedo) ──────────
             safe_exec(conn, "ALTER TABLE usuario ADD COLUMN email VARCHAR(120)")
             safe_exec(conn, "ALTER TABLE usuario ADD COLUMN senha_hash_new VARCHAR(256)")
@@ -474,11 +466,7 @@ def item(id):
 @admin_required
 def novo_almoxarifado():
     if request.method == 'POST':
-        alm = Almoxarifado(
-            nome=request.form['nome'],
-            descricao=request.form.get('descricao', ''),
-            tipo=request.form.get('tipo', 'geral')
-        )
+        alm = Almoxarifado(nome=request.form['nome'], descricao=request.form.get('descricao', ''))
         db.session.add(alm)
         db.session.commit()
         flash(f'Almoxarifado "{alm.nome}" criado!', 'success')
@@ -492,7 +480,6 @@ def editar_almoxarifado(id):
     if request.method == 'POST':
         alm.nome = request.form['nome']
         alm.descricao = request.form.get('descricao', '')
-        alm.tipo = request.form.get('tipo', 'geral')
         db.session.commit()
         flash('Almoxarifado atualizado!', 'success')
         return redirect(url_for('index'))
@@ -520,8 +507,7 @@ def novo_item():
             unidade=request.form['unidade'],
             quantidade=float(request.form.get('quantidade', 0)),
             estoque_minimo=float(request.form.get('estoque_minimo', 0)),
-            almoxarifado_id=int(request.form['almoxarifado_id']),
-            categoria=request.form.get('categoria', 'geral')
+            almoxarifado_id=int(request.form['almoxarifado_id'])
         )
         db.session.add(it)
         db.session.commit()
@@ -540,7 +526,6 @@ def editar_item(id):
         it.unidade = request.form['unidade']
         it.estoque_minimo = float(request.form.get('estoque_minimo', 0))
         it.almoxarifado_id = int(request.form['almoxarifado_id'])
-        it.categoria = request.form.get('categoria', 'geral')
         # Atualizar quantidade se informada (admin pode corrigir o valor)
         qtd_str = request.form.get('quantidade')
         if qtd_str is not None and qtd_str != '':
@@ -627,8 +612,7 @@ def movimentacao_lote():
         for i in sorted(indices):
             item_id = request.form.get(f'item_id_{i}')
             qtd_str = request.form.get(f'quantidade_{i}')
-            colab   = request.form.get(f'colaborador_{i}', '').strip()
-            resp_linha = request.form.get(f'responsavel_{i}', '').strip() or responsavel
+            colab   = request.form.get(f'colaborador_{i}', '')
 
             if not item_id or not qtd_str:
                 continue
@@ -647,15 +631,10 @@ def movimentacao_lote():
                 continue
 
             it.quantidade = round(it.quantidade + qtd if tipo == 'entrada' else it.quantidade - qtd, 4)
-            if tipo == 'saida' and colab:
-                obs_linha = f'liberado P/ {colab}'
-                if observacao:
-                    obs_linha += f' | {observacao}'
-            else:
-                obs_linha = observacao
+            obs_linha = f'{observacao} | Colaborador: {colab}' if colab else observacao
             movs.append(Movimentacao(
                 tipo=tipo, quantidade=qtd,
-                responsavel=resp_linha,
+                responsavel=responsavel,
                 observacao=obs_linha,
                 item_id=it.id
             ))
@@ -1115,654 +1094,6 @@ def relatorio_consumo_pessoa():
                            alm_id=alm_id,
                            responsavel_filtro=responsavel_filtro,
                            total_geral=sum(p['total_movs'] for p in resumo))
-
-@app.route('/relatorios/consumo-por-pessoa/exportar')
-@login_required
-def exportar_consumo_pessoa():
-    """Exporta Ficha de Controle de EPIs por funcionário — apenas almoxarifados tipo EPI."""
-    alm_id = request.args.get('almoxarifado_id', type=int)
-    data_ini = request.args.get('data_ini', str(date.today().replace(day=1)))
-    data_fim = request.args.get('data_fim', str(date.today()))
-    responsavel_filtro = request.args.get('responsavel', '').strip()
-
-    # Só permite exportar de almoxarifados EPI
-    if alm_id:
-        alm_obj = Almoxarifado.query.get(alm_id)
-    else:
-        alm_epi_ids = None
-
-    query = Movimentacao.query.filter(
-        Movimentacao.tipo == 'saida',
-        Movimentacao.data >= data_ini,
-        Movimentacao.data <= data_fim + ' 23:59:59'
-    )
-    if alm_id:
-        query = query.join(Item).filter(Item.almoxarifado_id == alm_id)
-    else:
-        query = query.join(Item)
-
-    movs = query.order_by(Movimentacao.data.asc()).all()
-
-    import re
-    from collections import defaultdict
-
-    def extrair_colaborador(mov):
-        obs = mov.observacao or ''
-        m = re.search(r'liberado\s+[Pp][/\s]+(.+)', obs, re.IGNORECASE)
-        if m:
-            return m.group(1).strip()
-        m = re.search(r'[Cc]olaborador[:\s]+([^|]+)', obs)
-        if m:
-            return m.group(1).strip()
-        return mov.responsavel or 'Sem responsável'
-
-    por_pessoa = defaultdict(list)
-    for mov in movs:
-        colaborador = extrair_colaborador(mov)
-        if responsavel_filtro and responsavel_filtro.lower() not in colaborador.lower():
-            continue
-        por_pessoa[colaborador].append(mov)
-
-    # ── Estilos ──────────────────────────────────────────────────────────────
-    borda_fina  = Border(
-        left=Side(style='thin'), right=Side(style='thin'),
-        top=Side(style='thin'), bottom=Side(style='thin')
-    )
-    borda_media = Border(
-        left=Side(style='medium'), right=Side(style='medium'),
-        top=Side(style='medium'), bottom=Side(style='medium')
-    )
-    centro = Alignment(horizontal='center', vertical='center', wrap_text=True)
-    esq    = Alignment(horizontal='left',   vertical='center', wrap_text=True)
-
-    wb = openpyxl.Workbook()
-    wb.remove(wb.active)  # remove aba padrão
-
-    alm_nome = Almoxarifado.query.get(alm_id).nome if alm_id else 'EPIs'
-
-    for nome_func, lista in sorted(por_pessoa.items()):
-        # Nome da aba: primeiros 28 chars (limite Excel = 31)
-        aba_nome = nome_func[:28].strip()
-        ws = wb.create_sheet(title=aba_nome)
-
-        # ── Larguras das colunas ─────────────────────────────────────────────
-        # A=Qtd | B=Descrição | C=C.A. | D=Data Entrega | E=Assin. Entrega | F=Data Dev. | G=Assin. Dev. | H=Motivo
-        for col, w in zip('ABCDEFGH', [8, 35, 10, 14, 22, 14, 22, 18]):
-            ws.column_dimensions[col].width = w
-
-        # ── CABEÇALHO ────────────────────────────────────────────────────────
-        # Linha 1: Logo + Título
-        ws.row_dimensions[1].height = 30
-        ws.merge_cells('A1:C1')
-        c = ws['A1']
-        c.value = 'STANZA'
-        c.font = Font(bold=True, size=18, color='808080')
-        c.alignment = centro
-
-        ws.merge_cells('D1:H1')
-        c = ws['D1']
-        c.value = 'FICHA DE CONTROLE DE EPIs E UNIFORMES'
-        c.font = Font(bold=True, size=12, color='1A3A5C')
-        c.alignment = centro
-        c.fill = PatternFill('solid', fgColor='D0E4F7')
-
-        # Linha 2: dados do funcionário
-        ws.row_dimensions[2].height = 20
-        ws.merge_cells('A2:C2')
-        ws['A2'] = f'NOME: {nome_func}'
-        ws['A2'].font = Font(bold=True, size=10)
-        ws['A2'].alignment = esq
-
-        # Pega matrícula/função da primeira movimentação se disponível
-        ws.merge_cells('D2:E2')
-        ws['D2'] = f'MATRÍCULA: '
-        ws['D2'].font = Font(size=10)
-        ws['D2'].alignment = esq
-
-        ws.merge_cells('F2:H2')
-        ws['F2'] = f'FUNÇÃO: '
-        ws['F2'].font = Font(size=10)
-        ws['F2'].alignment = esq
-
-        # Linha 3: admissão + almoxarifado
-        ws.row_dimensions[3].height = 18
-        ws.merge_cells('A3:C3')
-        ws['A3'] = f'ALMOXARIFADO: {alm_nome}'
-        ws['A3'].font = Font(size=9, italic=True)
-        ws['A3'].alignment = esq
-
-        ws.merge_cells('D3:E3')
-        ws['D3'] = f'ADMISSÃO: '
-        ws['D3'].font = Font(size=9)
-        ws['D3'].alignment = esq
-
-        ws.merge_cells('F3:H3')
-        ws['F3'] = f'Período: {data_ini} a {data_fim}'
-        ws['F3'].font = Font(size=9, italic=True)
-        ws['F3'].alignment = esq
-
-        # Aplica borda no cabeçalho
-        for row in range(1, 4):
-            for col in range(1, 9):
-                ws.cell(row=row, column=col).border = borda_fina
-
-        # ── CABEÇALHO DA TABELA ──────────────────────────────────────────────
-        ws.row_dimensions[4].height = 30
-        headers = [
-            ('QUANT', 'A4'), ('DESCRIÇÃO', 'B4'), ('C.A.', 'C4'),
-        ]
-        # Entrega (merge D4:E4) e Devolução (merge F4:H4)
-        ws.merge_cells('D4:E4')
-        ws.merge_cells('F4:H4')
-
-        for val, cell in headers:
-            ws.merge_cells(f'{cell}:{cell}') if ':' not in cell else None
-            c = ws[cell]
-            c.value = val
-            c.font = Font(bold=True, color='FFFFFF', size=10)
-            c.fill = PatternFill('solid', fgColor='1A3A5C')
-            c.alignment = centro
-            c.border = borda_fina
-
-        for cell, val in [('D4', 'ENTREGA'), ('F4', 'DEVOLUÇÃO')]:
-            c = ws[cell]
-            c.value = val
-            c.font = Font(bold=True, color='FFFFFF', size=10)
-            c.fill = PatternFill('solid', fgColor='2E6DA4')
-            c.alignment = centro
-            c.border = borda_fina
-
-        # Sub-cabeçalho linha 5
-        ws.row_dimensions[5].height = 22
-        sub = [('', 'A5'), ('', 'B5'), ('', 'C5'),
-               ('DATA', 'D5'), ('ASSINATURA', 'E5'),
-               ('DATA', 'F5'), ('ASSINATURA', 'G5'), ('MOTIVO', 'H5')]
-        for val, cell in sub:
-            c = ws[cell]
-            c.value = val
-            c.font = Font(bold=True, color='FFFFFF', size=9)
-            c.fill = PatternFill('solid', fgColor='1A3A5C')
-            c.alignment = centro
-            c.border = borda_fina
-
-        # ── LINHAS DE DADOS ──────────────────────────────────────────────────
-        row_num = 6
-        for mov in lista:
-            ws.row_dimensions[row_num].height = 20
-            zebra = PatternFill('solid', fgColor='F0F4F8') if row_num % 2 == 0 else None
-
-            dados = [
-                (f'{mov.quantidade} {mov.item.unidade}', 'A'),
-                (mov.item.nome, 'B'),
-                ('', 'C'),  # C.A. — preenchido manualmente
-                (mov.data.strftime('%d/%m/%Y'), 'D'),
-                ('', 'E'),  # Assinatura entrega
-                ('', 'F'),  # Data devolução
-                ('', 'G'),  # Assinatura devolução
-                ('', 'H'),  # Motivo
-            ]
-            for val, col in dados:
-                c = ws[f'{col}{row_num}']
-                c.value = val
-                c.font = Font(size=9)
-                c.alignment = centro if col != 'B' else esq
-                c.border = borda_fina
-                if zebra:
-                    c.fill = zebra
-            row_num += 1
-
-        # Linhas em branco extras para assinatura manual (mínimo 3 linhas vazias)
-        linhas_extras = max(3, 15 - len(lista))
-        for _ in range(linhas_extras):
-            ws.row_dimensions[row_num].height = 20
-            for col in 'ABCDEFGH':
-                c = ws[f'{col}{row_num}']
-                c.border = borda_fina
-            row_num += 1
-
-        # ── TERMO DE RESPONSABILIDADE ────────────────────────────────────────
-        row_num += 1
-        ws.row_dimensions[row_num].height = 15
-        ws.merge_cells(f'A{row_num}:H{row_num}')
-        c = ws[f'A{row_num}']
-        c.value = 'TERMO DE RESPONSABILIDADE'
-        c.font = Font(bold=True, size=10, color='1A3A5C')
-        c.alignment = centro
-        c.fill = PatternFill('solid', fgColor='D0E4F7')
-        c.border = borda_fina
-        row_num += 1
-
-        ws.row_dimensions[row_num].height = 50
-        ws.merge_cells(f'A{row_num}:H{row_num}')
-        c = ws[f'A{row_num}']
-        c.value = (
-            'Pelo presente declaro que recebi da empresa STANZA INCORPORAÇÃO E CONSTRUÇÃO os materiais acima '
-            'relacionados, comprometendo-me a utilizá-los adequadamente, conservá-los e devolvê-los quando '
-            'solicitado ou ao término do contrato de trabalho.'
-        )
-        c.font = Font(size=8)
-        c.alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
-        c.border = borda_fina
-        row_num += 2
-
-        # Linha de assinatura
-        ws.row_dimensions[row_num].height = 25
-        ws.merge_cells(f'A{row_num}:D{row_num}')
-        ws[f'A{row_num}'] = f'Data: ___/___/______'
-        ws[f'A{row_num}'].font = Font(size=10)
-        ws[f'A{row_num}'].alignment = esq
-        ws[f'A{row_num}'].border = borda_fina
-
-        ws.merge_cells(f'E{row_num}:H{row_num}')
-        ws[f'E{row_num}'] = 'EMPREGADO: ________________________________'
-        ws[f'E{row_num}'].font = Font(size=10)
-        ws[f'E{row_num}'].alignment = centro
-        ws[f'E{row_num}'].border = borda_fina
-
-    if not wb.sheetnames:
-        ws = wb.create_sheet('Sem dados')
-        ws['A1'] = 'Nenhuma movimentação encontrada para o período.'
-
-    buf = io.BytesIO()
-    wb.save(buf); buf.seek(0)
-    nome_arquivo = f'consumo_por_pessoa_{data_ini}_a_{data_fim}.xlsx'
-    return send_file(buf, as_attachment=True,
-                     download_name=nome_arquivo,
-                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-
-    import re
-    from collections import defaultdict
-
-    def extrair_colaborador(mov):
-        obs = mov.observacao or ''
-        m = re.search(r'liberado\s+[Pp][/\s]+(.+)', obs, re.IGNORECASE)
-        if m:
-            return m.group(1).strip()
-        m = re.search(r'[Cc]olaborador[:\s]+([^|]+)', obs)
-        if m:
-            return m.group(1).strip()
-        m = re.search(r'Colaborador[:\s]+(.+)', obs)
-        if m:
-            return m.group(1).strip()
-        return mov.responsavel or 'Sem responsável'
-
-    por_pessoa = defaultdict(list)
-    for mov in movs:
-        colaborador = extrair_colaborador(mov)
-        if responsavel_filtro and responsavel_filtro.lower() not in colaborador.lower():
-            continue
-        por_pessoa[colaborador].append(mov)
-
-    # Estilos
-    cor_header   = PatternFill('solid', fgColor='1A3A5C')
-    cor_subheader = PatternFill('solid', fgColor='2E6DA4')
-    cor_zebra    = PatternFill('solid', fgColor='F0F4F8')
-    cor_titulo   = PatternFill('solid', fgColor='E8F0F7')
-    fonte_header = Font(bold=True, color='FFFFFF', size=11)
-    fonte_titulo = Font(bold=True, size=13, color='1A3A5C')
-    fonte_sub    = Font(italic=True, size=10, color='666666')
-    borda        = Border(left=Side(style='thin'), right=Side(style='thin'),
-                          top=Side(style='thin'), bottom=Side(style='thin'))
-    centro       = Alignment(horizontal='center', vertical='center')
-    alm_nome     = Almoxarifado.query.get(alm_id).nome if alm_id else 'Todos os Almoxarifados'
-
-    wb = openpyxl.Workbook()
-
-    # ── ABA 1: RESUMO ────────────────────────────────────────────────────────
-    ws1 = wb.active
-    ws1.title = 'Resumo por Funcionário'
-
-    ws1.merge_cells('A1:E1')
-    ws1['A1'] = f'Relatório de EPIs por Funcionário — {alm_nome}'
-    ws1['A1'].font = fonte_titulo
-    ws1['A1'].fill = cor_titulo
-    ws1['A1'].alignment = centro
-
-    ws1.merge_cells('A2:E2')
-    ws1['A2'] = f'Período: {data_ini} a {data_fim}   |   Gerado em: {agora().strftime("%d/%m/%Y %H:%M")}'
-    ws1['A2'].font = fonte_sub
-    ws1['A2'].alignment = centro
-
-    headers1 = ['#', 'Funcionário', 'Total de Retiradas', 'Itens Distintos', 'Participação (%)']
-    for col, h in enumerate(headers1, 1):
-        c = ws1.cell(row=4, column=col, value=h)
-        c.font = fonte_header; c.fill = cor_header
-        c.alignment = centro; c.border = borda
-
-    resumo_sorted = sorted(por_pessoa.items(), key=lambda x: len(x[1]), reverse=True)
-    total_geral = sum(len(v) for v in por_pessoa.values())
-
-    for i, (nome, lista) in enumerate(resumo_sorted, 1):
-        total_movs = len(lista)
-        itens_distintos = len(set(m.item_id for m in lista))
-        pct = round(total_movs / total_geral * 100, 1) if total_geral > 0 else 0
-        row = i + 4
-        dados = [i, nome, total_movs, itens_distintos, f'{pct}%']
-        for col, val in enumerate(dados, 1):
-            c = ws1.cell(row=row, column=col, value=val)
-            c.border = borda
-            c.alignment = centro if col != 2 else Alignment(horizontal='left', vertical='center')
-            if row % 2 == 0:
-                c.fill = cor_zebra
-
-    # Linha de total
-    row_total = len(resumo_sorted) + 5
-    ws1.cell(row=row_total, column=1, value='TOTAL').font = Font(bold=True)
-    ws1.cell(row=row_total, column=2, value=f'{len(por_pessoa)} funcionário(s)').font = Font(bold=True)
-    ws1.cell(row=row_total, column=3, value=total_geral).font = Font(bold=True)
-    for col in range(1, 6):
-        c = ws1.cell(row=row_total, column=col)
-        c.fill = PatternFill('solid', fgColor='D0E4F7')
-        c.border = borda
-        c.alignment = centro
-
-    for i, w in enumerate([6, 40, 20, 18, 18], 1):
-        ws1.column_dimensions[get_column_letter(i)].width = w
-
-    # ── ABA 2: DETALHES POR FUNCIONÁRIO ──────────────────────────────────────
-    ws2 = wb.create_sheet(title='Detalhes de EPIs')
-
-    ws2.merge_cells('A1:G1')
-    ws2['A1'] = f'Detalhes de EPIs por Funcionário — {alm_nome}'
-    ws2['A1'].font = fonte_titulo
-    ws2['A1'].fill = cor_titulo
-    ws2['A1'].alignment = centro
-
-    ws2.merge_cells('A2:G2')
-    ws2['A2'] = f'Período: {data_ini} a {data_fim}   |   Gerado em: {agora().strftime("%d/%m/%Y %H:%M")}'
-    ws2['A2'].font = fonte_sub
-    ws2['A2'].alignment = centro
-
-    headers2 = ['Funcionário', 'Data', 'Código', 'Item (EPI)', 'Quantidade', 'Almoxarifado', 'Liberado por']
-    for col, h in enumerate(headers2, 1):
-        c = ws2.cell(row=4, column=col, value=h)
-        c.font = fonte_header; c.fill = cor_header
-        c.alignment = centro; c.border = borda
-
-    row_num = 5
-    for nome, lista in resumo_sorted:
-        # Cabeçalho do funcionário
-        ws2.merge_cells(f'A{row_num}:G{row_num}')
-        c = ws2.cell(row=row_num, column=1, value=f'👷 {nome}  ({len(lista)} retirada(s))')
-        c.font = Font(bold=True, color='FFFFFF', size=11)
-        c.fill = cor_subheader
-        c.alignment = Alignment(horizontal='left', vertical='center')
-        c.border = borda
-        row_num += 1
-
-        for mov in sorted(lista, key=lambda m: m.data):
-            dados = [
-                nome,
-                mov.data.strftime('%d/%m/%Y %H:%M'),
-                mov.item.codigo,
-                mov.item.nome,
-                f'{mov.quantidade} {mov.item.unidade}',
-                mov.item.almoxarifado.nome,
-                mov.responsavel or '—'
-            ]
-            for col, val in enumerate(dados, 1):
-                c = ws2.cell(row=row_num, column=col, value=val)
-                c.border = borda
-                c.alignment = Alignment(horizontal='left', vertical='center') if col in [1, 3, 4] else centro
-                if row_num % 2 == 0:
-                    c.fill = cor_zebra
-            row_num += 1
-
-        # Linha em branco entre funcionários
-        row_num += 1
-
-    for i, w in enumerate([35, 18, 14, 45, 14, 30, 25], 1):
-        ws2.column_dimensions[get_column_letter(i)].width = w
-
-    buf = io.BytesIO()
-    wb.save(buf); buf.seek(0)
-    nome_arquivo = f'epis_por_funcionario_{data_ini}_a_{data_fim}.xlsx'
-    return send_file(buf, as_attachment=True,
-                     download_name=nome_arquivo,
-                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-
-
-@app.route('/relatorios/ficha-epi')
-@login_required
-def ficha_epi():
-    """Página para gerar ficha de EPI individual por funcionário."""
-    import re
-
-    # Busca todos os colaboradores que já retiraram itens de categoria EPI
-    funcionarios = set()
-    movs = (Movimentacao.query
-            .join(Item)
-            .filter(Movimentacao.tipo == 'saida',
-                    Item.categoria == 'epi')
-            .all())
-    for mov in movs:
-        obs = mov.observacao or ''
-        m = re.search(r'liberado\s+[Pp][/\s]+(.+)', obs, re.IGNORECASE)
-        if m:
-            funcionarios.add(m.group(1).strip())
-        elif 'Colaborador:' in obs:
-            nome = obs.split('Colaborador:')[-1].split('|')[0].strip()
-            if nome:
-                funcionarios.add(nome)
-
-    almoxarifados_todos = Almoxarifado.query.all()
-
-    return render_template('ficha_epi.html',
-                           funcionarios=sorted(funcionarios),
-                           almoxarifados_epi=almoxarifados_todos,
-                           data_ini='2020-01-01',
-                           data_fim=str(date.today()))
-
-
-@app.route('/relatorios/ficha-epi/exportar')
-@login_required
-def exportar_ficha_epi():
-    """Exporta Ficha de EPI de um funcionário específico — filtra por categoria EPI."""
-    import re
-
-    funcionario = request.args.get('funcionario', '').strip()
-    data_ini    = request.args.get('data_ini', str(date.today().replace(day=1)))
-    data_fim    = request.args.get('data_fim', str(date.today()))
-    alm_id      = request.args.get('almoxarifado_id', type=int)
-
-    if not funcionario:
-        flash('Selecione um funcionário.', 'warning')
-        return redirect(url_for('ficha_epi'))
-
-    alm_nome = Almoxarifado.query.get(alm_id).nome if alm_id else 'EPIs e Uniformes'
-
-    # Filtra por categoria EPI (independente do almoxarifado)
-    query = (Movimentacao.query
-             .join(Item)
-             .filter(Movimentacao.tipo == 'saida',
-                     Item.categoria == 'epi',
-                     Movimentacao.data >= data_ini,
-                     Movimentacao.data <= data_fim + ' 23:59:59'))
-    if alm_id:
-        query = query.filter(Item.almoxarifado_id == alm_id)
-
-    movs_todas = query.order_by(Movimentacao.data.asc()).all()
-
-    def extrair_colaborador(mov):
-        obs = mov.observacao or ''
-        m = re.search(r'liberado\s+[Pp][/\s]+(.+)', obs, re.IGNORECASE)
-        if m:
-            return m.group(1).strip()
-        m = re.search(r'[Cc]olaborador[:\s]+([^|]+)', obs)
-        if m:
-            return m.group(1).strip()
-        return mov.responsavel or ''
-
-    lista = [m for m in movs_todas if extrair_colaborador(m).lower() == funcionario.lower()]
-
-    if not lista:
-        flash(f'Nenhuma retirada de EPI encontrada para "{funcionario}" no período.', 'warning')
-        return redirect(url_for('ficha_epi'))
-
-    # ── Estilos ──────────────────────────────────────────────────────────────
-    borda_fina = Border(
-        left=Side(style='thin'), right=Side(style='thin'),
-        top=Side(style='thin'), bottom=Side(style='thin')
-    )
-    centro = Alignment(horizontal='center', vertical='center', wrap_text=True)
-    esq    = Alignment(horizontal='left',   vertical='center', wrap_text=True)
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = funcionario[:28].strip()
-
-    # Larguras
-    for col, w in zip('ABCDEFGH', [8, 38, 10, 14, 24, 14, 24, 18]):
-        ws.column_dimensions[col].width = w
-
-    # ── CABEÇALHO ────────────────────────────────────────────────────────────
-    ws.row_dimensions[1].height = 32
-    ws.merge_cells('A1:C1')
-    ws['A1'].value = 'STANZA'
-    ws['A1'].font = Font(bold=True, size=20, color='808080')
-    ws['A1'].alignment = centro
-
-    ws.merge_cells('D1:H1')
-    ws['D1'].value = 'FICHA DE CONTROLE DE EPIs E UNIFORMES'
-    ws['D1'].font = Font(bold=True, size=12, color='1A3A5C')
-    ws['D1'].alignment = centro
-    ws['D1'].fill = PatternFill('solid', fgColor='D0E4F7')
-
-    ws.row_dimensions[2].height = 20
-    ws.merge_cells('A2:C2')
-    ws['A2'].value = f'NOME: {funcionario.upper()}'
-    ws['A2'].font = Font(bold=True, size=10)
-    ws['A2'].alignment = esq
-
-    ws.merge_cells('D2:E2')
-    ws['D2'].value = 'MATRÍCULA: '
-    ws['D2'].font = Font(size=10)
-    ws['D2'].alignment = esq
-
-    ws.merge_cells('F2:H2')
-    ws['F2'].value = 'FUNÇÃO: '
-    ws['F2'].font = Font(size=10)
-    ws['F2'].alignment = esq
-
-    ws.row_dimensions[3].height = 18
-    ws.merge_cells('A3:C3')
-    ws['A3'].value = f'ALMOXARIFADO: {alm_nome}'
-    ws['A3'].font = Font(size=9, italic=True)
-    ws['A3'].alignment = esq
-
-    ws.merge_cells('D3:E3')
-    ws['D3'].value = 'ADMISSÃO: '
-    ws['D3'].font = Font(size=9)
-    ws['D3'].alignment = esq
-
-    ws.merge_cells('F3:H3')
-    ws['F3'].value = f'Período: {data_ini} a {data_fim}'
-    ws['F3'].font = Font(size=9, italic=True)
-    ws['F3'].alignment = esq
-
-    for row in range(1, 4):
-        for col in range(1, 9):
-            ws.cell(row=row, column=col).border = borda_fina
-
-    # ── CABEÇALHO DA TABELA ──────────────────────────────────────────────────
-    ws.row_dimensions[4].height = 28
-    ws.merge_cells('D4:E4')
-    ws.merge_cells('F4:H4')
-
-    for cell, val, cor in [('A4','QUANT','1A3A5C'), ('B4','DESCRIÇÃO','1A3A5C'),
-                            ('C4','C.A.','1A3A5C'), ('D4','ENTREGA','2E6DA4'),
-                            ('F4','DEVOLUÇÃO','2E6DA4')]:
-        c = ws[cell]
-        c.value = val
-        c.font = Font(bold=True, color='FFFFFF', size=10)
-        c.fill = PatternFill('solid', fgColor=cor)
-        c.alignment = centro
-        c.border = borda_fina
-
-    ws.row_dimensions[5].height = 22
-    for cell, val in [('A5',''), ('B5',''), ('C5',''),
-                      ('D5','DATA'), ('E5','ASSINATURA'),
-                      ('F5','DATA'), ('G5','ASSINATURA'), ('H5','MOTIVO')]:
-        c = ws[cell]
-        c.value = val
-        c.font = Font(bold=True, color='FFFFFF', size=9)
-        c.fill = PatternFill('solid', fgColor='1A3A5C')
-        c.alignment = centro
-        c.border = borda_fina
-
-    # ── DADOS ────────────────────────────────────────────────────────────────
-    row_num = 6
-    for mov in lista:
-        ws.row_dimensions[row_num].height = 20
-        zebra = PatternFill('solid', fgColor='F0F4F8') if row_num % 2 == 0 else None
-        for col, val in zip('ABCDEFGH', [
-            f'{mov.quantidade} {mov.item.unidade}',
-            mov.item.nome, '', mov.data.strftime('%d/%m/%Y'), '', '', '', ''
-        ]):
-            c = ws[f'{col}{row_num}']
-            c.value = val
-            c.font = Font(size=9)
-            c.alignment = esq if col == 'B' else centro
-            c.border = borda_fina
-            if zebra:
-                c.fill = zebra
-        row_num += 1
-
-    # Linhas extras para preenchimento manual
-    for _ in range(max(3, 15 - len(lista))):
-        ws.row_dimensions[row_num].height = 20
-        for col in 'ABCDEFGH':
-            ws[f'{col}{row_num}'].border = borda_fina
-        row_num += 1
-
-    # ── TERMO DE RESPONSABILIDADE ────────────────────────────────────────────
-    row_num += 1
-    ws.row_dimensions[row_num].height = 16
-    ws.merge_cells(f'A{row_num}:H{row_num}')
-    c = ws[f'A{row_num}']
-    c.value = 'TERMO DE RESPONSABILIDADE'
-    c.font = Font(bold=True, size=10, color='1A3A5C')
-    c.alignment = centro
-    c.fill = PatternFill('solid', fgColor='D0E4F7')
-    c.border = borda_fina
-    row_num += 1
-
-    ws.row_dimensions[row_num].height = 55
-    ws.merge_cells(f'A{row_num}:H{row_num}')
-    c = ws[f'A{row_num}']
-    c.value = (
-        'Pelo presente declaro que recebi da empresa STANZA INCORPORAÇÃO E CONSTRUÇÃO os materiais acima '
-        'relacionados, comprometendo-me a utilizá-los adequadamente, conservá-los e devolvê-los quando '
-        'solicitado ou ao término do contrato de trabalho, conforme os termos das letras "a", "b" e "b" '
-        'do item 8.7.1 da NR-1 e alínea "c" do item 8.7.6, em atividades ligadas ao trabalho, '
-        'zelando pela sua guarda, conservação e devolvê-lo ao setor competente quando se tornar impróprio '
-        'para uso, saldos, inclusive no que me couber a título de indenização correspondente ao uso de trabalho.'
-    )
-    c.font = Font(size=8)
-    c.alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
-    c.border = borda_fina
-    row_num += 2
-
-    ws.row_dimensions[row_num].height = 28
-    ws.merge_cells(f'A{row_num}:D{row_num}')
-    ws[f'A{row_num}'].value = 'Data:    /    /        '
-    ws[f'A{row_num}'].font = Font(size=10)
-    ws[f'A{row_num}'].alignment = esq
-    ws[f'A{row_num}'].border = borda_fina
-
-    ws.merge_cells(f'E{row_num}:H{row_num}')
-    ws[f'E{row_num}'].value = 'EMPREGADO: ________________________________'
-    ws[f'E{row_num}'].font = Font(size=10)
-    ws[f'E{row_num}'].alignment = centro
-    ws[f'E{row_num}'].border = borda_fina
-
-    buf = io.BytesIO()
-    wb.save(buf); buf.seek(0)
-    nome_safe = funcionario.replace(' ', '_').replace('/', '-')
-    return send_file(buf, as_attachment=True,
-                     download_name=f'ficha_epi_{nome_safe}_{data_ini}_a_{data_fim}.xlsx',
-                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-
 
 @app.route('/movimentacoes/excluir', methods=['POST'])
 @admin_required

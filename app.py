@@ -1460,8 +1460,6 @@ def deletar_usuario(id):
     db.session.commit()
     flash('Usuário removido!', 'warning')
     return redirect(url_for('usuarios'))
-    flash('Usuário removido!', 'warning')
-    return redirect(url_for('usuarios'))
 
 # ── ACESSO EXTRA (substituto temporário) ─────────────────────────────────────
 

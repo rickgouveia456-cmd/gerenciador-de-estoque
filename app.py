@@ -1099,6 +1099,146 @@ def relatorio_consumo_pessoa():
                            responsavel_filtro=responsavel_filtro,
                            total_geral=sum(p['total_movs'] for p in resumo))
 
+@app.route('/relatorios/consumo-por-pessoa/exportar')
+@login_required
+def exportar_consumo_pessoa():
+    """Exporta relatório de consumo por pessoa em Excel com 2 abas."""
+    import re
+    from collections import defaultdict
+
+    alm_id           = request.args.get('almoxarifado_id', type=int)
+    data_ini         = request.args.get('data_ini', str(date.today().replace(day=1)))
+    data_fim         = request.args.get('data_fim', str(date.today()))
+    responsavel_filtro = request.args.get('responsavel', '').strip()
+
+    query = Movimentacao.query.filter(
+        Movimentacao.tipo == 'saida',
+        Movimentacao.data >= data_ini,
+        Movimentacao.data <= data_fim + ' 23:59:59'
+    )
+    if alm_id:
+        query = query.join(Item).filter(Item.almoxarifado_id == alm_id)
+    else:
+        query = query.join(Item)
+
+    movs = query.order_by(Movimentacao.data.asc()).all()
+
+    def extrair_colaborador(mov):
+        obs = mov.observacao or ''
+        m = re.search(r'liberado\s+[Pp][/\s]+(.+)', obs, re.IGNORECASE)
+        if m: return m.group(1).strip()
+        m = re.search(r'[Cc]olaborador[:\s]+([^|]+)', obs)
+        if m: return m.group(1).strip()
+        return mov.responsavel or 'Sem responsável'
+
+    por_pessoa = defaultdict(list)
+    for mov in movs:
+        colab = extrair_colaborador(mov)
+        if responsavel_filtro and responsavel_filtro.lower() not in colab.lower():
+            continue
+        por_pessoa[colab].append(mov)
+
+    # Estilos
+    h_fill  = PatternFill('solid', fgColor='1A3A5C')
+    h_font  = Font(bold=True, color='FFFFFF', size=11)
+    z_fill  = PatternFill('solid', fgColor='F0F4F8')
+    borda   = Border(left=Side(style='thin'), right=Side(style='thin'),
+                     top=Side(style='thin'), bottom=Side(style='thin'))
+    centro  = Alignment(horizontal='center', vertical='center')
+    esq     = Alignment(horizontal='left',   vertical='center')
+    alm_nome = Almoxarifado.query.get(alm_id).nome if alm_id else 'Todos'
+    total_geral = sum(len(v) for v in por_pessoa.values())
+
+    wb = openpyxl.Workbook()
+
+    # ── ABA 1: Resumo ─────────────────────────────────────────────────────────
+    ws1 = wb.active
+    ws1.title = 'Resumo'
+    for col, w in enumerate([6, 40, 20, 18, 18], 1):
+        ws1.column_dimensions[get_column_letter(col)].width = w
+
+    ws1.merge_cells('A1:E1')
+    ws1['A1'].value = f'Consumo por Pessoa — {alm_nome}'
+    ws1['A1'].font = Font(bold=True, size=13, color='1A3A5C')
+    ws1['A1'].fill = PatternFill('solid', fgColor='E8F0F7')
+    ws1['A1'].alignment = centro
+
+    ws1.merge_cells('A2:E2')
+    ws1['A2'].value = f'Período: {data_ini} a {data_fim}   |   Gerado em: {agora().strftime("%d/%m/%Y %H:%M")}'
+    ws1['A2'].font = Font(italic=True, size=10, color='666666')
+    ws1['A2'].alignment = centro
+
+    for col, h in enumerate(['#', 'Funcionário', 'Total Retiradas', 'Itens Distintos', 'Participação (%)'], 1):
+        c = ws1.cell(row=4, column=col, value=h)
+        c.font = h_font; c.fill = h_fill; c.alignment = centro; c.border = borda
+
+    for i, (nome, lista) in enumerate(sorted(por_pessoa.items(), key=lambda x: len(x[1]), reverse=True), 1):
+        pct = round(len(lista) / total_geral * 100, 1) if total_geral else 0
+        row = i + 4
+        for col, val in enumerate([i, nome, len(lista), len(set(m.item_id for m in lista)), f'{pct}%'], 1):
+            c = ws1.cell(row=row, column=col, value=val)
+            c.border = borda
+            c.alignment = esq if col == 2 else centro
+            if row % 2 == 0: c.fill = z_fill
+
+    # Linha total
+    r = len(por_pessoa) + 5
+    for col, val in enumerate(['', f'{len(por_pessoa)} pessoa(s)', total_geral, '', '100%'], 1):
+        c = ws1.cell(row=r, column=col, value=val)
+        c.font = Font(bold=True)
+        c.fill = PatternFill('solid', fgColor='D0E4F7')
+        c.border = borda; c.alignment = centro
+
+    # ── ABA 2: Detalhes ───────────────────────────────────────────────────────
+    ws2 = wb.create_sheet('Detalhes')
+    for col, w in enumerate([35, 18, 14, 45, 14, 30, 25], 1):
+        ws2.column_dimensions[get_column_letter(col)].width = w
+
+    ws2.merge_cells('A1:G1')
+    ws2['A1'].value = f'Detalhes por Funcionário — {alm_nome}'
+    ws2['A1'].font = Font(bold=True, size=13, color='1A3A5C')
+    ws2['A1'].fill = PatternFill('solid', fgColor='E8F0F7')
+    ws2['A1'].alignment = centro
+
+    ws2.merge_cells('A2:G2')
+    ws2['A2'].value = f'Período: {data_ini} a {data_fim}   |   Gerado em: {agora().strftime("%d/%m/%Y %H:%M")}'
+    ws2['A2'].font = Font(italic=True, size=10, color='666666')
+    ws2['A2'].alignment = centro
+
+    for col, h in enumerate(['Funcionário', 'Data', 'Código', 'Item', 'Quantidade', 'Almoxarifado', 'Liberado por'], 1):
+        c = ws2.cell(row=4, column=col, value=h)
+        c.font = h_font; c.fill = h_fill; c.alignment = centro; c.border = borda
+
+    row_num = 5
+    for nome, lista in sorted(por_pessoa.items()):
+        # Cabeçalho do funcionário
+        ws2.merge_cells(f'A{row_num}:G{row_num}')
+        c = ws2.cell(row=row_num, column=1, value=f'👷 {nome}  ({len(lista)} retirada(s))')
+        c.font = Font(bold=True, color='FFFFFF', size=11)
+        c.fill = PatternFill('solid', fgColor='2E6DA4')
+        c.alignment = esq; c.border = borda
+        row_num += 1
+
+        for mov in sorted(lista, key=lambda m: m.data):
+            for col, val in enumerate([nome, mov.data.strftime('%d/%m/%Y %H:%M'),
+                                        mov.item.codigo, mov.item.nome,
+                                        f'{mov.quantidade} {mov.item.unidade}',
+                                        mov.item.almoxarifado.nome,
+                                        mov.responsavel or '—'], 1):
+                c = ws2.cell(row=row_num, column=col, value=val)
+                c.font = Font(size=9); c.border = borda
+                c.alignment = esq if col in [1,3,4] else centro
+                if row_num % 2 == 0: c.fill = z_fill
+            row_num += 1
+        row_num += 1  # linha em branco entre funcionários
+
+    buf = io.BytesIO()
+    wb.save(buf); buf.seek(0)
+    return send_file(buf, as_attachment=True,
+                     download_name=f'consumo_por_pessoa_{data_ini}_a_{data_fim}.xlsx',
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+
 @app.route('/relatorios/ficha-epi')
 @login_required
 def ficha_epi():

@@ -2539,6 +2539,44 @@ Guarde em local seguro."""
 
     return erros == 0, None
 
+@app.route('/admin/classificar-epis', methods=['POST'])
+@admin_required
+def classificar_epis():
+    """Classifica automaticamente os itens conhecidos como EPI/Maquinário no banco."""
+    # Palavras-chave que identificam EPIs
+    palavras_epi = [
+        'bota', 'capacete', 'carneira', 'cinto de segurança', 'capa de chuva',
+        'calça brim', 'camisa brim', 'macacão', 'mascara', 'máscara',
+        'luva vaqueta', 'luva flextactil', 'perneira', 'protetor auricular',
+        'óculos de proteção', 'óculos de segurança', 'óculos de sobrepor',
+        'talabarte', 'trava-quedas', 'mosquetão oval', 'cinto paraquedista',
+        'epi', 'uniforme', 'colete', 'capacete'
+    ]
+    # Palavras-chave que identificam Maquinário/Peça
+    palavras_maq = [
+        'broca diamantada', 'disco diamantado', 'disco de desbaste',
+        'maçarico', 'perfuratriz', 'abrasiva'
+    ]
+
+    atualizados_epi = 0
+    atualizados_maq = 0
+    itens = Item.query.all()
+    for it in itens:
+        nome_lower = it.nome.lower()
+        if any(p in nome_lower for p in palavras_epi):
+            if it.categoria != 'epi':
+                it.categoria = 'epi'
+                atualizados_epi += 1
+        elif any(p in nome_lower for p in palavras_maq):
+            if it.categoria != 'maquinario':
+                it.categoria = 'maquinario'
+                atualizados_maq += 1
+
+    db.session.commit()
+    flash(f'✅ Classificação concluída: {atualizados_epi} EPIs e {atualizados_maq} Maquinários atualizados.', 'success')
+    return redirect(url_for('index'))
+
+
 @app.route('/admin/debug-env')
 @admin_required
 def debug_env():
@@ -2641,12 +2679,45 @@ def seed_data():
         print('Altere a senha imediatamente após o primeiro login!')
         print('=' * 60)
 
+def classificar_categorias_itens():
+    """Classifica automaticamente itens como EPI ou Maquinário pelo nome."""
+    palavras_epi = [
+        'bota', 'capacete', 'carneira', 'cinto de segurança', 'capa de chuva',
+        'calça brim', 'camisa brim', 'macacão', 'mascara', 'máscara',
+        'luva vaqueta', 'luva flextactil', 'perneira', 'protetor auricular',
+        'óculos de proteção', 'óculos de segurança', 'óculos de sobrepor',
+        'talabarte', 'trava-quedas', 'mosquetão oval', 'cinto paraquedista',
+        'uniforme', 'colete refletivo'
+    ]
+    palavras_maq = [
+        'broca diamantada', 'disco diamantado', 'disco de desbaste',
+        'maçarico', 'perfuratriz'
+    ]
+    try:
+        itens = Item.query.filter_by(categoria='geral').all()
+        atualizados = 0
+        for it in itens:
+            nome_lower = it.nome.lower()
+            if any(p in nome_lower for p in palavras_epi):
+                it.categoria = 'epi'
+                atualizados += 1
+            elif any(p in nome_lower for p in palavras_maq):
+                it.categoria = 'maquinario'
+                atualizados += 1
+        if atualizados:
+            db.session.commit()
+            print(f'Categorias: {atualizados} itens classificados automaticamente.')
+    except Exception as e:
+        print(f'Categorias: erro ao classificar — {e}')
+
+
 def inicializar_banco():
     """Roda migrações, cria tabelas e seed — executado uma única vez."""
     try:
         run_migrations()
         db.create_all()
         seed_data()
+        classificar_categorias_itens()
     except Exception as e:
         print(f'Inicialização do banco: {e}')
 

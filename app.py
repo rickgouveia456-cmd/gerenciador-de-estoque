@@ -87,6 +87,7 @@ class Item(db.Model):
     status_compra = db.Column(db.String(30), default='pendente')
     fixado = db.Column(db.Boolean, default=False)
     ativo = db.Column(db.Boolean, default=True)
+    categoria = db.Column(db.String(30), default='geral')  # 'epi', 'maquinario', 'geral'
     movimentacoes = db.relationship('Movimentacao', backref='item', lazy=True, cascade='all, delete-orphan')
 
     @property
@@ -307,6 +308,7 @@ def run_migrations():
             safe_exec(conn, "ALTER TABLE item ADD COLUMN status_compra VARCHAR(30) DEFAULT 'pendente'")
             safe_exec(conn, "ALTER TABLE item ADD COLUMN fixado BOOLEAN DEFAULT 0")
             safe_exec(conn, "ALTER TABLE item ADD COLUMN ativo BOOLEAN DEFAULT 1")
+            safe_exec(conn, "ALTER TABLE item ADD COLUMN categoria VARCHAR(30) DEFAULT 'geral'")
             if is_pg:
                 safe_exec(conn, "ALTER TABLE item ALTER COLUMN nome TYPE VARCHAR(300)")
 
@@ -507,7 +509,8 @@ def novo_item():
             unidade=request.form['unidade'],
             quantidade=float(request.form.get('quantidade', 0)),
             estoque_minimo=float(request.form.get('estoque_minimo', 0)),
-            almoxarifado_id=int(request.form['almoxarifado_id'])
+            almoxarifado_id=int(request.form['almoxarifado_id']),
+            categoria=request.form.get('categoria', 'geral')
         )
         db.session.add(it)
         db.session.commit()
@@ -526,6 +529,7 @@ def editar_item(id):
         it.unidade = request.form['unidade']
         it.estoque_minimo = float(request.form.get('estoque_minimo', 0))
         it.almoxarifado_id = int(request.form['almoxarifado_id'])
+        it.categoria = request.form.get('categoria', 'geral')
         # Atualizar quantidade se informada (admin pode corrigir o valor)
         qtd_str = request.form.get('quantidade')
         if qtd_str is not None and qtd_str != '':
@@ -1094,6 +1098,288 @@ def relatorio_consumo_pessoa():
                            alm_id=alm_id,
                            responsavel_filtro=responsavel_filtro,
                            total_geral=sum(p['total_movs'] for p in resumo))
+
+@app.route('/relatorios/ficha-epi')
+@login_required
+def ficha_epi():
+    """Página para gerar ficha de EPI individual por funcionário."""
+    import re
+    funcionarios = set()
+    movs = Movimentacao.query.join(Item).filter(
+        Movimentacao.tipo == 'saida', Item.categoria == 'epi').all()
+    for mov in movs:
+        obs = mov.observacao or ''
+        m = re.search(r'liberado\s+[Pp][/\s]+(.+)', obs, re.IGNORECASE)
+        if m:
+            funcionarios.add(m.group(1).strip())
+        elif 'Colaborador:' in obs:
+            nome = obs.split('Colaborador:')[-1].split('|')[0].strip()
+            if nome:
+                funcionarios.add(nome)
+    return render_template('ficha_epi.html',
+                           funcionarios=sorted(funcionarios),
+                           data_ini='2020-01-01',
+                           data_fim=str(date.today()))
+
+
+@app.route('/relatorios/ficha-epi/exportar')
+@login_required
+def exportar_ficha_epi():
+    """Exporta FORM.SEG.014 — Ficha de Controle de EPIs e Uniformes."""
+    import re
+    funcionario = request.args.get('funcionario', '').strip()
+    data_ini    = request.args.get('data_ini', '2020-01-01')
+    data_fim    = request.args.get('data_fim', str(date.today()))
+
+    if not funcionario:
+        flash('Selecione um funcionário.', 'warning')
+        return redirect(url_for('ficha_epi'))
+
+    movs_todas = (Movimentacao.query.join(Item)
+                  .filter(Movimentacao.tipo == 'saida',
+                          Item.categoria == 'epi',
+                          Movimentacao.data >= data_ini,
+                          Movimentacao.data <= data_fim + ' 23:59:59')
+                  .order_by(Movimentacao.data.asc()).all())
+
+    def extrair_colab(mov):
+        obs = mov.observacao or ''
+        m = re.search(r'liberado\s+[Pp][/\s]+(.+)', obs, re.IGNORECASE)
+        if m: return m.group(1).strip()
+        m = re.search(r'[Cc]olaborador[:\s]+([^|]+)', obs)
+        if m: return m.group(1).strip()
+        return mov.responsavel or ''
+
+    lista = [m for m in movs_todas if extrair_colab(m).lower() == funcionario.lower()]
+
+    if not lista:
+        flash(f'Nenhuma retirada de EPI encontrada para "{funcionario}" no período.', 'warning')
+        return redirect(url_for('ficha_epi'))
+
+    # ── Estilos ──────────────────────────────────────────────────────────────
+    borda = Border(left=Side(style='thin'), right=Side(style='thin'),
+                   top=Side(style='thin'), bottom=Side(style='thin'))
+    borda_med = Border(left=Side(style='medium'), right=Side(style='medium'),
+                       top=Side(style='medium'), bottom=Side(style='medium'))
+    centro = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    esq    = Alignment(horizontal='left',   vertical='center', wrap_text=True)
+    azul_esc = PatternFill('solid', fgColor='1F3864')
+    azul_cla = PatternFill('solid', fgColor='BDD7EE')
+    cinza    = PatternFill('solid', fgColor='F2F2F2')
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = funcionario[:28]
+
+    # Larguras: A=Qtd | B=Descrição | C=C.A. | D=Data Ent | E=Assin Ent | F=Data Dev | G=Assin Dev | H=Motivo
+    for col, w in zip('ABCDEFGH', [8, 40, 10, 14, 26, 14, 26, 18]):
+        ws.column_dimensions[col].width = w
+
+    def celula(ws, ref, val='', font=None, fill=None, aln=None, brd=None, height=None):
+        c = ws[ref]
+        c.value = val
+        if font:  c.font = font
+        if fill:  c.fill = fill
+        if aln:   c.alignment = aln
+        if brd:   c.border = brd
+        return c
+
+    def merge_row(ws, row, col_ini, col_fim, val='', font=None, fill=None, aln=None, height=None):
+        ws.merge_cells(f'{col_ini}{row}:{col_fim}{row}')
+        c = ws[f'{col_ini}{row}']
+        c.value = val
+        if font:  c.font = font
+        if fill:  c.fill = fill
+        if aln:   c.alignment = aln
+        for col in range(ord(col_ini)-64, ord(col_fim)-64+1):
+            ws.cell(row=row, column=col).border = borda
+        if height: ws.row_dimensions[row].height = height
+        return c
+
+    # ── LINHA 1: Cabeçalho principal ─────────────────────────────────────────
+    ws.row_dimensions[1].height = 36
+    ws.merge_cells('A1:C1')
+    ws['A1'].value = 'STANZA'
+    ws['A1'].font = Font(bold=True, size=22, color='808080')
+    ws['A1'].alignment = centro
+    for c in range(1,4): ws.cell(1,c).border = borda_med
+
+    ws.merge_cells('D1:F1')
+    ws['D1'].value = 'FICHA DE CONTROLE DE EPI\'S E UNIFORMES'
+    ws['D1'].font = Font(bold=True, size=13, color='1F3864')
+    ws['D1'].alignment = centro
+    ws['D1'].fill = azul_cla
+    for c in range(4,7): ws.cell(1,c).border = borda_med
+
+    ws.merge_cells('G1:H1')
+    ws['G1'].value = 'FORM.SEG.014'
+    ws['G1'].font = Font(bold=True, size=9, color='1F3864')
+    ws['G1'].alignment = centro
+    ws['G1'].fill = azul_cla
+    for c in range(7,9): ws.cell(1,c).border = borda_med
+
+    # ── LINHA 2: Data elaboração ──────────────────────────────────────────────
+    ws.row_dimensions[2].height = 14
+    ws.merge_cells('D2:F2')
+    ws['D2'].value = 'Data Elaboração/Revisão: 20/10/2024'
+    ws['D2'].font = Font(size=8, italic=True, color='595959')
+    ws['D2'].alignment = centro
+    ws.merge_cells('G2:H2')
+    ws['G2'].value = 'Revisão: 00'
+    ws['G2'].font = Font(size=8, italic=True, color='595959')
+    ws['G2'].alignment = centro
+    for c in range(1,9): ws.cell(2,c).border = borda
+
+    # ── LINHA 3: Dados do funcionário ────────────────────────────────────────
+    ws.row_dimensions[3].height = 22
+    ws.merge_cells('A3:B3')
+    ws['A3'].value = f'NOME: {funcionario.upper()}'
+    ws['A3'].font = Font(bold=True, size=10)
+    ws['A3'].alignment = esq
+    ws['A3'].fill = cinza
+
+    ws['C3'].value = f'MATRÍCULA:'
+    ws['C3'].font = Font(size=9)
+    ws['C3'].alignment = centro
+    ws['C3'].fill = cinza
+
+    ws.merge_cells('D3:E3')
+    ws['D3'].value = 'FUNÇÃO:'
+    ws['D3'].font = Font(size=9)
+    ws['D3'].alignment = esq
+    ws['D3'].fill = cinza
+
+    ws.merge_cells('F3:G3')
+    ws['F3'].value = f'ADMISSÃO:'
+    ws['F3'].font = Font(size=9)
+    ws['F3'].alignment = esq
+    ws['F3'].fill = cinza
+
+    ws['H3'].value = ''
+    ws['H3'].fill = cinza
+    for c in range(1,9): ws.cell(3,c).border = borda
+
+    # ── LINHA 4: Cabeçalho da tabela ─────────────────────────────────────────
+    ws.row_dimensions[4].height = 20
+    for ref, val in [('A4','QUANT'), ('B4','DESCRIÇÃO'), ('C4','C.A.')]:
+        ws[ref].value = val
+        ws[ref].font = Font(bold=True, color='FFFFFF', size=9)
+        ws[ref].fill = azul_esc
+        ws[ref].alignment = centro
+        ws[ref].border = borda
+
+    ws.merge_cells('D4:E4')
+    ws['D4'].value = 'ENTREGA'
+    ws['D4'].font = Font(bold=True, color='FFFFFF', size=9)
+    ws['D4'].fill = azul_esc
+    ws['D4'].alignment = centro
+    for c in range(4,6): ws.cell(4,c).border = borda
+
+    ws.merge_cells('F4:G4')
+    ws['F4'].value = 'DEVOLUÇÃO'
+    ws['F4'].font = Font(bold=True, color='FFFFFF', size=9)
+    ws['F4'].fill = azul_esc
+    ws['F4'].alignment = centro
+    for c in range(6,8): ws.cell(4,c).border = borda
+
+    ws['H4'].value = 'MOTIVO'
+    ws['H4'].font = Font(bold=True, color='FFFFFF', size=9)
+    ws['H4'].fill = azul_esc
+    ws['H4'].alignment = centro
+    ws['H4'].border = borda
+
+    # ── LINHA 5: Sub-cabeçalho ───────────────────────────────────────────────
+    ws.row_dimensions[5].height = 16
+    for ref, val in [('A5',''), ('B5',''), ('C5',''),
+                     ('D5','DATA'), ('E5','ASSINATURA'),
+                     ('F5','DATA'), ('G5','ASSINATURA'), ('H5','')]:
+        ws[ref].value = val
+        ws[ref].font = Font(bold=True, color='FFFFFF', size=8)
+        ws[ref].fill = azul_esc
+        ws[ref].alignment = centro
+        ws[ref].border = borda
+
+    # ── LINHAS DE DADOS ──────────────────────────────────────────────────────
+    row = 6
+    for mov in lista:
+        ws.row_dimensions[row].height = 18
+        fill_z = PatternFill('solid', fgColor='EBF3FB') if row % 2 == 0 else None
+        for col, val in zip('ABCDEFGH', [
+            f'{mov.quantidade} {mov.item.unidade}',
+            mov.item.nome, '',
+            mov.data.strftime('%d/%m/%Y'), '',
+            '', '', ''
+        ]):
+            c = ws[f'{col}{row}']
+            c.value = val
+            c.font = Font(size=9)
+            c.alignment = esq if col == 'B' else centro
+            c.border = borda
+            if fill_z: c.fill = fill_z
+        row += 1
+
+    # Linhas em branco (mínimo 14 no total conforme formulário)
+    total_linhas = max(14, len(lista) + 4)
+    while row <= 5 + total_linhas:
+        ws.row_dimensions[row].height = 18
+        for col in 'ABCDEFGH':
+            ws[f'{col}{row}'].border = borda
+            ws[f'{col}{row}'].value = '/    /' if col in ('D','F') else ''
+            ws[f'{col}{row}'].font = Font(size=9, color='BFBFBF')
+            ws[f'{col}{row}'].alignment = centro
+        row += 1
+
+    # ── TERMO DE RESPONSABILIDADE ────────────────────────────────────────────
+    row += 1
+    ws.row_dimensions[row].height = 16
+    ws.merge_cells(f'A{row}:H{row}')
+    ws[f'A{row}'].value = 'TERMO DE RESPONSABILIDADE'
+    ws[f'A{row}'].font = Font(bold=True, size=10, color='1F3864')
+    ws[f'A{row}'].alignment = centro
+    ws[f'A{row}'].fill = azul_cla
+    for c in range(1,9): ws.cell(row,c).border = borda
+    row += 1
+
+    ws.row_dimensions[row].height = 70
+    ws.merge_cells(f'A{row}:H{row}')
+    ws[f'A{row}'].value = (
+        'Pelo presente declaro que recebi da empresa STANZA INCORPORAÇÃO E CONSTRUÇÃO LTDA., os materiais '
+        'relacionados nesta ficha, assumindo o compromisso nos termos das letras "a" e "b" do ítem 1.8 da NR 1 '
+        'e letras "a","b"e "c" do ítem 6.7.1 da NR 6, de usá-los em atividades ligadas ao trabalho, zelar pela '
+        'sua guarda, conservação e devolvê-lo ao setor competente quando se tornar impróprio para uso ou por '
+        'motivo de demissão ou afastamento.\n'
+        'Em caso de perda, extravio e inutilização proposital do material recebido, autorizo a empresa, na forma '
+        'prevista no parágrafo primeiro do art. 462 da CLT - Consolidação das leis do trabalho. A descontar de '
+        'meu salário, inclusive no que me couber a título de indenização por rescisão de contrato de trabalho, '
+        'a importância correspondente ao valor do material.'
+    )
+    ws[f'A{row}'].font = Font(size=8)
+    ws[f'A{row}'].alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+    for c in range(1,9): ws.cell(row,c).border = borda
+    row += 2
+
+    # Linha de data e assinatura
+    ws.row_dimensions[row].height = 28
+    ws.merge_cells(f'A{row}:C{row}')
+    ws[f'A{row}'].value = 'Data:        /        /'
+    ws[f'A{row}'].font = Font(size=10)
+    ws[f'A{row}'].alignment = esq
+    for c in range(1,4): ws.cell(row,c).border = borda
+
+    ws.merge_cells(f'D{row}:H{row}')
+    ws[f'D{row}'].value = 'EMPREGADO'
+    ws[f'D{row}'].font = Font(bold=True, size=10, color='1F3864')
+    ws[f'D{row}'].alignment = centro
+    ws[f'D{row}'].fill = azul_cla
+    for c in range(4,9): ws.cell(row,c).border = borda
+
+    buf = io.BytesIO()
+    wb.save(buf); buf.seek(0)
+    nome_safe = funcionario.replace(' ', '_').replace('/', '-')
+    return send_file(buf, as_attachment=True,
+                     download_name=f'FORM-SEG-014_{nome_safe}_{data_fim}.xlsx',
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
 
 @app.route('/movimentacoes/excluir', methods=['POST'])
 @admin_required

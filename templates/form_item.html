@@ -58,6 +58,15 @@
                             </select>
                         </div>
                         <div class="col-12">
+                            <label class="form-label fw-semibold">Categoria *</label>
+                            <select name="categoria" class="form-select" required>
+                                <option value="geral" {% if not item or item.categoria == 'geral' %}selected{% endif %}>🏗️ Material Geral</option>
+                                <option value="epi"   {% if item and item.categoria == 'epi' %}selected{% endif %}>🦺 EPI / Uniforme</option>
+                                <option value="maquinario" {% if item and item.categoria == 'maquinario' %}selected{% endif %}>⚙️ Maquinário / Peça</option>
+                            </select>
+                            <div class="form-text">Itens <strong>EPI</strong> aparecem na Ficha de Controle de EPIs por funcionário.</div>
+                        </div>
+                        <div class="col-12">
                             <label class="form-label fw-semibold">Categoria do Item *</label>
                             <select name="categoria" class="form-select" required>
                                 <option value="geral" {% if not item or item.categoria == 'geral' %}selected{% endif %}>

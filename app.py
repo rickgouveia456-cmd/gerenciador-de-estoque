@@ -11,14 +11,13 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
-# ── CARREGA VARIÁVEIS DE AMBIENTE (com fallback para valores padrão) ─────────
-# Se as variáveis não estiverem definidas no Railway, usa valores padrão
+# ── VARIÁVEIS DE AMBIENTE ─────────────────────────────────────────────────────
+# Valores padrão apenas para desenvolvimento local — no Railway use as variáveis de ambiente
 if not os.environ.get('BACKUP_EMAIL_FROM'):
     os.environ['BACKUP_EMAIL_FROM'] = 'rickgouveia157@gmail.com'
-if not os.environ.get('BACKUP_EMAIL_PASS'):
-    os.environ['BACKUP_EMAIL_PASS'] = 'bzesuxmiqaupvnly'
 if not os.environ.get('BACKUP_EMAIL_TO'):
     os.environ['BACKUP_EMAIL_TO'] = 'rickgouveia157@gmail.com'
+# BACKUP_EMAIL_PASS não tem fallback — deve ser configurada no Railway
 
 # ── DIAGNÓSTICO DE VARIÁVEIS DE AMBIENTE ─────────────────────────────────────
 print('=' * 60)
@@ -38,7 +37,13 @@ def agora():
     return datetime.now(TZ_BRASILIA).replace(tzinfo=None)
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
+# SECRET_KEY deve ser definida como variável de ambiente no Railway.
+# Se não estiver definida, usa uma chave fixa de desenvolvimento (não segura para produção).
+_secret = os.environ.get('SECRET_KEY')
+if not _secret:
+    _secret = 'dev-key-insegura-defina-SECRET_KEY-no-railway'
+    print('⚠️  AVISO: SECRET_KEY não definida — sessões serão perdidas a cada restart. Configure no Railway.')
+app.secret_key = _secret
 
 # Railway fornece DATABASE_URL com prefixo "postgres://" (formato antigo),
 # mas o SQLAlchemy 1.4+ exige "postgresql://". Corrige automaticamente.
@@ -620,9 +625,11 @@ def movimentacao_lote():
                     pass
 
         for i in sorted(indices):
-            item_id = request.form.get(f'item_id_{i}')
-            qtd_str = request.form.get(f'quantidade_{i}')
-            colab   = request.form.get(f'colaborador_{i}', '')
+            item_id    = request.form.get(f'item_id_{i}')
+            qtd_str    = request.form.get(f'quantidade_{i}')
+            colab      = request.form.get(f'colaborador_{i}', '').strip()
+            resp_linha = request.form.get(f'responsavel_{i}', '').strip() or responsavel
+            ca_linha   = request.form.get(f'ca_{i}', '').strip()
 
             if not item_id or not qtd_str:
                 continue
@@ -641,10 +648,15 @@ def movimentacao_lote():
                 continue
 
             it.quantidade = round(it.quantidade + qtd if tipo == 'entrada' else it.quantidade - qtd, 4)
-            obs_linha = f'{observacao} | Colaborador: {colab}' if colab else observacao
+            if tipo == 'saida' and colab:
+                obs_linha = f'liberado P/ {colab}'
+                if observacao:
+                    obs_linha += f' | {observacao}'
+            else:
+                obs_linha = observacao
             movs.append(Movimentacao(
                 tipo=tipo, quantidade=qtd,
-                responsavel=responsavel,
+                responsavel=resp_linha,
                 observacao=obs_linha,
                 item_id=it.id
             ))
@@ -2635,6 +2647,7 @@ def backup_manual():
     return render_template('backup.html', email_configurado=email_configurado)
 
 @app.route('/api/backup-automatico', methods=['GET'])
+@admin_required
 def api_backup_automatico():
     """API pública para backup automático via cron job externo.
     Acesse: https://seu-site.railway.app/api/backup-automatico

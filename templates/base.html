@@ -515,9 +515,6 @@
         <a href="/relatorios/ficha-epi" class="nav-link {% if request.endpoint == 'ficha_epi' %}active{% endif %}">
             <i class="bi bi-file-earmark-person me-2"></i> Ficha de EPI
         </a>
-        <a href="/relatorios/alertas" class="nav-link">
-            <i class="bi bi-exclamation-triangle me-2"></i> Pedidos de Compra
-        </a>
         {% if usuario_atual and usuario_atual.perfil == 'admin' %}
         <span class="nav-section">Administração</span>
         <a href="/usuarios" class="nav-link {% if request.endpoint == 'usuarios' %}active{% endif %}">

@@ -88,6 +88,7 @@ class Item(db.Model):
     fixado = db.Column(db.Boolean, default=False)
     ativo = db.Column(db.Boolean, default=True)
     categoria = db.Column(db.String(30), default='geral')  # 'epi', 'maquinario', 'geral'
+    ca = db.Column(db.String(20))  # Certificado de Aprovação (só EPIs)
     movimentacoes = db.relationship('Movimentacao', backref='item', lazy=True, cascade='all, delete-orphan')
 
     @property
@@ -309,6 +310,7 @@ def run_migrations():
             safe_exec(conn, "ALTER TABLE item ADD COLUMN fixado BOOLEAN DEFAULT 0")
             safe_exec(conn, "ALTER TABLE item ADD COLUMN ativo BOOLEAN DEFAULT 1")
             safe_exec(conn, "ALTER TABLE item ADD COLUMN categoria VARCHAR(30) DEFAULT 'geral'")
+            safe_exec(conn, "ALTER TABLE item ADD COLUMN ca VARCHAR(20)")
             if is_pg:
                 safe_exec(conn, "ALTER TABLE item ALTER COLUMN nome TYPE VARCHAR(300)")
 
@@ -510,7 +512,8 @@ def novo_item():
             quantidade=float(request.form.get('quantidade', 0)),
             estoque_minimo=float(request.form.get('estoque_minimo', 0)),
             almoxarifado_id=int(request.form['almoxarifado_id']),
-            categoria=request.form.get('categoria', 'geral')
+            categoria=request.form.get('categoria', 'geral'),
+            ca=request.form.get('ca', '').strip() or None
         )
         db.session.add(it)
         db.session.commit()
@@ -530,6 +533,7 @@ def editar_item(id):
         it.estoque_minimo = float(request.form.get('estoque_minimo', 0))
         it.almoxarifado_id = int(request.form['almoxarifado_id'])
         it.categoria = request.form.get('categoria', 'geral')
+        it.ca = request.form.get('ca', '').strip() or None
         # Atualizar quantidade se informada (admin pode corrigir o valor)
         qtd_str = request.form.get('quantidade')
         if qtd_str is not None and qtd_str != '':
@@ -1446,7 +1450,7 @@ def exportar_ficha_epi():
         fill_z = PatternFill('solid', fgColor='EBF3FB') if row % 2 == 0 else None
         for col, val in zip('ABCDEFGH', [
             f'{mov.quantidade} {mov.item.unidade}',
-            mov.item.nome, '',
+            mov.item.nome, mov.item.ca or '',
             mov.data.strftime('%d/%m/%Y'), '',
             '', '', ''
         ]):

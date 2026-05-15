@@ -595,7 +595,9 @@ def movimentacao_lote():
     itens_json = {}
     for alm in almoxarifados:
         itens_json[str(alm.id)] = [
-            {'id': it.id, 'nome': it.nome, 'quantidade': it.quantidade, 'unidade': it.unidade}
+            {'id': it.id, 'nome': it.nome, 'quantidade': it.quantidade,
+             'unidade': it.unidade, 'categoria': it.categoria or 'geral',
+             'ca': it.ca or ''}
             for it in alm.itens
         ]
 

@@ -70,6 +70,7 @@
                     <th>Almoxarifado</th>
                     <th>Tipo</th>
                     <th>Quantidade</th>
+                    <th>C.A.</th>
                     <th>Colaborador</th>
                     <th>Liberado por</th>
                 </tr>
@@ -88,6 +89,11 @@
                         {% endif %}
                     </td>
                     <td class="fw-bold">{{ mov.quantidade }} {{ mov.item.unidade }}</td>
+                    <td class="small text-muted">
+                        {% if mov.item.categoria == 'epi' and mov.item.ca %}
+                            <span class="badge bg-secondary">{{ mov.item.ca }}</span>
+                        {% else %}—{% endif %}
+                    </td>
                     <td>
                         {% if mov.tipo == 'saida' %}
                             {% set obs = mov.observacao or '' %}
@@ -145,7 +151,7 @@ function buildSelect(idx) {
     const itens = getItens();
     let opts = '<option value="">Selecione o insumo...</option>';
     itens.forEach(it => {
-        opts += `<option value="${it.id}" data-qtd="${it.quantidade}" data-un="${it.unidade}">${it.nome} (${it.quantidade} ${it.unidade})</option>`;
+        opts += `<option value="${it.id}" data-qtd="${it.quantidade}" data-un="${it.unidade}" data-cat="${it.categoria}" data-ca="${it.ca}">${it.nome} (${it.quantidade} ${it.unidade})</option>`;
     });
     return `<select name="item_id_${idx}" class="form-select form-select-sm" required onchange="atualizarBadge(this,${idx})">${opts}</select>`;
 }
@@ -154,11 +160,25 @@ function atualizarBadge(sel, idx) {
     const opt = sel.options[sel.selectedIndex];
     const qtd = parseFloat(opt.dataset.qtd || 0);
     const un  = opt.dataset.un || '';
+    const cat = opt.dataset.cat || '';
+    const ca  = opt.dataset.ca  || '';
     const b = document.getElementById(`badge_${idx}`);
     if (!b) return;
     b.innerHTML = qtd <= 0
         ? `<span class="badge bg-danger">🔴 Zerado</span>`
         : `<span class="badge bg-success">🟢 ${qtd} ${un}</span>`;
+    // Mostrar/preencher campo C.A. se for EPI
+    const divCa = document.getElementById(`div_ca_${idx}`);
+    const inputCa = document.querySelector(`input[name="ca_${idx}"]`);
+    if (divCa && inputCa) {
+        if (cat === 'epi') {
+            divCa.style.display = '';
+            inputCa.value = ca;
+        } else {
+            divCa.style.display = 'none';
+            inputCa.value = '';
+        }
+    }
 }
 
 function adicionarLinha() {
@@ -177,11 +197,15 @@ function adicionarLinha() {
             <input type="text" name="responsavel_${idx}" class="form-control form-control-sm resp-linha" 
                    placeholder="Liberado por *" required>
         </div>
+        <div class="col-4 col-md-1" id="div_ca_${idx}" style="display:none">
+            <input type="text" name="ca_${idx}" class="form-control form-control-sm"
+                   placeholder="C.A." title="Certificado de Aprovação">
+        </div>
         <div class="col-4 col-md-2 div-colab-${idx}" style="display:none">
             <input type="text" name="colaborador_${idx}" class="form-control form-control-sm colab-linha" 
                    placeholder="Colaborador *">
         </div>
-        <div class="col-8 col-md-2" id="badge_${idx}"></div>
+        <div class="col-8 col-md-1" id="badge_${idx}"></div>
         <div class="col-4 col-md-1 text-end">
             <button type="button" class="btn btn-sm btn-outline-danger" onclick="remover(${idx})">
                 <i class="bi bi-trash"></i>

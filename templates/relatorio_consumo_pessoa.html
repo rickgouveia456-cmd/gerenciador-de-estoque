@@ -143,6 +143,7 @@
                                             <tr>
                                                 <th>Data</th>
                                                 <th>Item</th>
+                                                <th>C.A.</th>
                                                 <th class="text-center">Qtd</th>
                                                 <th>Almoxarifado</th>
                                                 <th>Liberado por</th>
@@ -164,6 +165,11 @@
                                                 <td>
                                                     <strong>{{ mov.item.nome }}</strong>
                                                     <div class="small text-muted">{{ mov.item.codigo }}</div>
+                                                </td>
+                                                <td class="small text-muted">
+                                                    {% if mov.item.categoria == 'epi' and mov.item.ca %}
+                                                        <span class="badge bg-secondary">{{ mov.item.ca }}</span>
+                                                    {% else %}—{% endif %}
                                                 </td>
                                                 <td class="text-center fw-bold text-danger">
                                                     {{ mov.quantidade }} {{ mov.item.unidade }}

@@ -522,6 +522,11 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
+# ── HEALTHCHECK (responde imediatamente, sem banco) ──────────────────────────
+@app.route('/healthz')
+def healthz():
+    return 'ok', 200
+
 # ── ROTAS PRINCIPAIS ─────────────────────────────────────────────────────────
 
 @app.route('/')
@@ -2712,8 +2717,23 @@ def inicializar_banco():
         print(f'Inicialização do banco: {e}')
 
 # Inicialização única — funciona tanto para gunicorn quanto para python app.py
-with app.app_context():
-    inicializar_banco()
+# Usa threading para não bloquear o boot do gunicorn
+import threading
+
+_banco_inicializado = False
+_lock_init = threading.Lock()
+
+def _inicializar_em_background():
+    """Roda a inicialização do banco em background para não bloquear o healthcheck."""
+    global _banco_inicializado
+    with app.app_context():
+        inicializar_banco()
+    with _lock_init:
+        _banco_inicializado = True
+    print('✅ Banco inicializado com sucesso.')
+
+_thread_init = threading.Thread(target=_inicializar_em_background, daemon=True)
+_thread_init.start()
 
 # ── BACKUP AUTOMÁTICO DIÁRIO ─────────────────────────────────────────────────
 def job_backup_diario():

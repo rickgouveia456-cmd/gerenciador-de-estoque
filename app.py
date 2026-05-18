@@ -2704,8 +2704,8 @@ def classificar_categorias_itens():
 def inicializar_banco():
     """Roda migrações, cria tabelas e seed — executado uma única vez."""
     try:
-        run_migrations()
-        db.create_all()
+        db.create_all()   # cria tabelas novas sem tocar nas existentes (rápido)
+        run_migrations()  # adiciona colunas faltantes (usa SAVEPOINT, seguro)
         seed_data()
         classificar_categorias_itens()
     except Exception as e:

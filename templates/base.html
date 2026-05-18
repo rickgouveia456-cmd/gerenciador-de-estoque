@@ -674,5 +674,20 @@
     {% endif %}
 </script>
 {% block scripts %}{% endblock %}
+<script>
+// Injeta CSRF token automaticamente em todos os formulários POST da página
+(function() {
+    var token = "{{ csrf_token() }}";
+    document.querySelectorAll('form[method="POST"], form[method="post"]').forEach(function(form) {
+        if (!form.querySelector('input[name="csrf_token"]')) {
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'csrf_token';
+            input.value = token;
+            form.appendChild(input);
+        }
+    });
+})();
+</script>
 </body>
 </html>

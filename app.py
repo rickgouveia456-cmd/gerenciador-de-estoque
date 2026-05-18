@@ -1,8 +1,10 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, send_file, session
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, send_file, session, abort
 from flask_sqlalchemy import SQLAlchemy
+from flask_wtf.csrf import CSRFProtect, CSRFError
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, date, timezone, timedelta
 from functools import wraps
+import re
 import io
 import os
 import json
@@ -41,8 +43,12 @@ app = Flask(__name__)
 # Se não estiver definida, usa uma chave fixa de desenvolvimento (não segura para produção).
 _secret = os.environ.get('SECRET_KEY')
 if not _secret:
-    _secret = 'dev-key-insegura-defina-SECRET_KEY-no-railway'
-    print('⚠️  AVISO: SECRET_KEY não definida — sessões serão perdidas a cada restart. Configure no Railway.')
+    if os.environ.get('DATABASE_URL') or os.environ.get('URI_DO_BANCO_DE_DADOS'):
+        # Em produção sem SECRET_KEY: gera chave aleatória (sessões perdem ao restart)
+        _secret = secrets.token_hex(32)
+        print('⚠️  AVISO: SECRET_KEY não definida em produção — configure no Railway.')
+    else:
+        _secret = 'dev-key-apenas-local'
 app.secret_key = _secret
 
 # Railway fornece DATABASE_URL com prefixo "postgres://" (formato antigo),
@@ -57,8 +63,50 @@ if _db_url.startswith('postgres://'):
 
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['WTF_CSRF_TIME_LIMIT'] = 7200  # tokens CSRF expiram em 2h
 
 db = SQLAlchemy(app)
+csrf = CSRFProtect(app)
+
+# ── HEADERS DE SEGURANÇA ──────────────────────────────────────────────────────
+@app.after_request
+def set_security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "font-src 'self' https://cdn.jsdelivr.net; "
+        "img-src 'self' data:; "
+        "connect-src 'self';"
+    )
+    return response
+
+# ── TRATAMENTO DE ERRO CSRF ───────────────────────────────────────────────────
+@app.errorhandler(CSRFError)
+def handle_csrf_error(e):
+    flash('Sessão expirada ou requisição inválida. Tente novamente.', 'warning')
+    return redirect(request.referrer or url_for('index'))
+
+# ── RATE LIMITING DE LOGIN ────────────────────────────────────────────────────
+_login_attempts: dict = {}
+_MAX_ATTEMPTS = 10
+_LOCKOUT_SECONDS = 300
+
+def _check_rate_limit(ip: str) -> bool:
+    now = datetime.now().timestamp()
+    tentativas = [t for t in _login_attempts.get(ip, []) if now - t < _LOCKOUT_SECONDS]
+    _login_attempts[ip] = tentativas
+    return len(tentativas) >= _MAX_ATTEMPTS
+
+def _register_attempt(ip: str):
+    _login_attempts.setdefault(ip, []).append(datetime.now().timestamp())
+
+def _clear_attempts(ip: str):
+    _login_attempts.pop(ip, None)
 
 # ── FILTRO JINJA2 — formata quantidades sem ponto flutuante feio ─────────────
 @app.template_filter('fmt_qtd')
@@ -261,6 +309,20 @@ def usuario_atual():
         return Usuario.query.get(session['usuario_id'])
     return None
 
+def extrair_colaborador(mov):
+    """Extrai o nome do colaborador da observação da movimentação.
+    Suporta: 'liberado P/ Nome', 'Colaborador: Nome'.
+    Fallback para mov.responsavel.
+    """
+    obs = mov.observacao or ''
+    m = re.search(r'liberado\s+[Pp][/\s]+(.+)', obs, re.IGNORECASE)
+    if m:
+        return m.group(1).strip()
+    m = re.search(r'[Cc]olaborador[:\s]+([^|]+)', obs)
+    if m:
+        return m.group(1).strip()
+    return mov.responsavel or 'Sem responsável'
+
 # ── CONTEXT PROCESSOR ────────────────────────────────────────────────────────
 
 @app.context_processor
@@ -400,13 +462,26 @@ def run_migrations():
 # ── LOGIN / LOGOUT ────────────────────────────────────────────────────────────
 
 @app.route('/login', methods=['GET', 'POST'])
+@csrf.exempt  # login usa token próprio no template
 def login():
     if request.method == 'POST':
-        u = Usuario.query.filter_by(login=request.form['login'], ativo=True).first()
-        if u and u.check_senha(request.form['senha']):
+        ip = request.remote_addr or '0.0.0.0'
+        if _check_rate_limit(ip):
+            flash('Muitas tentativas. Aguarde 5 minutos.', 'danger')
+            return render_template('login.html'), 429
+        login_val = request.form.get('login', '').strip()
+        senha_val = request.form.get('senha', '')
+        if not login_val or not senha_val:
+            flash('Preencha login e senha.', 'warning')
+            return render_template('login.html')
+        u = Usuario.query.filter_by(login=login_val, ativo=True).first()
+        if u and u.check_senha(senha_val):
+            _clear_attempts(ip)
+            session.clear()
             session['usuario_id'] = u.id
             flash(f'Bem-vindo, {u.nome}!', 'success')
             return redirect(url_for('index'))
+        _register_attempt(ip)
         flash('Login ou senha incorretos.', 'danger')
     return render_template('login.html')
 
@@ -487,6 +562,11 @@ def novo_almoxarifado():
 @login_required
 def editar_almoxarifado(id):
     alm = Almoxarifado.query.get_or_404(id)
+    u = usuario_atual()
+    # Apenas admin ou almoxarife do próprio almoxarifado pode editar
+    if u.perfil != 'admin' and id not in u.almoxarifados_permitidos():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('index'))
     if request.method == 'POST':
         alm.nome = request.form['nome']
         alm.descricao = request.form.get('descricao', '')
@@ -569,6 +649,11 @@ def editar_item(id):
 @login_required
 def deletar_item(id):
     it = Item.query.get_or_404(id)
+    u = usuario_atual()
+    # Apenas admin pode deletar itens
+    if u.perfil != 'admin':
+        flash('Apenas administradores podem deletar itens.', 'danger')
+        return redirect(url_for('item', id=id))
     alm_id = it.almoxarifado_id
     db.session.delete(it)
     db.session.commit()

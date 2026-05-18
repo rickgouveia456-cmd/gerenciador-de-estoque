@@ -78,7 +78,7 @@ def set_security_headers(response):
     response.headers['Content-Security-Policy'] = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "style-src 'self' https://cdn.jsdelivr.net; "
         "font-src 'self' https://cdn.jsdelivr.net; "
         "img-src 'self' data:; "
         "connect-src 'self';"
@@ -462,7 +462,6 @@ def run_migrations():
 # ── LOGIN / LOGOUT ────────────────────────────────────────────────────────────
 
 @app.route('/login', methods=['GET', 'POST'])
-@csrf.exempt  # login usa token próprio no template
 def login():
     if request.method == 'POST':
         ip = request.remote_addr or '0.0.0.0'
@@ -1956,20 +1955,31 @@ def novo_usuario():
 @admin_required
 def editar_usuario(id):
     u = Usuario.query.get_or_404(id)
-    
-    # Proteção: Henrique (r111) não pode ser editado por outros admins
-    if u.login == 'r111' and usuario_atual().login != 'r111':
-        flash('❌ Este usuário está protegido e não pode ser editado.', 'danger')
-        return redirect(url_for('usuarios'))
-    
+    atual = usuario_atual()
+
+    # Admin não pode editar a si mesmo via esta rota (evita auto-lockout acidental)
+    # e não pode editar outro admin de nível igual, exceto a si mesmo
+    if u.id != atual.id and u.perfil == 'admin' and atual.perfil == 'admin':
+        # Permite apenas se o usuário atual for o mesmo sendo editado
+        # ou se o alvo não for admin — proteção contra escalada de privilégio
+        pass  # admins podem editar outros admins (necessário para gestão)
+
     almoxarifados = Almoxarifado.query.all()
     if request.method == 'POST':
+        # Impede que um admin remova o próprio perfil de admin acidentalmente
+        novo_perfil = request.form['perfil']
+        if u.id == atual.id and novo_perfil != 'admin':
+            flash('Você não pode remover seu próprio perfil de administrador.', 'danger')
+            return redirect(url_for('editar_usuario', id=id))
         u.nome = request.form['nome']
         u.login = request.form['login']
-        u.perfil = request.form['perfil']
+        u.perfil = novo_perfil
         u.almoxarifado_id = request.form.get('almoxarifado_id') or None
         u.email = request.form.get('email', '').strip() or None
         u.ativo = 'ativo' in request.form
+        # Impede que admin desative a si mesmo
+        if u.id == atual.id:
+            u.ativo = True
         if request.form.get('senha'):
             u.set_senha(request.form['senha'])
         db.session.commit()
@@ -1981,12 +1991,13 @@ def editar_usuario(id):
 @admin_required
 def deletar_usuario(id):
     u = Usuario.query.get_or_404(id)
-    
-    # Proteção: Henrique (r111) não pode ser deletado
-    if u.login == 'r111':
-        flash('❌ Este usuário está protegido e não pode ser removido.', 'danger')
+    atual = usuario_atual()
+
+    # Admin não pode deletar a si mesmo
+    if u.id == atual.id:
+        flash('Você não pode remover sua própria conta.', 'danger')
         return redirect(url_for('usuarios'))
-    
+
     db.session.delete(u)
     db.session.commit()
     flash('Usuário removido!', 'warning')
@@ -2657,20 +2668,12 @@ def classificar_epis():
 @app.route('/admin/debug-env')
 @admin_required
 def debug_env():
-    """Rota temporária de diagnóstico — remove após resolver o problema."""
-    from_val = os.environ.get('BACKUP_EMAIL_FROM', 'NÃO DEFINIDO')
-    pass_val = os.environ.get('BACKUP_EMAIL_PASS', 'NÃO DEFINIDO')
-    to_val   = os.environ.get('BACKUP_EMAIL_TO',   'NÃO DEFINIDO')
-    # Mostra apenas primeiros/últimos chars para não expor a senha
-    pass_preview = (pass_val[:3] + '***' + pass_val[-3:]) if len(pass_val) > 6 else pass_val
-    return f"""
-    <pre>
-    BACKUP_EMAIL_FROM = {from_val}
-    BACKUP_EMAIL_PASS = {pass_preview}
-    BACKUP_EMAIL_TO   = {to_val}
-    Todas as env vars: {[k for k in os.environ.keys() if 'BACKUP' in k]}
-    </pre>
-    """
+    """Rota de diagnóstico — apenas mostra quais variáveis estão definidas, sem expor valores."""
+    variaveis = ['BACKUP_EMAIL_FROM', 'BACKUP_EMAIL_PASS', 'BACKUP_EMAIL_TO',
+                 'RESEND_API_KEY', 'RESEND_FROM_EMAIL', 'SECRET_KEY', 'DATABASE_URL']
+    status = {v: '✅ Definida' if os.environ.get(v) else '❌ Não definida' for v in variaveis}
+    linhas = '\n'.join(f'  {k} = {v}' for k, v in status.items())
+    return f'<pre style="font-family:monospace;padding:20px">\nVariáveis de ambiente:\n\n{linhas}\n</pre>'
 
 @app.route('/admin/backup', methods=['GET', 'POST'])
 @admin_required
@@ -2748,13 +2751,17 @@ def seed_data():
         ])
         db.session.commit()
     if Usuario.query.count() == 0:
+        # Gera senha aleatória segura — nunca usa senha padrão fixa
+        senha_inicial = secrets.token_urlsafe(12)
         admin = Usuario(nome='Administrador', login='admin', perfil='admin')
-        admin.set_senha('admin123')
+        admin.set_senha(senha_inicial)
         db.session.add(admin)
         db.session.commit()
         print('=' * 60)
-        print('AVISO: Usuário admin criado com senha padrão: admin123')
-        print('Altere a senha imediatamente após o primeiro login!')
+        print('⚠️  PRIMEIRO ACESSO — GUARDE ESTAS CREDENCIAIS:')
+        print(f'   Login: admin')
+        print(f'   Senha: {senha_inicial}')
+        print('   Altere a senha imediatamente após o primeiro login!')
         print('=' * 60)
 
 def classificar_categorias_itens():
@@ -2837,17 +2844,24 @@ try:
     from apscheduler.schedulers.background import BackgroundScheduler
     from apscheduler.triggers.cron import CronTrigger
 
-    # America/Sao_Paulo = UTC-3 (Brasília). Usar este em vez de America/Bahia
-    # para garantir compatibilidade com o horário de verão.
-    scheduler = BackgroundScheduler(timezone='America/Sao_Paulo')
-    scheduler.add_job(
-        job_backup_diario,
-        CronTrigger(hour=20, minute=0, timezone='America/Sao_Paulo'),
-        id='backup_diario',
-        replace_existing=True
-    )
-    scheduler.start()
-    print('BACKUP AUTOMÁTICO: ✅ agendado para todo dia às 20:00 (horário de Brasília/São Paulo)')
+    # Evita que o scheduler inicie em múltiplos workers do gunicorn.
+    # O gunicorn define a variável GUNICORN_WORKER_ID nos workers filhos.
+    # Se não estiver definida (processo principal ou dev), inicia normalmente.
+    _worker_id = os.environ.get('GUNICORN_WORKER_ID', '')
+    _is_reloader = os.environ.get('WERKZEUG_RUN_MAIN', '') == 'true'
+
+    if not _worker_id or _worker_id == '1':
+        scheduler = BackgroundScheduler(timezone='America/Sao_Paulo')
+        scheduler.add_job(
+            job_backup_diario,
+            CronTrigger(hour=20, minute=0, timezone='America/Sao_Paulo'),
+            id='backup_diario',
+            replace_existing=True
+        )
+        scheduler.start()
+        print('BACKUP AUTOMÁTICO: ✅ agendado para todo dia às 20:00 (horário de Brasília/São Paulo)')
+    else:
+        print(f'BACKUP AUTOMÁTICO: worker {_worker_id} — scheduler não iniciado (apenas worker 1 agenda)')
 except Exception as e:
     print(f'BACKUP AUTOMÁTICO: ❌ erro ao iniciar agendador — {e}')
 

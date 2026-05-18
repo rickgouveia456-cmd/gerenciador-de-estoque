@@ -486,7 +486,7 @@
             <i class="bi bi-clipboard-check me-2"></i> Req. dos Mestres
         </a>
         {% endif %}
-        {% if usuario_atual and usuario_atual.perfil == 'admin' %}
+        {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
         <a href="/colaboradores" class="nav-link {% if request.endpoint == 'colaboradores' %}active{% endif %}">
             <i class="bi bi-person-badge me-2"></i> Colaboradores
         </a>

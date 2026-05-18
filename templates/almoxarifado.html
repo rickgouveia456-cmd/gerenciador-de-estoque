@@ -184,17 +184,6 @@
     </div>
 </div>
 
-{% else %}
-<div class="card border-0 shadow-sm">
-    <div class="text-center py-5 text-muted">
-        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-        Nenhum item cadastrado.
-        <a href="/item/novo?alm={{ almoxarifado.id }}">Cadastrar primeiro item</a>
-    </div>
-</div>
-{% endif %}
-{% endblock %}
-
 {% block scripts %}
 <script>
 function filtrarItens(q) {
@@ -219,4 +208,15 @@ function filtrarItens(q) {
     document.getElementById('semResultadosMobile').style.display = visiveisMobile === 0 ? '' : 'none';
 }
 </script>
+{% endblock %}
+
+{% else %}
+<div class="card border-0 shadow-sm">
+    <div class="text-center py-5 text-muted">
+        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+        Nenhum item cadastrado.
+        <a href="/item/novo?alm={{ almoxarifado.id }}">Cadastrar primeiro item</a>
+    </div>
+</div>
+{% endif %}
 {% endblock %}

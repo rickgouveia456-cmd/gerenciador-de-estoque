@@ -1,11 +1,8 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, send_file, session, abort
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, send_file, session
 from flask_sqlalchemy import SQLAlchemy
-from flask_wtf.csrf import CSRFProtect, CSRFError
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, date, timezone, timedelta
 from functools import wraps
-from collections import defaultdict
-import re
 import io
 import os
 import json
@@ -44,16 +41,8 @@ app = Flask(__name__)
 # Se não estiver definida, usa uma chave fixa de desenvolvimento (não segura para produção).
 _secret = os.environ.get('SECRET_KEY')
 if not _secret:
-    # Em produção (Railway/Heroku), DATABASE_URL estará definida.
-    # Se estiver em produção sem SECRET_KEY, gera uma chave aleatória por sessão
-    # (sessões serão perdidas a cada restart, mas é mais seguro que uma chave fixa).
-    if os.environ.get('DATABASE_URL') or os.environ.get('URI_DO_BANCO_DE_DADOS'):
-        _secret = secrets.token_hex(32)
-        print('⚠️  AVISO: SECRET_KEY não definida em produção — gerada aleatoriamente. '
-              'Sessões serão perdidas a cada restart. Configure SECRET_KEY no Railway.')
-    else:
-        _secret = 'dev-key-apenas-local-nao-usar-em-producao'
-        print('⚠️  AVISO: SECRET_KEY não definida — usando chave de desenvolvimento local.')
+    _secret = 'dev-key-insegura-defina-SECRET_KEY-no-railway'
+    print('⚠️  AVISO: SECRET_KEY não definida — sessões serão perdidas a cada restart. Configure no Railway.')
 app.secret_key = _secret
 
 # Railway fornece DATABASE_URL com prefixo "postgres://" (formato antigo),
@@ -68,36 +57,8 @@ if _db_url.startswith('postgres://'):
 
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-# WTF_CSRF_TIME_LIMIT: tokens expiram em 2h (padrão é 3600s)
-app.config['WTF_CSRF_TIME_LIMIT'] = 7200
 
 db = SQLAlchemy(app)
-csrf = CSRFProtect(app)
-
-# ── HEADERS DE SEGURANÇA ──────────────────────────────────────────────────────
-@app.after_request
-def set_security_headers(response):
-    """Adiciona headers de segurança em todas as respostas."""
-    response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
-    response.headers['X-XSS-Protection'] = '1; mode=block'
-    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-    # Permite Bootstrap/Bootstrap Icons via CDN e bloqueia inline scripts não autorizados
-    response.headers['Content-Security-Policy'] = (
-        "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-        "font-src 'self' https://cdn.jsdelivr.net; "
-        "img-src 'self' data:; "
-        "connect-src 'self';"
-    )
-    return response
-
-# ── TRATAMENTO DE ERRO CSRF ───────────────────────────────────────────────────
-@app.errorhandler(CSRFError)
-def handle_csrf_error(e):
-    flash('Sessão expirada ou requisição inválida. Tente novamente.', 'warning')
-    return redirect(request.referrer or url_for('index'))
 
 # ── FILTRO JINJA2 — formata quantidades sem ponto flutuante feio ─────────────
 @app.template_filter('fmt_qtd')
@@ -119,9 +80,6 @@ class Almoxarifado(db.Model):
     nome = db.Column(db.String(100), nullable=False)
     descricao = db.Column(db.String(200))
     itens = db.relationship('Item', backref='almoxarifado', lazy=True, cascade='all, delete-orphan')
-
-    def __repr__(self):
-        return f'<Almoxarifado {self.id}: {self.nome}>'
 
 class Item(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -146,9 +104,6 @@ class Item(db.Model):
             return 'alerta'
         return 'ok'
 
-    def __repr__(self):
-        return f'<Item {self.id}: {self.codigo} — {self.nome}>'
-
 class Movimentacao(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     tipo = db.Column(db.String(10), nullable=False)
@@ -157,9 +112,6 @@ class Movimentacao(db.Model):
     observacao = db.Column(db.String(200))
     data = db.Column(db.DateTime, default=agora)
     item_id = db.Column(db.Integer, db.ForeignKey('item.id'), nullable=False)
-
-    def __repr__(self):
-        return f'<Movimentacao {self.id}: {self.tipo} {self.quantidade} item={self.item_id}>'
 
 class Requisicao(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -171,9 +123,6 @@ class Requisicao(db.Model):
     data_devolucao = db.Column(db.DateTime, nullable=True)
     item_id = db.Column(db.Integer, db.ForeignKey('item.id'), nullable=False)
     item = db.relationship('Item', backref='requisicoes')
-
-    def __repr__(self):
-        return f'<Requisicao {self.id}: {self.colaborador} item={self.item_id}>'
 
 # ── REQUISIÇÃO DO MESTRE ──────────────────────────────────────────────────────
 
@@ -312,23 +261,7 @@ def usuario_atual():
         return Usuario.query.get(session['usuario_id'])
     return None
 
-
-def extrair_colaborador(mov):
-    """Extrai o nome do colaborador da observação da movimentação.
-    Suporta os formatos: 'liberado P/ Nome', 'Colaborador: Nome'.
-    Fallback para mov.responsavel se não encontrar.
-    """
-    obs = mov.observacao or ''
-    m = re.search(r'liberado\s+[Pp][/\s]+(.+)', obs, re.IGNORECASE)
-    if m:
-        return m.group(1).strip()
-    m = re.search(r'[Cc]olaborador[:\s]+([^|]+)', obs)
-    if m:
-        return m.group(1).strip()
-    return mov.responsavel or 'Sem responsável'
-
-
-
+# ── CONTEXT PROCESSOR ────────────────────────────────────────────────────────
 
 @app.context_processor
 def inject_sidebar():
@@ -466,54 +399,14 @@ def run_migrations():
 
 # ── LOGIN / LOGOUT ────────────────────────────────────────────────────────────
 
-# Controle simples de tentativas de login (em memória — suficiente para uso interno)
-# NOTA: com múltiplos workers gunicorn, cada worker tem seu próprio dict.
-# Para produção com muitos usuários, considere usar Redis. Para uso interno
-# (poucos usuários), isso é suficiente pois o bloqueio ocorre por worker.
-_login_attempts: dict = {}  # {ip: [timestamp, ...]}
-_MAX_ATTEMPTS = 10
-_LOCKOUT_SECONDS = 300  # 5 minutos
-
-def _check_rate_limit(ip: str) -> bool:
-    """Retorna True se o IP está bloqueado por excesso de tentativas."""
-    now = datetime.now().timestamp()
-    tentativas = [t for t in _login_attempts.get(ip, []) if now - t < _LOCKOUT_SECONDS]
-    _login_attempts[ip] = tentativas
-    return len(tentativas) >= _MAX_ATTEMPTS
-
-def _register_attempt(ip: str):
-    now = datetime.now().timestamp()
-    _login_attempts.setdefault(ip, []).append(now)
-
-def _clear_attempts(ip: str):
-    _login_attempts.pop(ip, None)
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        ip = request.remote_addr or '0.0.0.0'
-        if _check_rate_limit(ip):
-            flash('Muitas tentativas de login. Aguarde 5 minutos.', 'danger')
-            return render_template('login.html'), 429
-
-        login_val = request.form.get('login', '').strip()
-        senha_val = request.form.get('senha', '')
-
-        # Validação básica de entrada
-        if not login_val or not senha_val:
-            flash('Preencha login e senha.', 'warning')
-            return render_template('login.html')
-
-        u = Usuario.query.filter_by(login=login_val, ativo=True).first()
-        if u and u.check_senha(senha_val):
-            _clear_attempts(ip)
-            session.clear()
+        u = Usuario.query.filter_by(login=request.form['login'], ativo=True).first()
+        if u and u.check_senha(request.form['senha']):
             session['usuario_id'] = u.id
-            # Regenera o ID de sessão para prevenir session fixation
             flash(f'Bem-vindo, {u.nome}!', 'success')
             return redirect(url_for('index'))
-
-        _register_attempt(ip)
         flash('Login ou senha incorretos.', 'danger')
     return render_template('login.html')
 
@@ -521,11 +414,6 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for('login'))
-
-# ── HEALTHCHECK (responde imediatamente, sem banco) ──────────────────────────
-@app.route('/healthz')
-def healthz():
-    return 'ok', 200
 
 # ── ROTAS PRINCIPAIS ─────────────────────────────────────────────────────────
 
@@ -779,20 +667,25 @@ def movimentacao_lote():
             db.session.commit()
             tipo_label = '📥 Entrada' if request.form['tipo'] == 'entrada' else '📤 Saída'
             alm = Almoxarifado.query.get(alm_id)
-            alm_nome = alm.nome if alm else ''
             flash(
-                f'{tipo_label} registrada! '
-                f'{len(movs)} item(ns) movimentado(s) em {alm_nome}.',
+                f'<strong>{tipo_label} registrada!</strong> '
+                f'{len(movs)} item(ns) movimentado(s) em <strong>{alm.nome if alm else ""}</strong>. '
+                f'<a href="/almoxarifado/{alm_id}" class="alert-link">Ver Almoxarifado</a>',
                 'success'
             )
         elif not erros:
             flash('Adicione pelo menos um item antes de confirmar.', 'warning')
 
         for e in erros:
-            flash(f'Estoque insuficiente: {e}', 'danger')
+            flash(
+                f'<strong>Estoque insuficiente:</strong> {e} '
+                f'<a href="/almoxarifado/{alm_id}" class="alert-link">Consultar Estoque</a>',
+                'danger'
+            )
 
         return redirect(url_for('movimentacao_lote'))
 
+    import json
     return render_template('movimentacao_lote.html',
                            almoxarifados=almoxarifados,
                            itens_json=json.dumps(itens_json),
@@ -901,8 +794,9 @@ def requisicao_nova():
                 continue
             if qtd > it.quantidade:
                 flash(
-                    f'Estoque insuficiente: "{it.nome}" tem apenas '
-                    f'{it.quantidade} {it.unidade} disponível.',
+                    f'<strong>Estoque insuficiente:</strong> "{it.nome}" tem apenas '
+                    f'<strong>{it.quantidade} {it.unidade}</strong> disponível. '
+                    f'<a href="/almoxarifado/{it.almoxarifado_id}" class="alert-link">Consultar Estoque</a>',
                     'danger'
                 )
                 continue
@@ -925,14 +819,16 @@ def requisicao_nova():
         if criados:
             db.session.commit()
             flash(
-                f'✅ Requisição registrada! '
-                f'{criados} item(ns) retirado(s) com sucesso para {colaborador}.',
+                f'<strong>✅ Requisição registrada!</strong> '
+                f'{criados} item(ns) retirado(s) com sucesso para <strong>{colaborador}</strong>. '
+                f'<a href="/requisicoes" class="alert-link">Ver Requisições</a>',
                 'success'
             )
         elif not any(True for key in request.form.keys() if key.startswith('item_id_')):
             flash('Adicione pelo menos um item antes de registrar.', 'warning')
         return redirect(url_for('requisicoes'))
 
+    import json
     return render_template('requisicao_nova.html',
                            almoxarifados=almoxarifados,
                            itens_json=json.dumps(itens_json))
@@ -1171,7 +1067,28 @@ def relatorio_consumo_pessoa():
 
     movs = query.order_by(Movimentacao.data.desc()).all()
 
+    import re
+
+    def extrair_colaborador(mov):
+        """Extrai o nome do colaborador da observação ou usa o responsável."""
+        obs = mov.observacao or ''
+        # Formato: "liberado P/ Nome" ou "liberado para Nome"
+        m = re.search(r'liberado\s+[Pp][/\s]+(.+)', obs, re.IGNORECASE)
+        if m:
+            return m.group(1).strip()
+        # Formato: "req XXXX | Colaborador: Nome"
+        m = re.search(r'[Cc]olaborador[:\s]+([^|]+)', obs)
+        if m:
+            return m.group(1).strip()
+        # Formato: "Req. Mestre #X — Colaborador: Nome"
+        m = re.search(r'Colaborador[:\s]+(.+)', obs)
+        if m:
+            return m.group(1).strip()
+        # Se não achou colaborador na obs, usa o responsável
+        return mov.responsavel or 'Sem responsável'
+
     # Filtrar por nome se informado
+    from collections import defaultdict
     por_pessoa = defaultdict(list)
     for mov in movs:
         colaborador = extrair_colaborador(mov)
@@ -1224,6 +1141,14 @@ def exportar_consumo_pessoa():
         query = query.join(Item)
 
     movs = query.order_by(Movimentacao.data.asc()).all()
+
+    def extrair_colaborador(mov):
+        obs = mov.observacao or ''
+        m = re.search(r'liberado\s+[Pp][/\s]+(.+)', obs, re.IGNORECASE)
+        if m: return m.group(1).strip()
+        m = re.search(r'[Cc]olaborador[:\s]+([^|]+)', obs)
+        if m: return m.group(1).strip()
+        return mov.responsavel or 'Sem responsável'
 
     por_pessoa = defaultdict(list)
     for mov in movs:
@@ -1337,13 +1262,19 @@ def exportar_consumo_pessoa():
 @login_required
 def ficha_epi():
     """Página para gerar ficha de EPI individual por funcionário."""
+    import re
     funcionarios = set()
     movs = Movimentacao.query.join(Item).filter(
         Movimentacao.tipo == 'saida', Item.categoria == 'epi').all()
     for mov in movs:
-        nome = extrair_colaborador(mov)
-        if nome and nome != 'Sem responsável':
-            funcionarios.add(nome)
+        obs = mov.observacao or ''
+        m = re.search(r'liberado\s+[Pp][/\s]+(.+)', obs, re.IGNORECASE)
+        if m:
+            funcionarios.add(m.group(1).strip())
+        elif 'Colaborador:' in obs:
+            nome = obs.split('Colaborador:')[-1].split('|')[0].strip()
+            if nome:
+                funcionarios.add(nome)
     return render_template('ficha_epi.html',
                            funcionarios=sorted(funcionarios),
                            data_ini='2020-01-01',
@@ -1354,6 +1285,7 @@ def ficha_epi():
 @login_required
 def exportar_ficha_epi():
     """Exporta FORM.SEG.014 — Ficha de Controle de EPIs e Uniformes."""
+    import re
     funcionario = request.args.get('funcionario', '').strip()
     data_ini    = request.args.get('data_ini', '2020-01-01')
     data_fim    = request.args.get('data_fim', str(date.today()))
@@ -1369,7 +1301,15 @@ def exportar_ficha_epi():
                           Movimentacao.data <= data_fim + ' 23:59:59')
                   .order_by(Movimentacao.data.asc()).all())
 
-    lista = [m for m in movs_todas if extrair_colaborador(m).lower() == funcionario.lower()]
+    def extrair_colab(mov):
+        obs = mov.observacao or ''
+        m = re.search(r'liberado\s+[Pp][/\s]+(.+)', obs, re.IGNORECASE)
+        if m: return m.group(1).strip()
+        m = re.search(r'[Cc]olaborador[:\s]+([^|]+)', obs)
+        if m: return m.group(1).strip()
+        return mov.responsavel or ''
+
+    lista = [m for m in movs_todas if extrair_colab(m).lower() == funcionario.lower()]
 
     if not lista:
         flash(f'Nenhuma retirada de EPI encontrada para "{funcionario}" no período.', 'warning')
@@ -2099,7 +2039,7 @@ def mestre_requisicao_nova():
             ))
 
         db.session.commit()
-        flash(f'✅ Requisição #{req.id} enviada ao almoxarifado! Aguarde a separação.', 'success')
+        flash(f'✅ Requisição <strong>#{req.id}</strong> enviada ao almoxarifado! Aguarde a separação.', 'success')
         return redirect(url_for('mestre_requisicoes'))
 
     return render_template('mestre_requisicao_nova.html',
@@ -2214,12 +2154,8 @@ def mestre_requisicao_entregar(id):
     req.status = 'entregue'
     req.data_entrega = agora()
     req.entregue_por_id = u.id
-    try:
-        db.session.commit()
-        flash(f'✅ Entrega confirmada! Estoque atualizado para {len(req.itens)} item(ns).', 'success')
-    except Exception as e:
-        db.session.rollback()
-        flash(f'❌ Erro ao confirmar entrega: {str(e)}', 'danger')
+    db.session.commit()
+    flash(f'✅ Entrega confirmada! Estoque atualizado para {len(req.itens)} item(ns).', 'success')
     return redirect(url_for('mestre_requisicao_detalhe', id=id))
 
 @app.route('/mestre/requisicoes/<int:id>/cancelar', methods=['POST'])
@@ -2285,31 +2221,76 @@ def marcar_notificacoes_lidas():
 def reativar_todos_itens():
     if request.method == 'POST':
         try:
+            # Reativar todos os itens
             itens_desativados = Item.query.filter_by(ativo=False).all()
             count = 0
             for item in itens_desativados:
                 item.ativo = True
                 count += 1
-
+            
+            # Também garantir que itens com ativo=None sejam ativados
             from sqlalchemy import text
             with db.engine.connect() as conn:
-                conn.execute(text("UPDATE item SET ativo = 1 WHERE ativo IS NULL OR ativo = 0"))
+                result = conn.execute(text("UPDATE item SET ativo = 1 WHERE ativo IS NULL OR ativo = 0"))
                 conn.commit()
-
+            
             db.session.commit()
+            
             total_ativos = Item.query.filter_by(ativo=True).count()
             flash(f'✅ Sucesso! {count} itens reativados. Total de itens ativos: {total_ativos}', 'success')
-
+            
         except Exception as e:
-            flash(f'Erro ao reativar itens: {str(e)}', 'danger')
-
+            flash(f'❌ Erro ao reativar itens: {str(e)}', 'danger')
+        
         return redirect(url_for('reativar_todos_itens'))
-
+    
+    # GET - mostrar página de confirmação
     itens_desativados = Item.query.filter_by(ativo=False).count()
     total_itens = Item.query.count()
-    return render_template('admin_reativar_itens.html',
-                           itens_desativados=itens_desativados,
-                           total_itens=total_itens)
+    
+    return f'''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Reativar Todos os Itens</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-light">
+        <div class="container mt-5">
+            <div class="row justify-content-center">
+                <div class="col-md-6">
+                    <div class="card shadow">
+                        <div class="card-header bg-primary text-white">
+                            <h4 class="mb-0">🔧 Reativar Todos os Itens</h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-info">
+                                <strong>📊 Status atual:</strong><br>
+                                • Total de itens: {total_itens}<br>
+                                • Itens desativados: {itens_desativados}<br>
+                                • Itens ativos: {total_itens - itens_desativados}
+                            </div>
+                            
+                            <p>Esta ação irá reativar todos os itens que estão marcados como "desativado" no sistema.</p>
+                            
+                            <form method="POST" onsubmit="return confirm('Tem certeza que deseja reativar todos os itens desativados?')">
+                                <button type="submit" class="btn btn-success btn-lg w-100">
+                                    ✅ Reativar Todos os Itens
+                                </button>
+                            </form>
+                            
+                            <div class="mt-3">
+                                <a href="/" class="btn btn-secondary">← Voltar ao Sistema</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Tema laranja v2.0 -->
+    </body>
+    </html>
+    '''
 
 # ── BACKUP ───────────────────────────────────────────────────────────────────
 
@@ -2414,16 +2395,70 @@ def gerar_excel_backup():
     buf.seek(0)
     return buf
 
+def enviar_backup_email(buf):
+    """Envia o backup completo por email (para admin ou destinatário fixo)."""
+    import smtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.base import MIMEBase
+    from email.mime.text import MIMEText
+    from email import encoders
+
+    remetente = os.environ.get('BACKUP_EMAIL_FROM')
+    senha     = os.environ.get('BACKUP_EMAIL_PASS')
+    destinatario = os.environ.get('BACKUP_EMAIL_TO', 'rickgouveia17@gmail.com')
+
+    if not remetente or not senha:
+        print('BACKUP: variáveis BACKUP_EMAIL_FROM e BACKUP_EMAIL_PASS não configuradas.')
+        return False
+
+    msg = MIMEMultipart()
+    msg['From'] = remetente
+    msg['To'] = destinatario
+    msg['Subject'] = f'Backup Estoque Obra Patamares — {date.today().strftime("%d/%m/%Y")}'
+
+    corpo = f"""
+    Backup automático do sistema de estoque.
+    Data: {datetime.now().strftime("%d/%m/%Y %H:%M")}
+    
+    Este arquivo contém todos os dados de estoque de todos os almoxarifados.
+    Guarde em local seguro.
+    """
+    msg.attach(MIMEText(corpo, 'plain'))
+
+    part = MIMEBase('application', 'octet-stream')
+    part.set_payload(buf.read())
+    encoders.encode_base64(part)
+    part.add_header('Content-Disposition',
+                    f'attachment; filename="backup_estoque_{date.today()}.xlsx"')
+    msg.attach(part)
+
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+            smtp.login(remetente, senha)
+            smtp.send_message(msg)
+        print(f'BACKUP: enviado para {destinatario}')
+        return True
+    except Exception as e:
+        print(f'BACKUP: erro ao enviar email — {e}')
+        return False
+
+
+def _smtp_connect():
+    """Retorna conexão SMTP autenticada ou None se não configurado."""
+    import smtplib
+    remetente = os.environ.get('BACKUP_EMAIL_FROM')
+    senha     = os.environ.get('BACKUP_EMAIL_PASS')
+    if not remetente or not senha:
+        return None, None, None
+    smtp = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+    smtp.login(remetente, senha)
+    return smtp, remetente, senha
+
 
 def enviar_backup_por_almoxarifado():
-    """Envia backup individual para cada almoxarife com email cadastrado,
-    e o backup completo para admins com email cadastrado e para o destinatário fixo.
-    Usa Resend API para envio de emails.
-    
-    NOTA sobre Resend sem domínio verificado:
-    O campo 'to' sempre recebe o destinatário fixo (email verificado da conta Resend).
-    Os demais destinatários vão em 'cc' para garantir entrega mesmo sem domínio próprio.
-    """
+    """Envia backup para admins e almoxarifes.
+    'to' = destinatário fixo (verificado no Resend).
+    'cc' = demais usuários com email — funciona sem domínio próprio no Resend."""
     import resend
     import base64
 
@@ -2436,113 +2471,62 @@ def enviar_backup_por_almoxarifado():
 
     resend.api_key = resend_api_key
     remetente = os.environ.get('RESEND_FROM_EMAIL', 'onboarding@resend.dev')
-
     hoje = date.today().strftime('%d/%m/%Y')
     enviados = 0
     erros = 0
 
     try:
-        # ── Coleta todos os emails de usuários ativos com email cadastrado ──
-        todos_usuarios_emails = [
-            u.email for u in Usuario.query.filter_by(ativo=True).all()
-            if u.email and u.email.strip()
-        ]
-
-        # ── 1. Backup completo para todos (admins + almoxarifes + destinatário fixo) ──
-        admins_emails = [
-            u.email for u in Usuario.query.filter_by(perfil='admin', ativo=True).all()
-            if u.email
-        ]
-        almoxarifes_emails = [
-            u.email for u in Usuario.query.filter_by(perfil='almoxarife', ativo=True).all()
-            if u.email
-        ]
-
-        # Destinatário principal = email fixo (verificado no Resend)
-        # Cópia = todos os outros (admins + almoxarifes) sem duplicar o fixo
+        # ── 1. Backup completo para admins + almoxarifes em cc ──
+        admins_emails = [u.email for u in Usuario.query.filter_by(perfil='admin', ativo=True).all() if u.email]
+        almoxarifes_emails = [u.email for u in Usuario.query.filter_by(perfil='almoxarife', ativo=True).all() if u.email]
         cc_completo = list(set(admins_emails + almoxarifes_emails) - {destinatario_fixo})
 
         buf_completo = gerar_excel_backup()
         buf_completo.seek(0)
         arquivo_completo_base64 = base64.b64encode(buf_completo.read()).decode('utf-8')
 
-        corpo_admin = (
-            f"Backup automático completo do sistema de estoque.\n"
-            f"Data: {datetime.now().strftime('%d/%m/%Y %H:%M')}\n\n"
-            f"Este arquivo contém todos os almoxarifados.\n"
-            f"Guarde em local seguro."
-        )
-
-        payload_completo = {
+        payload = {
             "from": f"Logi-Prime Backup <{remetente}>",
             "to": [destinatario_fixo],
-            "subject": f"📦 Backup Completo Estoque — {hoje}",
-            "text": corpo_admin,
-            "attachments": [{
-                "filename": f"backup_completo_{date.today()}.xlsx",
-                "content": arquivo_completo_base64
-            }]
+            "subject": f"Backup Completo Estoque — {hoje}",
+            "text": f"Backup automático completo.\nData: {datetime.now().strftime('%d/%m/%Y %H:%M')}\n\nContém todos os almoxarifados.",
+            "attachments": [{"filename": f"backup_completo_{date.today()}.xlsx", "content": arquivo_completo_base64}]
         }
         if cc_completo:
-            payload_completo["cc"] = cc_completo
-
+            payload["cc"] = cc_completo
         try:
-            resend.Emails.send(payload_completo)
-            destinatarios_log = [destinatario_fixo] + cc_completo
-            print(f'BACKUP: backup completo enviado para: {destinatarios_log}')
+            resend.Emails.send(payload)
+            print(f'BACKUP: completo enviado para {[destinatario_fixo] + cc_completo}')
             enviados += 1
         except Exception as e:
-            print(f'BACKUP: erro ao enviar backup completo — {e}')
+            print(f'BACKUP: erro backup completo — {e}')
             erros += 1
 
-        # ── 2. Backup individual por almoxarifado (para cada almoxarife) ──
-        almoxarifados = Almoxarifado.query.all()
-        for alm in almoxarifados:
-            destinatarios_alm = [
-                u.email for u in alm.usuarios
-                if u.perfil == 'almoxarife' and u.ativo and u.email
-            ]
-            if not destinatarios_alm:
+        # ── 2. Backup individual por almoxarifado em cc para cada almoxarife ──
+        for alm in Almoxarifado.query.all():
+            cc_alm = [u.email for u in alm.usuarios if u.perfil == 'almoxarife' and u.ativo and u.email and u.email != destinatario_fixo]
+            if not cc_alm:
                 continue
-
             buf_alm = gerar_excel_backup_almoxarifado(alm)
-            nome_arquivo = f"backup_{alm.nome.replace(' ', '_')}_{date.today()}.xlsx"
             buf_alm.seek(0)
-            arquivo_base64 = base64.b64encode(buf_alm.read()).decode('utf-8')
-
-            corpo_alm = (
-                f"Backup automático do almoxarifado: {alm.nome}\n"
-                f"Data: {datetime.now().strftime('%d/%m/%Y %H:%M')}\n\n"
-                f"Este arquivo contém o estoque atual do seu almoxarifado.\n"
-                f"Guarde em local seguro."
-            )
-
-            # cc = almoxarifes do almoxarifado (exceto o destinatário fixo que já recebeu o completo)
-            cc_alm = [e for e in destinatarios_alm if e != destinatario_fixo]
-
             payload_alm = {
                 "from": f"Logi-Prime Backup <{remetente}>",
                 "to": [destinatario_fixo],
-                "subject": f"📦 Backup {alm.nome} — {hoje}",
-                "text": corpo_alm,
-                "attachments": [{
-                    "filename": nome_arquivo,
-                    "content": arquivo_base64
-                }]
+                "cc": cc_alm,
+                "subject": f"Backup {alm.nome} — {hoje}",
+                "text": f"Backup do almoxarifado: {alm.nome}\nData: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
+                "attachments": [{"filename": f"backup_{alm.nome.replace(' ','_')}_{date.today()}.xlsx", "content": base64.b64encode(buf_alm.read()).decode('utf-8')}]
             }
-            if cc_alm:
-                payload_alm["cc"] = cc_alm
-
             try:
                 resend.Emails.send(payload_alm)
-                print(f'BACKUP: backup "{alm.nome}" enviado para: {[destinatario_fixo] + cc_alm}')
+                print(f'BACKUP: "{alm.nome}" enviado cc={cc_alm}')
                 enviados += 1
             except Exception as e:
-                print(f'BACKUP: erro ao enviar backup de "{alm.nome}" — {e}')
+                print(f'BACKUP: erro "{alm.nome}" — {e}')
                 erros += 1
 
     except Exception as e:
-        print(f'BACKUP: erro geral ao enviar emails via Resend — {e}')
+        print(f'BACKUP: erro geral — {e}')
         return False, str(e)
 
     return erros == 0, None
@@ -2584,6 +2568,24 @@ def classificar_epis():
     flash(f'✅ Classificação concluída: {atualizados_epi} EPIs e {atualizados_maq} Maquinários atualizados.', 'success')
     return redirect(url_for('index'))
 
+
+@app.route('/admin/debug-env')
+@admin_required
+def debug_env():
+    """Rota temporária de diagnóstico — remove após resolver o problema."""
+    from_val = os.environ.get('BACKUP_EMAIL_FROM', 'NÃO DEFINIDO')
+    pass_val = os.environ.get('BACKUP_EMAIL_PASS', 'NÃO DEFINIDO')
+    to_val   = os.environ.get('BACKUP_EMAIL_TO',   'NÃO DEFINIDO')
+    # Mostra apenas primeiros/últimos chars para não expor a senha
+    pass_preview = (pass_val[:3] + '***' + pass_val[-3:]) if len(pass_val) > 6 else pass_val
+    return f"""
+    <pre>
+    BACKUP_EMAIL_FROM = {from_val}
+    BACKUP_EMAIL_PASS = {pass_preview}
+    BACKUP_EMAIL_TO   = {to_val}
+    Todas as env vars: {[k for k in os.environ.keys() if 'BACKUP' in k]}
+    </pre>
+    """
 
 @app.route('/admin/backup', methods=['GET', 'POST'])
 @admin_required
@@ -2661,17 +2663,13 @@ def seed_data():
         ])
         db.session.commit()
     if Usuario.query.count() == 0:
-        # Gera uma senha aleatória segura para o primeiro acesso
-        senha_inicial = secrets.token_urlsafe(12)
         admin = Usuario(nome='Administrador', login='admin', perfil='admin')
-        admin.set_senha(senha_inicial)
+        admin.set_senha('admin123')
         db.session.add(admin)
         db.session.commit()
         print('=' * 60)
-        print('⚠️  PRIMEIRO ACESSO — GUARDE ESTAS CREDENCIAIS:')
-        print(f'   Login: admin')
-        print(f'   Senha: {senha_inicial}')
-        print('   Altere a senha imediatamente após o primeiro login!')
+        print('AVISO: Usuário admin criado com senha padrão: admin123')
+        print('Altere a senha imediatamente após o primeiro login!')
         print('=' * 60)
 
 def classificar_categorias_itens():
@@ -2709,31 +2707,16 @@ def classificar_categorias_itens():
 def inicializar_banco():
     """Roda migrações, cria tabelas e seed — executado uma única vez."""
     try:
-        db.create_all()   # cria tabelas novas sem tocar nas existentes (rápido)
-        run_migrations()  # adiciona colunas faltantes (usa SAVEPOINT, seguro)
+        run_migrations()
+        db.create_all()
         seed_data()
         classificar_categorias_itens()
     except Exception as e:
         print(f'Inicialização do banco: {e}')
 
 # Inicialização única — funciona tanto para gunicorn quanto para python app.py
-# Usa threading para não bloquear o boot do gunicorn
-import threading
-
-_banco_inicializado = False
-_lock_init = threading.Lock()
-
-def _inicializar_em_background():
-    """Roda a inicialização do banco em background para não bloquear o healthcheck."""
-    global _banco_inicializado
-    with app.app_context():
-        inicializar_banco()
-    with _lock_init:
-        _banco_inicializado = True
-    print('✅ Banco inicializado com sucesso.')
-
-_thread_init = threading.Thread(target=_inicializar_em_background, daemon=True)
-_thread_init.start()
+with app.app_context():
+    inicializar_banco()
 
 # ── BACKUP AUTOMÁTICO DIÁRIO ─────────────────────────────────────────────────
 def job_backup_diario():

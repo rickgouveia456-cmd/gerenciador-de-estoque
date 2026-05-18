@@ -57,6 +57,23 @@
                                 {% endfor %}
                             </select>
                         </div>
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Categoria *</label>
+                            <select name="categoria" class="form-select" required id="selectCategoria"
+                                    onchange="toggleCA(this.value)">
+                                <option value="geral" {% if not item or item.categoria == 'geral' %}selected{% endif %}>🏗️ Material Geral</option>
+                                <option value="epi"   {% if item and item.categoria == 'epi' %}selected{% endif %}>🦺 EPI / Uniforme</option>
+                                <option value="maquinario" {% if item and item.categoria == 'maquinario' %}selected{% endif %}>⚙️ Maquinário / Peça</option>
+                            </select>
+                            <div class="form-text">Itens <strong>EPI</strong> aparecem na Ficha de Controle de EPIs.</div>
+                        </div>
+                        <div class="col-md-4" id="divCA" style="{% if not item or item.categoria != 'epi' %}display:none{% endif %}">
+                            <label class="form-label fw-semibold">C.A.</label>
+                            <input type="text" name="ca" class="form-control"
+                                   value="{{ item.ca if item and item.ca else '' }}"
+                                   placeholder="Ex: 12345">
+                            <div class="form-text">Certificado de Aprovação (MTE)</div>
+                        </div>
                     </div>
                     <div class="d-flex gap-2 mt-4">
                         <button type="submit" class="btn btn-primary">
@@ -70,4 +87,12 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleCA(val) {
+    document.getElementById('divCA').style.display = val === 'epi' ? '' : 'none';
+}
+</script>
 {% endblock %}

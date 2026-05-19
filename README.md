@@ -67,7 +67,7 @@ python app.py
 
 Acesse: **http://localhost:5000**
 
-**Login padrão:** `admin` / `admin123`
+**Login padrão:** `entre em contato com o suporte para gerar uma senha nova` / `entre em contato com o suporte para gerar uma senha nova`
 
 ### Opção 2: Deploy na Nuvem (Railway)
 
@@ -301,13 +301,13 @@ Este software é proprietário. O uso, cópia, modificação ou distribuição n
 - 🌐 [Site Oficial](#)
 - 📺 [Vídeo Demonstração](#)
 - 📖 [Documentação Completa](MANUAL_INSTALACAO.md)
-- 💬 [Suporte](#)
+- 💬 [Suporte](@rickgouveia157@gmail.com)
 
 ---
 
 <div align="center">
 
-**Desenvolvido com ❤️ por Erick Silva Cruz**
+**Desenvolvido com ❤️ por Henrique silva Gouveia Carvalho**
 
 [⬆ Voltar ao topo](#-sistema-de-gestão-de-estoque-para-obras)
 

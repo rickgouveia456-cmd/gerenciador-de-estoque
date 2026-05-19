@@ -2685,30 +2685,27 @@ def api_backup_automatico():
     chave_esperada = os.environ.get('BACKUP_CRON_KEY', '')
     if not chave_esperada or chave != chave_esperada:
         return jsonify({'error': 'Não autorizado'}), 401
-    """
+
     import threading
-    
+
     def executar_backup_background():
-        """Executa o backup em uma thread separada."""
         with app.app_context():
             try:
                 ok, erro_msg = enviar_backup_por_almoxarifado()
                 if ok:
-                    logger.info(f'✅ BACKUP API: Backup enviado com sucesso às {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
+                    logger.info(f'✅ BACKUP API: enviado com sucesso às {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
                 else:
-                    logger.error(f'❌ BACKUP API: Erro ao enviar backup: {erro_msg}')
+                    logger.error(f'❌ BACKUP API: erro — {erro_msg}')
             except Exception as e:
-                logger.error(f'❌ BACKUP API: Erro inesperado: {str(e)}')
-    
-    # Inicia o backup em background
+                logger.error(f'❌ BACKUP API: erro inesperado — {str(e)}')
+
     thread = threading.Thread(target=executar_backup_background)
     thread.daemon = True
     thread.start()
-    
-    # Retorna imediatamente
+
     return jsonify({
         'success': True,
-        'message': 'Backup iniciado! Os emails serão enviados em alguns minutos.',
+        'message': 'Backup iniciado!',
         'timestamp': datetime.now().strftime('%d/%m/%Y %H:%M:%S')
     }), 200
 

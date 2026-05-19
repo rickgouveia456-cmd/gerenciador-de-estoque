@@ -2682,8 +2682,8 @@ def api_backup_automatico():
     Protegida por chave secreta via query string: ?key=BACKUP_CRON_KEY
     """
     chave = request.args.get('key', '')
-    chave_esperada = os.environ.get('BACKUP_CRON_KEY', '')
-    if not chave_esperada or chave != chave_esperada:
+    chave_esperada = os.environ.get('BACKUP_CRON_KEY', 'backup2024').strip()
+    if chave.strip() != chave_esperada:
         return jsonify({'error': 'Não autorizado'}), 401
 
     import threading

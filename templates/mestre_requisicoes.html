@@ -6,14 +6,14 @@
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <div>
         <p class="text-muted mb-0 small">
-            {% if usuario_atual.perfil == 'mestre' %}
+            {% if usuario_atual.perfil in ('mestre', 'tecnico_seguranca') %}
                 Suas requisições enviadas ao almoxarifado
             {% else %}
-                Requisições recebidas dos mestres de obra
+                Requisições recebidas
             {% endif %}
         </p>
     </div>
-    {% if usuario_atual.perfil in ('mestre', 'admin') %}
+    {% if usuario_atual.perfil in ('mestre', 'tecnico_seguranca', 'admin') %}
     <a href="/mestre/requisicoes/nova" class="btn btn-primary">
         <i class="bi bi-plus-lg me-1"></i> Nova Requisição
     </a>
@@ -59,7 +59,7 @@
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>Mestre</th>
+                    <th>Solicitante</th>
                     <th>Colaborador</th>
                     <th>Almoxarifado</th>
                     <th>Itens</th>
@@ -148,7 +148,7 @@
 <div class="text-center py-5 text-muted">
     <i class="bi bi-clipboard-x fs-1 d-block mb-3"></i>
     <p>Nenhuma requisição encontrada.</p>
-    {% if usuario_atual.perfil in ('mestre', 'admin') %}
+    {% if usuario_atual.perfil in ('mestre', 'tecnico_seguranca', 'admin') %}
     <a href="/mestre/requisicoes/nova" class="btn btn-primary">
         <i class="bi bi-plus-lg me-1"></i> Criar Primeira Requisição
     </a>

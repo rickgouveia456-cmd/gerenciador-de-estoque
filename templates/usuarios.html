@@ -32,10 +32,12 @@
                             <span class="badge bg-danger">👑 Admin</span>
                         {% elif u.perfil == 'mestre' %}
                             <span class="badge" style="background:#f0a500;color:#000">🦺 Mestre de Obra</span>
+                        {% elif u.perfil == 'tecnico_seguranca' %}
+                            <span class="badge bg-primary">🔒 Téc. Segurança</span>
                         {% elif u.perfil == 'almoxarife' %}
                             <span class="badge bg-info text-dark">📦 Almoxarife</span>
                         {% else %}
-                            <span class="badge bg-primary">👤 Colaborador</span>
+                            <span class="badge bg-secondary">👤 Colaborador</span>
                         {% endif %}
                     </td>
                     <td>{{ u.almoxarifado.nome if u.almoxarifado else '— Todos —' }}</td>
@@ -80,10 +82,12 @@
                     <span class="badge bg-danger">👑 Admin</span>
                 {% elif u.perfil == 'mestre' %}
                     <span class="badge" style="background:#f0a500;color:#000">🦺 Mestre de Obra</span>
+                {% elif u.perfil == 'tecnico_seguranca' %}
+                    <span class="badge bg-primary">🔒 Téc. Segurança</span>
                 {% elif u.perfil == 'almoxarife' %}
                     <span class="badge bg-info text-dark">📦 Almoxarife</span>
                 {% else %}
-                    <span class="badge bg-primary">👤 Colaborador</span>
+                    <span class="badge bg-secondary">👤 Colaborador</span>
                 {% endif %}
             </div>
             <div class="small text-muted mb-2">

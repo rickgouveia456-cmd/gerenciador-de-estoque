@@ -108,16 +108,16 @@
                             <strong>{{ p.nome }}</strong>
                         </td>
                         <td class="text-center">
-                            <span class="badge bg-danger">{{ p.total_movs }}</span>
+                            <span class="badge rounded-pill" style="background:var(--accent);color:#fff">{{ p.total_movs }}</span>
                         </td>
                         <td class="text-center">
-                            <span class="badge bg-secondary">{{ p.itens_distintos }}</span>
+                            <span class="badge rounded-pill bg-secondary">{{ p.itens_distintos }}</span>
                         </td>
                         <td style="min-width:150px">
                             {% set pct = (p.total_movs / total_geral * 100) | round(1) if total_geral > 0 else 0 %}
                             <div class="d-flex align-items-center gap-2">
                                 <div class="progress flex-fill" style="height:8px">
-                                    <div class="progress-bar bg-danger" style="width:{{ pct }}%"></div>
+                                    <div class="progress-bar" style="width:{{ pct }}%;background:var(--accent)"></div>
                                 </div>
                                 <small class="text-muted">{{ pct }}%</small>
                             </div>

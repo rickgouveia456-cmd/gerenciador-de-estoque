@@ -25,7 +25,7 @@
             <div class="card-body">
                 <div class="row g-3 mb-4">
                     <div class="col-6 col-md-3">
-                        <div class="small text-muted">Mestre</div>
+                        <div class="small text-muted">Solicitante</div>
                         <span class="badge" style="background:#f0a500;color:#000">
                             <i class="bi bi-person-badge me-1"></i>{{ req.mestre.nome }}
                         </span>
@@ -163,7 +163,7 @@
                 {% endif %}
 
                 {% if req.status not in ('entregue', 'cancelada', 'recusada') %}
-                    {% if usuario_atual.perfil in ('admin', 'almoxarife') or (usuario_atual.perfil == 'mestre' and req.mestre_id == usuario_atual.id) %}
+                    {% if usuario_atual.perfil in ('admin', 'almoxarife') or (usuario_atual.perfil in ('mestre', 'tecnico_seguranca') and req.mestre_id == usuario_atual.id) %}
                     <form method="POST" action="/mestre/requisicoes/{{ req.id }}/cancelar"
                           onsubmit="return confirm('Cancelar esta requisição?')">
                         <button class="btn btn-outline-danger w-100">

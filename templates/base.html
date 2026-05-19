@@ -25,9 +25,11 @@
         </button>
     </div>
     <nav class="nav flex-column mt-1">
-        {% if usuario_atual and usuario_atual.perfil == 'mestre' %}
-        <!-- SIDEBAR EXCLUSIVA DO MESTRE -->
-        <span class="nav-section" style="color:var(--accent)">Mestre de Obra</span>
+        {% if usuario_atual and usuario_atual.perfil in ('mestre', 'tecnico_seguranca') %}
+        <!-- SIDEBAR PARA MESTRE / TÉCNICO DE SEGURANÇA -->
+        <span class="nav-section" style="color:var(--accent)">
+            {% if usuario_atual.perfil == 'tecnico_seguranca' %}Técnico de Segurança{% else %}Mestre de Obra{% endif %}
+        </span>
         <a href="/mestre/requisicoes/nova" class="nav-link {% if request.endpoint == 'mestre_requisicao_nova' %}active{% endif %}">
             <i class="bi bi-plus-circle me-2"></i> Nova Requisição
         </a>
@@ -42,7 +44,7 @@
         <a href="/" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">
             <i class="bi bi-speedometer2 me-2"></i> Dashboard
         </a>
-        {% if usuario_atual and usuario_atual.perfil != 'mestre' %}
+        {% if usuario_atual and usuario_atual.perfil not in ('mestre', 'tecnico_seguranca') %}
         <a href="/movimentacao/lote" class="nav-link {% if request.endpoint == 'movimentacao_lote' %}active{% endif %}">
             <i class="bi bi-arrow-left-right me-2"></i> Registro de Movimentação
         </a>
@@ -55,7 +57,7 @@
         {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
         <span class="nav-section">Requisições</span>
         <a href="/mestre/requisicoes" class="nav-link {% if request.endpoint in ('mestre_requisicoes','mestre_requisicao_detalhe','mestre_requisicao_editar','mestre_requisicao_nova') %}active{% endif %}">
-            <i class="bi bi-clipboard-check me-2"></i> Req. dos Mestres
+            <i class="bi bi-clipboard-check me-2"></i> Requisições
         </a>
         {% endif %}
         {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
@@ -131,6 +133,8 @@
                                 <span class="badge bg-primary">Administrador</span>
                             {% elif usuario_atual.perfil == 'mestre' %}
                                 <span class="badge" style="background:var(--accent);color:#fff">Mestre de Obra</span>
+                            {% elif usuario_atual.perfil == 'tecnico_seguranca' %}
+                                <span class="badge" style="background:#0d6efd;color:#fff">🦺 Téc. Segurança</span>
                             {% elif usuario_atual.perfil == 'almoxarife' %}
                                 <span class="badge bg-info text-dark">Almoxarife</span>
                             {% else %}
@@ -183,8 +187,8 @@
         document.getElementById('sidebar').classList.remove('open');
         document.getElementById('sidebarOverlay').classList.remove('show');
     }
-    // Badge de alertas (só para não-mestres)
-    {% if usuario_atual and usuario_atual.perfil != 'mestre' %}
+    // Badge de alertas (só para admin/almoxarife/colaborador)
+    {% if usuario_atual and usuario_atual.perfil not in ('mestre', 'tecnico_seguranca') %}
     fetch('/api/alertas').then(r => r.json()).then(data => {
         const b = document.getElementById('badge-alertas');
         if (b && data.length > 0) { b.textContent = data.length; b.style.display = 'inline'; }
@@ -192,7 +196,7 @@
     {% endif %}
 
     // Notificações do mestre
-    {% if usuario_atual and usuario_atual.perfil == 'mestre' %}
+    {% if usuario_atual and usuario_atual.perfil in ('mestre', 'tecnico_seguranca') %}
     function verificarNotificacoesMestre() {
         fetch('/api/mestre/notificacoes').then(r => r.json()).then(notifs => {
             const badge = document.getElementById('badge-notif-mestre');

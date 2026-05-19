@@ -48,12 +48,15 @@
                                 <option value="mestre" {% if usuario and usuario.perfil == 'mestre' %}selected{% endif %}>
                                     🦺 Mestre de Obra
                                 </option>
+                                <option value="tecnico_seguranca" {% if usuario and usuario.perfil == 'tecnico_seguranca' %}selected{% endif %}>
+                                    🔒 Técnico de Segurança
+                                </option>
                                 <option value="admin" {% if usuario and usuario.perfil == 'admin' %}selected{% endif %}>
                                     👑 Administrador
                                 </option>
                             </select>
                             <div class="form-text">
-                                <strong>Mestre</strong>: faz requisições ao almoxarifado ·
+                                <strong>Mestre / Téc. Segurança</strong>: fazem requisições ao almoxarifado ·
                                 <strong>Almoxarife</strong>: gerencia e entrega materiais
                             </div>
                         </div>

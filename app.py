@@ -217,7 +217,7 @@ class Usuario(db.Model):
     nome = db.Column(db.String(100), nullable=False)
     login = db.Column(db.String(50), unique=True, nullable=False)
     senha_hash = db.Column(db.String(256), nullable=False)
-    perfil = db.Column(db.String(20), default='colaborador')  # admin | colaborador | mestre | almoxarife
+    perfil = db.Column(db.String(20), default='colaborador')  # admin | colaborador | mestre | almoxarife | tecnico_seguranca
     almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=True)
     email = db.Column(db.String(120), nullable=True)
     ativo = db.Column(db.Boolean, default=True)
@@ -341,8 +341,8 @@ def inject_sidebar():
         return dict(sidebar_alms=[], usuario_atual=None)
     if u.perfil == 'admin':
         alms = Almoxarifado.query.all()
-    elif u.perfil == 'mestre':
-        # Mestre vê só o almoxarifado dele
+    elif u.perfil in ('mestre', 'tecnico_seguranca'):
+        # Mestre e técnico veem só o almoxarifado deles
         alms = [u.almoxarifado] if u.almoxarifado_id else []
     else:
         ids = u.almoxarifados_permitidos()
@@ -504,8 +504,8 @@ def logout():
 @login_required
 def index():
     u = usuario_atual()
-    # Mestre só acessa a tela de requisições
-    if u.perfil == 'mestre':
+    # Mestre e técnico de segurança só acessam a tela de requisições
+    if u.perfil in ('mestre', 'tecnico_seguranca'):
         return redirect(url_for('mestre_requisicoes'))
     if u.perfil == 'admin':
         almoxarifados = Almoxarifado.query.all()
@@ -530,8 +530,8 @@ def index():
 @login_required
 def almoxarifado(id):
     u = usuario_atual()
-    # Mestre não acessa almoxarifado diretamente
-    if u.perfil == 'mestre':
+    # Mestre e técnico de segurança não acessam almoxarifado diretamente
+    if u.perfil in ('mestre', 'tecnico_seguranca'):
         flash('Acesso restrito. Use a tela de requisições.', 'warning')
         return redirect(url_for('mestre_requisicoes'))
     alm = Almoxarifado.query.get_or_404(id)
@@ -2053,7 +2053,7 @@ def revogar_acesso_extra(id):
 def mestre_requisicoes():
     """Lista de requisições do mestre logado."""
     u = usuario_atual()
-    if u.perfil == 'mestre':
+    if u.perfil in ('mestre', 'tecnico_seguranca'):
         reqs = RequisicaoMestre.query.filter_by(mestre_id=u.id).order_by(RequisicaoMestre.data_criacao.desc()).all()
     elif u.perfil in ('admin', 'almoxarife'):
         # Almoxarife vê requisições do seu almoxarifado
@@ -2071,12 +2071,12 @@ def mestre_requisicoes():
 def mestre_requisicao_nova():
     """Mestre cria nova requisição."""
     u = usuario_atual()
-    if u.perfil not in ('mestre', 'admin'):
-        flash('Apenas mestres podem criar requisições.', 'danger')
+    if u.perfil not in ('mestre', 'tecnico_seguranca', 'admin'):
+        flash('Apenas mestres e técnicos podem criar requisições.', 'danger')
         return redirect(url_for('index'))
 
-    # Almoxarifado do mestre
-    if u.perfil == 'mestre':
+    # Almoxarifado do solicitante
+    if u.perfil in ('mestre', 'tecnico_seguranca'):
         if not u.almoxarifado_id:
             flash('Você não está vinculado a nenhum almoxarifado. Contate o administrador.', 'warning')
             return redirect(url_for('mestre_requisicoes'))
@@ -2269,7 +2269,7 @@ def mestre_requisicao_cancelar(id):
     """Cancela uma requisição pendente ou aprovada."""
     req = RequisicaoMestre.query.get_or_404(id)
     u = usuario_atual()
-    if u.perfil == 'mestre' and req.mestre_id != u.id:
+    if u.perfil in ('mestre', 'tecnico_seguranca') and req.mestre_id != u.id:
         flash('Acesso negado.', 'danger')
         return redirect(url_for('mestre_requisicoes'))
     if req.status == 'entregue':
@@ -2286,7 +2286,7 @@ def mestre_requisicao_cancelar(id):
 def api_mestre_notificacoes():
     """Retorna notificações baseadas no status das requisições do mestre."""
     u = usuario_atual()
-    if u.perfil != 'mestre':
+    if u.perfil not in ('mestre', 'tecnico_seguranca'):
         return jsonify([])
     # Busca requisições não-pendentes e não-canceladas do mestre
     # A notificação é baseada no status atual — o frontend controla o que já foi visto via localStorage

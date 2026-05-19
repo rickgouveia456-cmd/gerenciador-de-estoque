@@ -130,7 +130,11 @@
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><span class="dropdown-item-text small text-muted">
                             {% if usuario_atual.perfil == 'admin' %}
+                                {% if usuario_atual.login == 'rick' %}
+                                <span class="badge" style="background:#7c3aed;color:#fff">👑 Fundador</span>
+                                {% else %}
                                 <span class="badge bg-primary">Administrador</span>
+                                {% endif %}
                             {% elif usuario_atual.perfil == 'mestre' %}
                                 <span class="badge" style="background:var(--accent);color:#fff">Mestre de Obra</span>
                             {% elif usuario_atual.perfil == 'tecnico_seguranca' %}

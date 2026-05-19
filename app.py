@@ -318,6 +318,11 @@ def usuario_atual():
         return db.session.get(Usuario, session['usuario_id'])
     return None
 
+def is_fundador():
+    """Retorna True se o usuário logado é o fundador (login 'rick')."""
+    u = usuario_atual()
+    return u is not None and u.login == 'rick'
+
 def extrair_colaborador(mov):
     """Extrai o nome do colaborador da observação da movimentação.
     Suporta: 'liberado P/ Nome', 'Colaborador: Nome'.
@@ -2002,14 +2007,14 @@ def deletar_usuario(id):
     u = Usuario.query.get_or_404(id)
     atual = usuario_atual()
 
-    # Admin não pode deletar a si mesmo
+    # Fundador (rick) pode deletar qualquer conta exceto a própria
+    # Admin comum não pode deletar a si mesmo
     if u.id == atual.id:
         flash('Você não pode remover sua própria conta.', 'danger')
         return redirect(url_for('usuarios'))
 
     try:
-        # Desvincular requisições do mestre antes de deletar
-        # (evita erro de FK — requisicao_mestre.mestre_id referencia usuario.id)
+        # Desvincular requisições vinculadas antes de deletar (evita erro de FK)
         RequisicaoMestre.query.filter_by(mestre_id=u.id).update({'mestre_id': atual.id})
         RequisicaoMestre.query.filter_by(entregue_por_id=u.id).update({'entregue_por_id': None})
         db.session.flush()
@@ -2019,7 +2024,7 @@ def deletar_usuario(id):
         flash(f'Usuário "{u.nome}" removido!', 'warning')
     except Exception as e:
         db.session.rollback()
-        flash(f'Não foi possível remover o usuário. Ele pode ter registros vinculados no sistema.', 'danger')
+        flash('Não foi possível remover o usuário. Ele pode ter registros vinculados no sistema.', 'danger')
 
     return redirect(url_for('usuarios'))
 

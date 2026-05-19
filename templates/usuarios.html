@@ -29,7 +29,11 @@
                     <td><code>{{ u.login }}</code></td>
                     <td>
                         {% if u.perfil == 'admin' %}
-                            <span class="badge bg-danger">👑 Admin</span>
+                            {% if u.login == 'rick' %}
+                                <span class="badge" style="background:#7c3aed;color:#fff">👑 Fundador</span>
+                            {% else %}
+                                <span class="badge bg-danger">👑 Admin</span>
+                            {% endif %}
                         {% elif u.perfil == 'mestre' %}
                             <span class="badge" style="background:#f0a500;color:#000">🦺 Mestre de Obra</span>
                         {% elif u.perfil == 'tecnico_seguranca' %}
@@ -52,9 +56,9 @@
                         <a href="/usuarios/{{ u.id }}/editar" class="btn btn-sm btn-outline-secondary">
                             <i class="bi bi-pencil"></i>
                         </a>
-                        {% if u.login != 'admin' %}
+                        {% if u.id != usuario_atual.id %}
                         <form action="/usuarios/{{ u.id }}/deletar" method="POST" class="d-inline"
-                              onsubmit="return confirm('Deletar usuário?')">
+                              onsubmit="return confirm('Deletar usuário {{ u.nome }}?')">
                             <button class="btn btn-sm btn-outline-danger">
                                 <i class="bi bi-trash"></i>
                             </button>
@@ -79,7 +83,11 @@
                     <code class="small">{{ u.login }}</code>
                 </div>
                 {% if u.perfil == 'admin' %}
-                    <span class="badge bg-danger">👑 Admin</span>
+                    {% if u.login == 'rick' %}
+                        <span class="badge" style="background:#7c3aed;color:#fff">👑 Fundador</span>
+                    {% else %}
+                        <span class="badge bg-danger">👑 Admin</span>
+                    {% endif %}
                 {% elif u.perfil == 'mestre' %}
                     <span class="badge" style="background:#f0a500;color:#000">🦺 Mestre de Obra</span>
                 {% elif u.perfil == 'tecnico_seguranca' %}
@@ -97,9 +105,9 @@
                 <a href="/usuarios/{{ u.id }}/editar" class="btn btn-sm btn-outline-secondary flex-fill">
                     <i class="bi bi-pencil me-1"></i> Editar
                 </a>
-                {% if u.login != 'admin' %}
+                {% if u.id != usuario_atual.id %}
                 <form action="/usuarios/{{ u.id }}/deletar" method="POST"
-                      onsubmit="return confirm('Deletar?')">
+                      onsubmit="return confirm('Deletar {{ u.nome }}?')">
                     <button class="btn btn-sm btn-outline-danger">
                         <i class="bi bi-trash"></i>
                     </button>

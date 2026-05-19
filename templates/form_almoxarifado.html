@@ -8,6 +8,7 @@
         <div class="card border-0 shadow-sm">
             <div class="card-body p-4">
                 <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Nome do Almoxarifado *</label>
                         <input type="text" name="nome" class="form-control" required

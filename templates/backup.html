@@ -18,6 +18,7 @@
 
                 <!-- Download direto -->
                 <form method="POST" class="mb-3">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="acao" value="download">
                     <button type="submit" class="btn btn-primary w-100">
                         <i class="bi bi-file-earmark-excel me-2"></i>
@@ -27,6 +28,7 @@
 
                 <!-- Enviar por email -->
                 <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="acao" value="email">
                     <button type="submit" class="btn btn-outline-secondary w-100">
                         <i class="bi bi-envelope me-2"></i>

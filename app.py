@@ -2007,9 +2007,20 @@ def deletar_usuario(id):
         flash('Você não pode remover sua própria conta.', 'danger')
         return redirect(url_for('usuarios'))
 
-    db.session.delete(u)
-    db.session.commit()
-    flash('Usuário removido!', 'warning')
+    try:
+        # Desvincular requisições do mestre antes de deletar
+        # (evita erro de FK — requisicao_mestre.mestre_id referencia usuario.id)
+        RequisicaoMestre.query.filter_by(mestre_id=u.id).update({'mestre_id': atual.id})
+        RequisicaoMestre.query.filter_by(entregue_por_id=u.id).update({'entregue_por_id': None})
+        db.session.flush()
+
+        db.session.delete(u)
+        db.session.commit()
+        flash(f'Usuário "{u.nome}" removido!', 'warning')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Não foi possível remover o usuário. Ele pode ter registros vinculados no sistema.', 'danger')
+
     return redirect(url_for('usuarios'))
 
 # ── ACESSO EXTRA (substituto temporário) ─────────────────────────────────────

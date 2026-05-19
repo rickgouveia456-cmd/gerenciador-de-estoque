@@ -2812,13 +2812,11 @@ try:
     from apscheduler.schedulers.background import BackgroundScheduler
     from apscheduler.triggers.cron import CronTrigger
 
-    # Evita que o scheduler inicie em múltiplos workers do gunicorn.
-    # O gunicorn define a variável GUNICORN_WORKER_ID nos workers filhos.
-    # Se não estiver definida (processo principal ou dev), inicia normalmente.
-    _worker_id = os.environ.get('GUNICORN_WORKER_ID', '')
-    _is_reloader = os.environ.get('WERKZEUG_RUN_MAIN', '') == 'true'
-
-    if not _worker_id or _worker_id == '1':
+    # No Railway com gunicorn --preload, o código roda uma vez no processo principal.
+    # Usa variável de ambiente para garantir que só um processo inicia o scheduler.
+    _already_started = os.environ.get('_SCHEDULER_STARTED', '')
+    if not _already_started:
+        os.environ['_SCHEDULER_STARTED'] = '1'
         scheduler = BackgroundScheduler(timezone='America/Sao_Paulo')
         scheduler.add_job(
             job_backup_diario,
@@ -2827,11 +2825,11 @@ try:
             replace_existing=True
         )
         scheduler.start()
-        logger.info('BACKUP AUTOMÁTICO: ✅ agendado para todo dia às 20:00 (horário de Brasília/São Paulo)')
+        logger.info('BACKUP AUTOMÁTICO: ✅ agendado para todo dia às 20:00 (Brasília)')
     else:
-        logger.info(f'BACKUP AUTOMÁTICO: worker {_worker_id} — scheduler não iniciado (apenas worker 1 agenda)')
+        logger.info('BACKUP AUTOMÁTICO: scheduler já iniciado, ignorando.')
 except Exception as e:
-    logger.info(f'BACKUP AUTOMÁTICO: ❌ erro ao iniciar agendador — {e}')
+    logger.error(f'BACKUP AUTOMÁTICO: ❌ erro ao iniciar agendador — {e}')
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

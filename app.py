@@ -2677,12 +2677,14 @@ def backup_manual():
     return render_template('backup.html', email_configurado=email_configurado)
 
 @app.route('/api/backup-automatico', methods=['GET'])
-@admin_required
 def api_backup_automatico():
-    """API pública para backup automático via cron job externo.
-    Acesse: https://seu-site.railway.app/api/backup-automatico
-    
-    Executa o backup em background e retorna imediatamente.
+    """API para backup automático via cron job externo.
+    Protegida por chave secreta via query string: ?key=BACKUP_CRON_KEY
+    """
+    chave = request.args.get('key', '')
+    chave_esperada = os.environ.get('BACKUP_CRON_KEY', '')
+    if not chave_esperada or chave != chave_esperada:
+        return jsonify({'error': 'Não autorizado'}), 401
     """
     import threading
     

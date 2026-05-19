@@ -1,13 +1,13 @@
 {% extends 'base.html' %}
-{% block title %}Reativar Itens — Logi-Prime{% endblock %}
-{% block page_title %}🔧 Reativar Todos os Itens{% endblock %}
+{% block title %}Reativar Todos os Itens{% endblock %}
+{% block page_title %}Reativar Todos os Itens{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-6">
-        <div class="card shadow-sm">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-arrow-clockwise me-2"></i>Reativar Todos os Itens</h5>
+        <div class="card">
+            <div class="card-header fw-bold" style="background:var(--gradient-primary);color:#fff">
+                <i class="bi bi-arrow-clockwise me-2"></i>Reativar Todos os Itens
             </div>
             <div class="card-body">
                 <div class="alert alert-info">
@@ -28,8 +28,8 @@
                 </form>
 
                 <div class="mt-3">
-                    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
-                        <i class="bi bi-arrow-left me-1"></i>Voltar ao Dashboard
+                    <a href="/" class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-arrow-left me-1"></i>Voltar ao Sistema
                     </a>
                 </div>
             </div>

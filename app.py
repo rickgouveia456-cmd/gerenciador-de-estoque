@@ -9,7 +9,15 @@ import io
 import os
 import json
 import secrets
+import logging
 import openpyxl
+
+# ── LOGGING ───────────────────────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s'
+)
+logger = logging.getLogger(__name__)
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
@@ -22,14 +30,14 @@ if not os.environ.get('BACKUP_EMAIL_TO'):
 # BACKUP_EMAIL_PASS não tem fallback — deve ser configurada no Railway
 
 # ── DIAGNÓSTICO DE VARIÁVEIS DE AMBIENTE ─────────────────────────────────────
-print('=' * 60)
-print('DIAGNÓSTICO DE VARIÁVEIS DE AMBIENTE:')
-print(f'  BACKUP_EMAIL_FROM = {os.environ.get("BACKUP_EMAIL_FROM", "NÃO DEFINIDO")}')
+logger.info('=' * 60)
+logger.info('DIAGNÓSTICO DE VARIÁVEIS DE AMBIENTE:')
+logger.info(f'  BACKUP_EMAIL_FROM = {os.environ.get("BACKUP_EMAIL_FROM", "NÃO DEFINIDO")}')
 _pass = os.environ.get("BACKUP_EMAIL_PASS", "")
-print(f'  BACKUP_EMAIL_PASS = {"SIM (" + _pass[:3] + "***)" if _pass else "NÃO DEFINIDO"}')
-print(f'  BACKUP_EMAIL_TO   = {os.environ.get("BACKUP_EMAIL_TO", "NÃO DEFINIDO")}')
-print(f'  DATABASE_URL      = {"SIM" if os.environ.get("DATABASE_URL") else "NÃO DEFINIDO"}')
-print('=' * 60)
+logger.info(f'  BACKUP_EMAIL_PASS = {"SIM (" + _pass[:3] + "***)" if _pass else "NÃO DEFINIDO"}')
+logger.info(f'  BACKUP_EMAIL_TO   = {os.environ.get("BACKUP_EMAIL_TO", "NÃO DEFINIDO")}')
+logger.info(f'  DATABASE_URL      = {"SIM" if os.environ.get("DATABASE_URL") else "NÃO DEFINIDO"}')
+logger.info('=' * 60)
 
 # Fuso horário de Brasília (UTC-3)
 TZ_BRASILIA = timezone(timedelta(hours=-3))
@@ -50,7 +58,7 @@ if not _secret:
     if os.environ.get('DATABASE_URL') or os.environ.get('URI_DO_BANCO_DE_DADOS'):
         # Em produção sem SECRET_KEY: gera chave aleatória (sessões perdem ao restart)
         _secret = secrets.token_hex(32)
-        print('⚠️  AVISO: SECRET_KEY não definida em produção — configure no Railway.')
+        logger.warning('⚠️  AVISO: SECRET_KEY não definida em produção — configure no Railway.')
     else:
         _secret = 'dev-key-apenas-local'
 app.secret_key = _secret
@@ -275,7 +283,7 @@ def login_required(f):
         if 'usuario_id' not in session:
             flash('Faça login para continuar.', 'warning')
             return redirect(url_for('login'))
-        u = Usuario.query.get(session['usuario_id'])
+        u = db.session.get(Usuario, session['usuario_id'])
         if not u or not u.ativo:
             session.clear()
             flash('Sessão expirada. Faça login novamente.', 'warning')
@@ -288,7 +296,7 @@ def admin_required(f):
     def decorated(*args, **kwargs):
         if 'usuario_id' not in session:
             return redirect(url_for('login'))
-        u = Usuario.query.get(session['usuario_id'])
+        u = db.session.get(Usuario, session['usuario_id'])
         if not u or u.perfil != 'admin':
             flash('Acesso restrito ao administrador.', 'danger')
             return redirect(url_for('index'))
@@ -301,7 +309,7 @@ def almoxarife_required(f):
     def decorated(*args, **kwargs):
         if 'usuario_id' not in session:
             return redirect(url_for('login'))
-        u = Usuario.query.get(session['usuario_id'])
+        u = db.session.get(Usuario, session['usuario_id'])
         if not u or u.perfil not in ('admin', 'almoxarife'):
             flash('Acesso restrito ao almoxarife.', 'danger')
             return redirect(url_for('index'))
@@ -310,7 +318,7 @@ def almoxarife_required(f):
 
 def usuario_atual():
     if 'usuario_id' in session:
-        return Usuario.query.get(session['usuario_id'])
+        return db.session.get(Usuario, session['usuario_id'])
     return None
 
 def extrair_colaborador(mov):
@@ -461,7 +469,7 @@ def run_migrations():
             safe_exec(conn, "UPDATE requisicao_mestre SET notificado = FALSE WHERE notificado IS NULL")
 
     except Exception as e:
-        print(f'Migração: {e}')
+        logger.error(f'Migração: {e}')
 
 # ── LOGIN / LOGOUT ────────────────────────────────────────────────────────────
 
@@ -723,7 +731,7 @@ def movimentacao_lote():
             if not item_id or not qtd_str:
                 continue
 
-            it = Item.query.get(item_id)
+            it = db.session.get(Item, item_id)
             try:
                 qtd = float(qtd_str)
             except ValueError:
@@ -754,7 +762,7 @@ def movimentacao_lote():
             db.session.add_all(movs)
             db.session.commit()
             tipo_label = '📥 Entrada' if request.form['tipo'] == 'entrada' else '📤 Saída'
-            alm = Almoxarifado.query.get(alm_id)
+            alm = db.session.get(Almoxarifado, alm_id)
             flash(
                 f'<strong>{tipo_label} registrada!</strong> '
                 f'{len(movs)} item(ns) movimentado(s) em <strong>{alm.nome if alm else ""}</strong>. '
@@ -873,7 +881,7 @@ def requisicao_nova():
             qtd_str = request.form.get(f'quantidade_{i}')
             if not item_id or not qtd_str:
                 continue
-            it  = Item.query.get(item_id)
+            it  = db.session.get(Item, item_id)
             try:
                 qtd = float(qtd_str)
             except ValueError:
@@ -1099,7 +1107,7 @@ def exportar_consumo():
     borda   = Border(left=Side(style='thin'), right=Side(style='thin'),
                      top=Side(style='thin'), bottom=Side(style='thin'))
 
-    alm_nome = Almoxarifado.query.get(alm_id).nome if alm_id else 'Todos os Almoxarifados'
+    alm_nome = db.session.get(Almoxarifado, alm_id).nome if alm_id else 'Todos os Almoxarifados'
     ws.merge_cells('A1:G1')
     ws['A1'] = f'Relatório de Consumo — {alm_nome}'
     ws['A1'].font = Font(bold=True, size=13, color='1A3A5C')
@@ -1253,7 +1261,7 @@ def exportar_consumo_pessoa():
                      top=Side(style='thin'), bottom=Side(style='thin'))
     centro  = Alignment(horizontal='center', vertical='center')
     esq     = Alignment(horizontal='left',   vertical='center')
-    alm_nome = Almoxarifado.query.get(alm_id).nome if alm_id else 'Todos'
+    alm_nome = db.session.get(Almoxarifado, alm_id).nome if alm_id else 'Todos'
     total_geral = sum(len(v) for v in por_pessoa.values())
 
     wb = openpyxl.Workbook()
@@ -1638,7 +1646,7 @@ def excluir_movimentacoes():
     
     excluidas = 0
     for mov_id in ids:
-        mov = Movimentacao.query.get(mov_id)
+        mov = db.session.get(Movimentacao, mov_id)
         if mov:
             # Reverter o estoque ao excluir saída
             if mov.tipo == 'saida':
@@ -2347,50 +2355,9 @@ def reativar_todos_itens():
     # GET - mostrar página de confirmação
     itens_desativados = Item.query.filter_by(ativo=False).count()
     total_itens = Item.query.count()
-    
-    return f'''
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Reativar Todos os Itens</title>
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    </head>
-    <body class="bg-light">
-        <div class="container mt-5">
-            <div class="row justify-content-center">
-                <div class="col-md-6">
-                    <div class="card shadow">
-                        <div class="card-header bg-primary text-white">
-                            <h4 class="mb-0">🔧 Reativar Todos os Itens</h4>
-                        </div>
-                        <div class="card-body">
-                            <div class="alert alert-info">
-                                <strong>📊 Status atual:</strong><br>
-                                • Total de itens: {total_itens}<br>
-                                • Itens desativados: {itens_desativados}<br>
-                                • Itens ativos: {total_itens - itens_desativados}
-                            </div>
-                            
-                            <p>Esta ação irá reativar todos os itens que estão marcados como "desativado" no sistema.</p>
-                            
-                            <form method="POST" onsubmit="return confirm('Tem certeza que deseja reativar todos os itens desativados?')">
-                                <button type="submit" class="btn btn-success btn-lg w-100">
-                                    ✅ Reativar Todos os Itens
-                                </button>
-                            </form>
-                            
-                            <div class="mt-3">
-                                <a href="/" class="btn btn-secondary">← Voltar ao Sistema</a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <!-- Tema laranja v2.0 -->
-    </body>
-    </html>
-    '''
+    return render_template('admin_reativar_itens.html',
+                           itens_desativados=itens_desativados,
+                           total_itens=total_itens)
 
 # ── BACKUP ───────────────────────────────────────────────────────────────────
 
@@ -2508,7 +2475,7 @@ def enviar_backup_email(buf):
     destinatario = os.environ.get('BACKUP_EMAIL_TO', 'rickgouveia17@gmail.com')
 
     if not remetente or not senha:
-        print('BACKUP: variáveis BACKUP_EMAIL_FROM e BACKUP_EMAIL_PASS não configuradas.')
+        logger.info('BACKUP: variáveis BACKUP_EMAIL_FROM e BACKUP_EMAIL_PASS não configuradas.')
         return False
 
     msg = MIMEMultipart()
@@ -2536,10 +2503,10 @@ def enviar_backup_email(buf):
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
             smtp.login(remetente, senha)
             smtp.send_message(msg)
-        print(f'BACKUP: enviado para {destinatario}')
+        logger.info(f'BACKUP: enviado para {destinatario}')
         return True
     except Exception as e:
-        print(f'BACKUP: erro ao enviar email — {e}')
+        logger.info(f'BACKUP: erro ao enviar email — {e}')
         return False
 
 
@@ -2566,7 +2533,7 @@ def enviar_backup_por_almoxarifado():
     destinatario_fixo = os.environ.get('BACKUP_EMAIL_TO', 'rickgouveia157@gmail.com')
 
     if not resend_api_key:
-        print('BACKUP: variável RESEND_API_KEY não configurada.')
+        logger.info('BACKUP: variável RESEND_API_KEY não configurada.')
         return False, 'Variável RESEND_API_KEY não configurada no Railway.'
 
     resend.api_key = resend_api_key
@@ -2596,10 +2563,10 @@ def enviar_backup_por_almoxarifado():
             payload["cc"] = cc_completo
         try:
             resend.Emails.send(payload)
-            print(f'BACKUP: completo enviado para {[destinatario_fixo] + cc_completo}')
+            logger.info(f'BACKUP: completo enviado para {[destinatario_fixo] + cc_completo}')
             enviados += 1
         except Exception as e:
-            print(f'BACKUP: erro backup completo — {e}')
+            logger.info(f'BACKUP: erro backup completo — {e}')
             erros += 1
 
         # ── 2. Backup individual por almoxarifado em cc para cada almoxarife ──
@@ -2619,14 +2586,14 @@ def enviar_backup_por_almoxarifado():
             }
             try:
                 resend.Emails.send(payload_alm)
-                print(f'BACKUP: "{alm.nome}" enviado cc={cc_alm}')
+                logger.info(f'BACKUP: "{alm.nome}" enviado cc={cc_alm}')
                 enviados += 1
             except Exception as e:
-                print(f'BACKUP: erro "{alm.nome}" — {e}')
+                logger.info(f'BACKUP: erro "{alm.nome}" — {e}')
                 erros += 1
 
     except Exception as e:
-        print(f'BACKUP: erro geral — {e}')
+        logger.info(f'BACKUP: erro geral — {e}')
         return False, str(e)
 
     return erros == 0, None
@@ -2728,11 +2695,11 @@ def api_backup_automatico():
             try:
                 ok, erro_msg = enviar_backup_por_almoxarifado()
                 if ok:
-                    print(f'✅ BACKUP API: Backup enviado com sucesso às {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
+                    logger.info(f'✅ BACKUP API: Backup enviado com sucesso às {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
                 else:
-                    print(f'❌ BACKUP API: Erro ao enviar backup: {erro_msg}')
+                    logger.error(f'❌ BACKUP API: Erro ao enviar backup: {erro_msg}')
             except Exception as e:
-                print(f'❌ BACKUP API: Erro inesperado: {str(e)}')
+                logger.error(f'❌ BACKUP API: Erro inesperado: {str(e)}')
     
     # Inicia o backup em background
     thread = threading.Thread(target=executar_backup_background)
@@ -2761,12 +2728,12 @@ def seed_data():
         admin.set_senha(senha_inicial)
         db.session.add(admin)
         db.session.commit()
-        print('=' * 60)
-        print('⚠️  PRIMEIRO ACESSO — GUARDE ESTAS CREDENCIAIS:')
-        print(f'   Login: admin')
-        print(f'   Senha: {senha_inicial}')
-        print('   Altere a senha imediatamente após o primeiro login!')
-        print('=' * 60)
+        logger.info('=' * 60)
+        logger.warning('⚠️  PRIMEIRO ACESSO — GUARDE ESTAS CREDENCIAIS:')
+        logger.info(f'   Login: admin')
+        logger.info(f'   Senha: {senha_inicial}')
+        logger.warning('   Altere a senha imediatamente após o primeiro login!')
+        logger.info('=' * 60)
 
 def classificar_categorias_itens():
     """Classifica automaticamente itens como EPI ou Maquinário pelo nome."""
@@ -2795,9 +2762,9 @@ def classificar_categorias_itens():
                 atualizados += 1
         if atualizados:
             db.session.commit()
-            print(f'Categorias: {atualizados} itens classificados automaticamente.')
+            logger.info(f'Categorias: {atualizados} itens classificados automaticamente.')
     except Exception as e:
-        print(f'Categorias: erro ao classificar — {e}')
+        logger.info(f'Categorias: erro ao classificar — {e}')
 
 
 def inicializar_banco():
@@ -2808,7 +2775,7 @@ def inicializar_banco():
         seed_data()
         classificar_categorias_itens()
     except Exception as e:
-        print(f'Inicialização do banco: {e}')
+        logger.error(f'Inicialização do banco: {e}')
 
 # Inicialização única — funciona tanto para gunicorn quanto para python app.py
 with app.app_context():
@@ -2818,31 +2785,31 @@ with app.app_context():
 def job_backup_diario():
     """Executa o backup automático todo dia às 20h (horário de Brasília)."""
     agora_str = datetime.now().strftime("%d/%m/%Y %H:%M")
-    print(f'BACKUP AUTOMÁTICO: iniciando às {agora_str}')
+    logger.info(f'BACKUP AUTOMÁTICO: iniciando às {agora_str}')
 
     # Diagnóstico das variáveis de ambiente
     remetente = os.environ.get('BACKUP_EMAIL_FROM', '')
     senha = os.environ.get('BACKUP_EMAIL_PASS', '')
     destino_fixo = os.environ.get('BACKUP_EMAIL_TO', 'rickgouveia17@gmail.com')
-    print(f'BACKUP AUTOMÁTICO: remetente configurado = {"SIM (" + remetente + ")" if remetente else "NÃO — BACKUP_EMAIL_FROM não definido"}')
-    print(f'BACKUP AUTOMÁTICO: senha configurada = {"SIM" if senha else "NÃO — BACKUP_EMAIL_PASS não definido"}')
-    print(f'BACKUP AUTOMÁTICO: destino fixo = {destino_fixo}')
+    logger.info(f'BACKUP AUTOMÁTICO: remetente configurado = {"SIM (" + remetente + ")" if remetente else "NÃO — BACKUP_EMAIL_FROM não definido"}')
+    logger.info(f'BACKUP AUTOMÁTICO: senha configurada = {"SIM" if senha else "NÃO — BACKUP_EMAIL_PASS não definido"}')
+    logger.info(f'BACKUP AUTOMÁTICO: destino fixo = {destino_fixo}')
 
     with app.app_context():
         try:
             # Log dos emails cadastrados
             admins = [u for u in Usuario.query.filter_by(perfil='admin', ativo=True).all() if u.email]
             almoxarifes = [u for u in Usuario.query.filter_by(perfil='almoxarife', ativo=True).all() if u.email]
-            print(f'BACKUP AUTOMÁTICO: admins com email = {[u.email for u in admins]}')
-            print(f'BACKUP AUTOMÁTICO: almoxarifes com email = {[u.email for u in almoxarifes]}')
+            logger.info(f'BACKUP AUTOMÁTICO: admins com email = {[u.email for u in admins]}')
+            logger.info(f'BACKUP AUTOMÁTICO: almoxarifes com email = {[u.email for u in almoxarifes]}')
 
             ok, erro_msg = enviar_backup_por_almoxarifado()
             if ok:
-                print('BACKUP AUTOMÁTICO: ✅ enviado com sucesso!')
+                logger.info('BACKUP AUTOMÁTICO: ✅ enviado com sucesso!')
             else:
-                print(f'BACKUP AUTOMÁTICO: ❌ falha no envio. Detalhe: {erro_msg}')
+                logger.info(f'BACKUP AUTOMÁTICO: ❌ falha no envio. Detalhe: {erro_msg}')
         except Exception as e:
-            print(f'BACKUP AUTOMÁTICO: erro — {e}')
+            logger.info(f'BACKUP AUTOMÁTICO: erro — {e}')
 
 try:
     from apscheduler.schedulers.background import BackgroundScheduler
@@ -2863,11 +2830,11 @@ try:
             replace_existing=True
         )
         scheduler.start()
-        print('BACKUP AUTOMÁTICO: ✅ agendado para todo dia às 20:00 (horário de Brasília/São Paulo)')
+        logger.info('BACKUP AUTOMÁTICO: ✅ agendado para todo dia às 20:00 (horário de Brasília/São Paulo)')
     else:
-        print(f'BACKUP AUTOMÁTICO: worker {_worker_id} — scheduler não iniciado (apenas worker 1 agenda)')
+        logger.info(f'BACKUP AUTOMÁTICO: worker {_worker_id} — scheduler não iniciado (apenas worker 1 agenda)')
 except Exception as e:
-    print(f'BACKUP AUTOMÁTICO: ❌ erro ao iniciar agendador — {e}')
+    logger.info(f'BACKUP AUTOMÁTICO: ❌ erro ao iniciar agendador — {e}')
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

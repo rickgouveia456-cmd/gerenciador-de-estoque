@@ -46,11 +46,8 @@ def agora():
     """Retorna o datetime atual no horário de Brasília"""
     return datetime.now(TZ_BRASILIA).replace(tzinfo=None)
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static', static_url_path='/static')
 
-# WhiteNoise — serve arquivos estáticos em produção (Gunicorn não serve por padrão)
-from whitenoise import WhiteNoise
-app.wsgi_app = WhiteNoise(app.wsgi_app, root=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static'), prefix='static')
 # SECRET_KEY deve ser definida como variável de ambiente no Railway.
 # Se não estiver definida, usa uma chave fixa de desenvolvimento (não segura para produção).
 _secret = os.environ.get('SECRET_KEY')

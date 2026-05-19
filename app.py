@@ -24,9 +24,9 @@ from openpyxl.utils import get_column_letter
 # ── VARIÁVEIS DE AMBIENTE ─────────────────────────────────────────────────────
 # Valores padrão apenas para desenvolvimento local — no Railway use as variáveis de ambiente
 if not os.environ.get('BACKUP_EMAIL_FROM'):
-    os.environ['BACKUP_EMAIL_FROM'] = 'rickgouveia157@gmail.com'
+    os.environ['BACKUP_EMAIL_FROM'] = 'seu-email@gmail.com'
 if not os.environ.get('BACKUP_EMAIL_TO'):
-    os.environ['BACKUP_EMAIL_TO'] = 'rickgouveia157@gmail.com'
+    os.environ['BACKUP_EMAIL_TO'] = 'seu-email@gmail.com'
 # BACKUP_EMAIL_PASS não tem fallback — deve ser configurada no Railway
 
 # ── DIAGNÓSTICO DE VARIÁVEIS DE AMBIENTE ─────────────────────────────────────

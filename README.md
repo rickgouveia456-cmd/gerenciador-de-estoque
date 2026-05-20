@@ -168,6 +168,20 @@ BACKUP_EMAIL_TO=destinatario@empresa.com
 SECRET_KEY=sua-chave-secreta-aqui
 ```
 
+### ⚠️ Não versionar o banco local
+
+O arquivo de banco local em `instance/estoque.db` contém dados sensíveis e de
+desenvolvimento. Não o comite no repositório. O diretório `instance/` e arquivos
+`.db` já estão listados em `.gitignore`. Se por algum motivo o banco for adicionado
+ao repositório, remova-o do controle de versão com:
+
+```bash
+git rm --cached instance/estoque.db
+git commit -m "Remove local DB from repo"
+git push
+```
+
+
 ### Backup Automático
 
 O sistema envia backup automático diário às 20h. Para configurar:

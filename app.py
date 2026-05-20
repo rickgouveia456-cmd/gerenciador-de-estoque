@@ -47,38 +47,49 @@ def agora():
     """Retorna o datetime atual no horário de Brasília"""
     return datetime.now(TZ_BRASILIA).replace(tzinfo=None)
 
-app = Flask(__name__, static_folder='static', static_url_path='/static')
+db = SQLAlchemy()
+csrf = CSRFProtect()
 
-# SECRET_KEY deve ser definida como variável de ambiente no Railway.
-# Em produção, a aplicação deve falhar rápido se a variável não estiver definida.
-_secret = os.environ.get('SECRET_KEY')
-if not _secret:
-    if os.environ.get('DATABASE_URL') or os.environ.get('URI_DO_BANCO_DE_DADOS'):
-        raise RuntimeError('SECRET_KEY não definida em produção. Configure SECRET_KEY no Railway.')
-    _secret = 'dev-key-apenas-local'
-app.secret_key = _secret
 
-# Railway fornece DATABASE_URL com prefixo "postgres://" (formato antigo),
-# mas o SQLAlchemy 1.4+ exige "postgresql://". Corrige automaticamente.
-_db_url = (
-    os.environ.get('DATABASE_URL') or
-    os.environ.get('URI_DO_BANCO_DE_DADOS') or
-    f'sqlite:///{os.path.join(os.path.dirname(os.path.abspath(__file__)), "instance", "estoque.db")}'
-)
-if _db_url.startswith('postgres://'):
-    _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
+def configure_app(app):
+    # SECRET_KEY deve ser definida como variável de ambiente no Railway.
+    # Em produção, a aplicação deve falhar rápido se a variável não estiver definida.
+    _secret = os.environ.get('SECRET_KEY')
+    if not _secret:
+        if os.environ.get('DATABASE_URL') or os.environ.get('URI_DO_BANCO_DE_DADOS'):
+            raise RuntimeError('SECRET_KEY não definida em produção. Configure SECRET_KEY no Railway.')
+        _secret = 'dev-key-apenas-local'
+    app.secret_key = _secret
 
-app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    # Railway fornece DATABASE_URL com prefixo "postgres://" (formato antigo),
+    # mas o SQLAlchemy 1.4+ exige "postgresql://". Corrige automaticamente.
+    _db_url = (
+        os.environ.get('DATABASE_URL') or
+        os.environ.get('URI_DO_BANCO_DE_DADOS') or
+        f'sqlite:///{os.path.join(os.path.dirname(os.path.abspath(__file__)), "instance", "estoque.db")}'
+    )
+    if _db_url.startswith('postgres://'):
+        _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
 
-db = SQLAlchemy(app)
-csrf = CSRFProtect(app)
+    app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['WTF_CSRF_TIME_LIMIT'] = 7200
+    app.config['PREFERRED_URL_SCHEME'] = 'https'
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('DATABASE_URL') or os.environ.get('URI_DO_BANCO_DE_DADOS'))
+    app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 
-app.config['PREFERRED_URL_SCHEME'] = 'https'
-app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('DATABASE_URL') or os.environ.get('URI_DO_BANCO_DE_DADOS'))
-app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
+
+def create_app():
+    app = Flask(__name__, static_folder='static', static_url_path='/static')
+    configure_app(app)
+    db.init_app(app)
+    csrf.init_app(app)
+    return app
+
+
+app = create_app()
 
 
 @app.before_request

@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify, f
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect, CSRFError
 from werkzeug.security import generate_password_hash, check_password_hash
+from markupsafe import Markup, escape
 from datetime import datetime, date, timezone, timedelta
 from functools import wraps
 import re
@@ -34,7 +35,7 @@ logger.info('=' * 60)
 logger.info('DIAGNÓSTICO DE VARIÁVEIS DE AMBIENTE:')
 logger.info(f'  BACKUP_EMAIL_FROM = {os.environ.get("BACKUP_EMAIL_FROM", "NÃO DEFINIDO")}')
 _pass = os.environ.get("BACKUP_EMAIL_PASS", "")
-logger.info(f'  BACKUP_EMAIL_PASS = {"SIM (" + _pass[:3] + "***)" if _pass else "NÃO DEFINIDO"}')
+logger.info(f'  BACKUP_EMAIL_PASS = {"SIM" if _pass else "NÃO DEFINIDO"}')
 logger.info(f'  BACKUP_EMAIL_TO   = {os.environ.get("BACKUP_EMAIL_TO", "NÃO DEFINIDO")}')
 logger.info(f'  DATABASE_URL      = {"SIM" if os.environ.get("DATABASE_URL") else "NÃO DEFINIDO"}')
 logger.info('=' * 60)
@@ -76,6 +77,22 @@ app.config['WTF_CSRF_TIME_LIMIT'] = 7200  # tokens CSRF expiram em 2h
 
 db = SQLAlchemy(app)
 csrf = CSRFProtect(app)
+
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('DATABASE_URL') or os.environ.get('URI_DO_BANCO_DE_DADOS'))
+
+
+def flash_html(message, category='info'):
+    flash(Markup(message), category)
+
+
+def usuario_tem_acesso_almoxarifado(u, alm_id):
+    return u.perfil == 'admin' or (alm_id in u.almoxarifados_permitidos())
+
+
+def usuario_tem_acesso_item(u, it):
+    return u.perfil == 'admin' or (it and it.almoxarifado_id in u.almoxarifados_permitidos())
 
 # ── HEADERS DE SEGURANÇA ──────────────────────────────────────────────────────
 @app.after_request
@@ -595,7 +612,7 @@ def deletar_almoxarifado(id):
 # ── CRUD ITEM ────────────────────────────────────────────────────────────────
 
 @app.route('/item/novo', methods=['GET', 'POST'])
-@login_required
+@almoxarife_required
 def novo_item():
     almoxarifados = Almoxarifado.query.all()
     if request.method == 'POST':
@@ -619,6 +636,10 @@ def novo_item():
 @login_required
 def editar_item(id):
     it = Item.query.get_or_404(id)
+    u = usuario_atual()
+    if u.perfil in ('mestre', 'tecnico_seguranca') or (u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos()):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('item', id=id))
     almoxarifados = Almoxarifado.query.all()
     if request.method == 'POST':
         it.nome = request.form['nome']
@@ -635,7 +656,6 @@ def editar_item(id):
                 nova_qtd = float(qtd_str)
                 if nova_qtd != it.quantidade:
                     # Registrar ajuste como movimentação
-                    u = usuario_atual()
                     diff = nova_qtd - it.quantidade
                     tipo = 'entrada' if diff > 0 else 'saida'
                     db.session.add(Movimentacao(
@@ -702,6 +722,10 @@ def movimentacao_lote():
 
     if request.method == 'POST':
         alm_id      = int(request.form['almoxarifado_id'])
+        if u.perfil != 'admin' and alm_id not in u.almoxarifados_permitidos():
+            flash('Acesso negado.', 'danger')
+            return redirect(url_for('movimentacao_lote'))
+
         tipo        = request.form['tipo']
         responsavel = request.form.get('responsavel', '')
         observacao  = request.form.get('observacao', '')
@@ -760,9 +784,9 @@ def movimentacao_lote():
             db.session.commit()
             tipo_label = '📥 Entrada' if request.form['tipo'] == 'entrada' else '📤 Saída'
             alm = db.session.get(Almoxarifado, alm_id)
-            flash(
-                f'<strong>{tipo_label} registrada!</strong> '
-                f'{len(movs)} item(ns) movimentado(s) em <strong>{alm.nome if alm else ""}</strong>. '
+            flash_html(
+                f'<strong>{escape(tipo_label)} registrada!</strong> '
+                f'{len(movs)} item(ns) movimentado(s) em <strong>{escape(alm.nome if alm else "")}</strong>. '
                 f'<a href="/almoxarifado/{alm_id}" class="alert-link">Ver Almoxarifado</a>',
                 'success'
             )
@@ -770,8 +794,8 @@ def movimentacao_lote():
             flash('Adicione pelo menos um item antes de confirmar.', 'warning')
 
         for e in erros:
-            flash(
-                f'<strong>Estoque insuficiente:</strong> {e} '
+            flash_html(
+                f'<strong>Estoque insuficiente:</strong> {escape(e)} '
                 f'<a href="/almoxarifado/{alm_id}" class="alert-link">Consultar Estoque</a>',
                 'danger'
             )
@@ -789,6 +813,11 @@ def movimentacao_lote():
 @login_required
 def movimentar(id):
     it = Item.query.get_or_404(id)
+    u = usuario_atual()
+    if u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('item', id=id))
+
     tipo = request.form['tipo']
     qtd = float(request.form['quantidade'])
     responsavel = request.form.get('responsavel', '').strip()
@@ -818,12 +847,16 @@ def movimentar(id):
 @app.route('/requisicoes')
 @login_required
 def requisicoes():
+    u = usuario_atual()
     colaborador  = request.args.get('colaborador', '')
     status       = request.args.get('status', '')
     data_ini     = request.args.get('data_ini', '')
     data_fim     = request.args.get('data_fim', '')
 
     q = Requisicao.query
+    if u.perfil != 'admin':
+        ids = u.almoxarifados_permitidos()
+        q = q.join(Item).filter(Item.almoxarifado_id.in_(ids)) if ids else q.filter(False)
     if colaborador:
         q = q.filter(Requisicao.colaborador.ilike(f'%{colaborador}%'))
     if status:
@@ -885,10 +918,12 @@ def requisicao_nova():
                 continue
             if not it or qtd <= 0:
                 continue
+            if u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos():
+                continue
             if qtd > it.quantidade:
-                flash(
-                    f'<strong>Estoque insuficiente:</strong> "{it.nome}" tem apenas '
-                    f'<strong>{it.quantidade} {it.unidade}</strong> disponível. '
+                flash_html(
+                    f'<strong>Estoque insuficiente:</strong> "{escape(it.nome)}" tem apenas '
+                    f'<strong>{it.quantidade} {escape(it.unidade)}</strong> disponível. '
                     f'<a href="/almoxarifado/{it.almoxarifado_id}" class="alert-link">Consultar Estoque</a>',
                     'danger'
                 )
@@ -911,9 +946,9 @@ def requisicao_nova():
 
         if criados:
             db.session.commit()
-            flash(
+            flash_html(
                 f'<strong>✅ Requisição registrada!</strong> '
-                f'{criados} item(ns) retirado(s) com sucesso para <strong>{colaborador}</strong>. '
+                f'{criados} item(ns) retirado(s) com sucesso para <strong>{escape(colaborador)}</strong>. '
                 f'<a href="/requisicoes" class="alert-link">Ver Requisições</a>',
                 'success'
             )
@@ -930,6 +965,10 @@ def requisicao_nova():
 @login_required
 def devolver_requisicao(id):
     req = Requisicao.query.get_or_404(id)
+    u = usuario_atual()
+    if u.perfil != 'admin' and req.item.almoxarifado_id not in u.almoxarifados_permitidos():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('requisicoes'))
     if req.status == 'aberta':
         req.status = 'devolvida'
         req.data_devolucao = agora()
@@ -1065,9 +1104,13 @@ def modelo_excel(id):
 @app.route('/relatorios/consumo')
 @login_required
 def relatorio_consumo():
+    u = usuario_atual()
     alm_id = request.args.get('almoxarifado_id', type=int)
     data_ini = request.args.get('data_ini', str(date.today().replace(day=1)))
     data_fim = request.args.get('data_fim', str(date.today()))
+    if alm_id and u.perfil != 'admin' and alm_id not in u.almoxarifados_permitidos():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('index'))
     query = Movimentacao.query.filter(
         Movimentacao.tipo == 'saida',
         Movimentacao.data >= data_ini,
@@ -1075,6 +1118,8 @@ def relatorio_consumo():
     )
     if alm_id:
         query = query.join(Item).filter(Item.almoxarifado_id == alm_id)
+    elif u.perfil != 'admin':
+        query = query.join(Item).filter(Item.almoxarifado_id.in_(u.almoxarifados_permitidos()))
     movs = query.order_by(Movimentacao.data.desc()).all()
     almoxarifados = Almoxarifado.query.all()
     return render_template('relatorio_consumo.html', movimentacoes=movs,
@@ -1084,9 +1129,13 @@ def relatorio_consumo():
 @app.route('/relatorios/consumo/exportar')
 @login_required
 def exportar_consumo():
+    u = usuario_atual()
     alm_id = request.args.get('almoxarifado_id', type=int)
     data_ini = request.args.get('data_ini', str(date.today().replace(day=1)))
     data_fim = request.args.get('data_fim', str(date.today()))
+    if alm_id and u.perfil != 'admin' and alm_id not in u.almoxarifados_permitidos():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('index'))
     query = Movimentacao.query.filter(
         Movimentacao.tipo == 'saida',
         Movimentacao.data >= data_ini,
@@ -1094,6 +1143,8 @@ def exportar_consumo():
     )
     if alm_id:
         query = query.join(Item).filter(Item.almoxarifado_id == alm_id)
+    elif u.perfil != 'admin':
+        query = query.join(Item).filter(Item.almoxarifado_id.in_(u.almoxarifados_permitidos()))
     movs = query.order_by(Movimentacao.data.desc()).all()
 
     wb = openpyxl.Workbook()
@@ -1145,10 +1196,15 @@ def exportar_consumo():
 @login_required
 def relatorio_consumo_pessoa():
     """Relatório de consumo agrupado por colaborador (extraído da observação)."""
+    u = usuario_atual()
     alm_id = request.args.get('almoxarifado_id', type=int)
     data_ini = request.args.get('data_ini', str(date.today().replace(day=1)))
     data_fim = request.args.get('data_fim', str(date.today()))
     responsavel_filtro = request.args.get('responsavel', '').strip()
+
+    if alm_id and u.perfil != 'admin' and alm_id not in u.almoxarifados_permitidos():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('index'))
 
     query = Movimentacao.query.filter(
         Movimentacao.tipo == 'saida',
@@ -1157,6 +1213,8 @@ def relatorio_consumo_pessoa():
     )
     if alm_id:
         query = query.join(Item).filter(Item.almoxarifado_id == alm_id)
+    elif u.perfil != 'admin':
+        query = query.join(Item).filter(Item.almoxarifado_id.in_(u.almoxarifados_permitidos()))
 
     movs = query.order_by(Movimentacao.data.desc()).all()
 
@@ -1218,10 +1276,15 @@ def exportar_consumo_pessoa():
     import re
     from collections import defaultdict
 
+    u = usuario_atual()
     alm_id           = request.args.get('almoxarifado_id', type=int)
     data_ini         = request.args.get('data_ini', str(date.today().replace(day=1)))
     data_fim         = request.args.get('data_fim', str(date.today()))
     responsavel_filtro = request.args.get('responsavel', '').strip()
+
+    if alm_id and u.perfil != 'admin' and alm_id not in u.almoxarifados_permitidos():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('index'))
 
     query = Movimentacao.query.filter(
         Movimentacao.tipo == 'saida',
@@ -1230,8 +1293,8 @@ def exportar_consumo_pessoa():
     )
     if alm_id:
         query = query.join(Item).filter(Item.almoxarifado_id == alm_id)
-    else:
-        query = query.join(Item)
+    elif u.perfil != 'admin':
+        query = query.join(Item).filter(Item.almoxarifado_id.in_(u.almoxarifados_permitidos()))
 
     movs = query.order_by(Movimentacao.data.asc()).all()
 
@@ -1356,9 +1419,13 @@ def exportar_consumo_pessoa():
 def ficha_epi():
     """Página para gerar ficha de EPI individual por funcionário."""
     import re
+    u = usuario_atual()
+    query = Movimentacao.query.join(Item).filter(
+        Movimentacao.tipo == 'saida', Item.categoria == 'epi')
+    if u.perfil != 'admin':
+        query = query.filter(Item.almoxarifado_id.in_(u.almoxarifados_permitidos()))
     funcionarios = set()
-    movs = Movimentacao.query.join(Item).filter(
-        Movimentacao.tipo == 'saida', Item.categoria == 'epi').all()
+    movs = query.all()
     for mov in movs:
         obs = mov.observacao or ''
         m = re.search(r'liberado\s+[Pp][/\s]+(.+)', obs, re.IGNORECASE)
@@ -1379,6 +1446,7 @@ def ficha_epi():
 def exportar_ficha_epi():
     """Exporta FORM.SEG.014 — Ficha de Controle de EPIs e Uniformes."""
     import re
+    u = usuario_atual()
     funcionario = request.args.get('funcionario', '').strip()
     data_ini    = request.args.get('data_ini', '2020-01-01')
     data_fim    = request.args.get('data_fim', str(date.today()))
@@ -1387,12 +1455,14 @@ def exportar_ficha_epi():
         flash('Selecione um funcionário.', 'warning')
         return redirect(url_for('ficha_epi'))
 
-    movs_todas = (Movimentacao.query.join(Item)
+    query = (Movimentacao.query.join(Item)
                   .filter(Movimentacao.tipo == 'saida',
                           Item.categoria == 'epi',
                           Movimentacao.data >= data_ini,
-                          Movimentacao.data <= data_fim + ' 23:59:59')
-                  .order_by(Movimentacao.data.asc()).all())
+                          Movimentacao.data <= data_fim + ' 23:59:59'))
+    if u.perfil != 'admin':
+        query = query.filter(Item.almoxarifado_id.in_(u.almoxarifados_permitidos()))
+    movs_todas = query.order_by(Movimentacao.data.asc()).all()
 
     def extrair_colab(mov):
         obs = mov.observacao or ''
@@ -1678,6 +1748,9 @@ def relatorio_alertas():
 @login_required
 def atualizar_status_compra(id):
     it = Item.query.get_or_404(id)
+    u = usuario_atual()
+    if u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos():
+        return ('', 403)
     it.status_compra = request.form.get('status_compra', 'pendente')
     db.session.commit()
     return ('', 204)
@@ -1686,6 +1759,9 @@ def atualizar_status_compra(id):
 @login_required
 def fixar_item(id):
     it = Item.query.get_or_404(id)
+    u = usuario_atual()
+    if u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos():
+        return jsonify({'error': 'Acesso negado.'}), 403
     it.fixado = not it.fixado
     db.session.commit()
     return jsonify({'fixado': it.fixado})
@@ -1735,6 +1811,10 @@ def reativar_item(id):
 @app.route('/almoxarifado/<int:id>/exportar')
 @login_required
 def exportar_almoxarifado(id):
+    u = usuario_atual()
+    if u.perfil != 'admin' and id not in u.almoxarifados_permitidos():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('index'))
     alm = Almoxarifado.query.get_or_404(id)
     itens = Item.query.filter_by(almoxarifado_id=id).all()
 
@@ -2155,7 +2235,7 @@ def mestre_requisicao_nova():
             ))
 
         db.session.commit()
-        flash(f'✅ Requisição <strong>#{req.id}</strong> enviada ao almoxarifado! Aguarde a separação.', 'success')
+        flash_html(f'✅ Requisição <strong>#{escape(req.id)}</strong> enviada ao almoxarifado! Aguarde a separação.', 'success')
         return redirect(url_for('mestre_requisicoes'))
 
     return render_template('mestre_requisicao_nova.html',

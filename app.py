@@ -253,6 +253,7 @@ class Colaborador(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
     funcao = db.Column(db.String(50))  # ex: pedreiro, servente, eletricista
+    escopo = db.Column(db.String(50))  # ex: estrutura, acabamento, infraestrutura, forma
     ativo = db.Column(db.Boolean, default=True)
     data_cadastro = db.Column(db.DateTime, default=agora)
 
@@ -469,6 +470,9 @@ def run_migrations():
             # ── Valores padrão para colunas que podem estar NULL ─────────────
             safe_exec(conn, "UPDATE requisicao_mestre_item SET status_item = 'pendente' WHERE status_item IS NULL")
             safe_exec(conn, "UPDATE requisicao_mestre SET notificado = FALSE WHERE notificado IS NULL")
+
+            # ── Campo escopo em colaborador ──────────────────────────────────
+            safe_exec(conn, "ALTER TABLE colaborador ADD COLUMN escopo VARCHAR(50)")
 
     except Exception as e:
         logger.error(f'Migração: {e}')
@@ -1844,41 +1848,59 @@ def api_alertas():
 @app.route('/api/colaboradores')
 @login_required
 def api_colaboradores():
-    """Autocomplete — busca nomes do banco de colaboradores + histórico de requisições."""
+    """Autocomplete — busca colaboradores por nome, priorizando o escopo do usuário logado."""
     q = request.args.get('q', '').strip()
-    nomes = set()
+    u = usuario_atual()
+    nomes = []
     like = f"%{q}%"
     is_pg = 'postgresql' in str(db.engine.url)
     ilike = 'ILIKE' if is_pg else 'LIKE'
 
     from sqlalchemy import text
 
-    # 1. Banco de colaboradores cadastrados
+    # Determinar escopo do usuário logado (via almoxarifado vinculado)
+    # Mestre/técnico têm almoxarifado vinculado que indica o escopo
+    escopo_usuario = None
+    if u and u.almoxarifado_id:
+        alm = Almoxarifado.query.get(u.almoxarifado_id)
+        if alm:
+            # Extrai escopo do nome do almoxarifado (ex: "Almoxarifado Estrutura" → "estrutura")
+            nome_lower = alm.nome.lower()
+            for esc in ['estrutura', 'acabamento', 'infraestrutura', 'forma', 'acampamento']:
+                if esc in nome_lower:
+                    escopo_usuario = esc
+                    break
+
+    # 1. Colaboradores do mesmo escopo primeiro
+    if escopo_usuario:
+        rows = db.session.execute(
+            text(f"SELECT nome, funcao, escopo FROM colaborador WHERE ativo = TRUE AND nome {ilike} :q AND escopo {ilike} :esc ORDER BY nome LIMIT 10"),
+            {"q": like, "esc": f"%{escopo_usuario}%"}
+        ).fetchall()
+        for r in rows:
+            nomes.append({'nome': r[0], 'funcao': r[1] or '', 'escopo': r[2] or ''})
+
+    # 2. Demais colaboradores (sem escopo ou escopo diferente)
+    nomes_ja = {n['nome'] for n in nomes}
     rows = db.session.execute(
-        text(f"SELECT nome FROM colaborador WHERE ativo = TRUE AND nome {ilike} :q ORDER BY nome LIMIT 10"),
+        text(f"SELECT nome, funcao, escopo FROM colaborador WHERE ativo = TRUE AND nome {ilike} :q ORDER BY nome LIMIT 10"),
         {"q": like}
     ).fetchall()
     for r in rows:
-        nomes.add(r[0])
+        if r[0] not in nomes_ja:
+            nomes.append({'nome': r[0], 'funcao': r[1] or '', 'escopo': r[2] or ''})
 
-    # 2. Histórico de requisições do mestre
+    # 3. Histórico de requisições (fallback)
+    nomes_ja = {n['nome'] for n in nomes}
     rows = db.session.execute(
-        text(f"SELECT DISTINCT colaborador FROM requisicao_mestre WHERE colaborador {ilike} :q ORDER BY colaborador LIMIT 10"),
+        text(f"SELECT DISTINCT colaborador FROM requisicao_mestre WHERE colaborador {ilike} :q ORDER BY colaborador LIMIT 5"),
         {"q": like}
     ).fetchall()
     for r in rows:
-        nomes.add(r[0])
+        if r[0] not in nomes_ja:
+            nomes.append({'nome': r[0], 'funcao': '', 'escopo': ''})
 
-    # 3. Histórico de requisições simples
-    rows = db.session.execute(
-        text(f"SELECT DISTINCT colaborador FROM requisicao WHERE colaborador {ilike} :q ORDER BY colaborador LIMIT 10"),
-        {"q": like}
-    ).fetchall()
-    for r in rows:
-        nomes.add(r[0])
-
-    resultado = sorted(nomes)[:10]
-    return jsonify([{'nome': n} for n in resultado])
+    return jsonify(nomes[:10])
 
 # ── GERENCIAR COLABORADORES ──────────────────────────────────────────────────
 
@@ -1901,6 +1923,7 @@ def novo_colaborador():
         return redirect(url_for('index'))
     nome = request.form.get('nome', '').strip()
     funcao = request.form.get('funcao', '').strip()
+    escopo = request.form.get('escopo', '').strip()
     if not nome:
         flash('Informe o nome do colaborador.', 'warning')
         return redirect(url_for('colaboradores'))
@@ -1908,7 +1931,7 @@ def novo_colaborador():
     if Colaborador.query.filter(Colaborador.nome.ilike(nome)).first():
         flash(f'Colaborador "{nome}" já está cadastrado.', 'warning')
         return redirect(url_for('colaboradores'))
-    db.session.add(Colaborador(nome=nome, funcao=funcao or None))
+    db.session.add(Colaborador(nome=nome, funcao=funcao or None, escopo=escopo or None))
     db.session.commit()
     flash(f'✅ Colaborador "{nome}" cadastrado!', 'success')
     return redirect(url_for('colaboradores'))
@@ -2102,9 +2125,17 @@ def mestre_requisicao_nova():
 
     itens_json = {}
     for alm in almoxarifados:
+        # Mestre NÃO pode requisitar EPIs — filtra categoria epi
+        # Técnico de segurança pode requisitar tudo
+        if u.perfil == 'mestre':
+            itens_filtrados = [it for it in alm.itens if it.ativo and it.categoria != 'epi']
+        else:
+            itens_filtrados = [it for it in alm.itens if it.ativo]
+
         itens_json[str(alm.id)] = [
-            {'id': it.id, 'nome': it.nome, 'quantidade': it.quantidade, 'unidade': it.unidade}
-            for it in alm.itens if it.ativo
+            {'id': it.id, 'nome': it.nome, 'quantidade': it.quantidade,
+             'unidade': it.unidade, 'categoria': it.categoria or 'geral'}
+            for it in itens_filtrados
         ]
 
     if request.method == 'POST':

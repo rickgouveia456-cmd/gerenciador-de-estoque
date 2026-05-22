@@ -3021,16 +3021,16 @@ def job_backup_diario():
 try:
     from apscheduler.schedulers.background import BackgroundScheduler
     from apscheduler.triggers.cron import CronTrigger
+    import pytz
 
-    # No Railway com gunicorn --preload, o código roda uma vez no processo principal.
-    # Usa variável de ambiente para garantir que só um processo inicia o scheduler.
     _already_started = os.environ.get('_SCHEDULER_STARTED', '')
     if not _already_started:
         os.environ['_SCHEDULER_STARTED'] = '1'
-        scheduler = BackgroundScheduler(timezone='America/Sao_Paulo')
+        _tz = pytz.timezone('America/Sao_Paulo')
+        scheduler = BackgroundScheduler(timezone=_tz)
         scheduler.add_job(
             job_backup_diario,
-            CronTrigger(hour=20, minute=0, timezone='America/Sao_Paulo'),
+            CronTrigger(hour=20, minute=0, timezone=_tz),
             id='backup_diario',
             replace_existing=True
         )

@@ -548,6 +548,11 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
+@app.route('/healthz')
+def healthz():
+    """Healthcheck — responde imediatamente sem tocar no banco."""
+    return 'ok', 200
+
 # ── ROTAS PRINCIPAIS ─────────────────────────────────────────────────────────
 
 @app.route('/')
@@ -2966,16 +2971,22 @@ def classificar_categorias_itens():
 def inicializar_banco():
     """Roda migrações, cria tabelas e seed — executado uma única vez."""
     try:
-        run_migrations()
-        db.create_all()
+        db.create_all()   # rápido — cria tabelas novas sem tocar nas existentes
+        run_migrations()  # adiciona colunas faltantes
         seed_data()
         classificar_categorias_itens()
     except Exception as e:
         logger.error(f'Inicialização do banco: {e}')
 
-# Inicialização única — funciona tanto para gunicorn quanto para python app.py
-with app.app_context():
-    inicializar_banco()
+# Inicialização em background para não bloquear o boot do gunicorn
+import threading as _threading
+
+def _init_bg():
+    with app.app_context():
+        inicializar_banco()
+
+_t = _threading.Thread(target=_init_bg, daemon=True)
+_t.start()
 
 # ── BACKUP AUTOMÁTICO DIÁRIO ─────────────────────────────────────────────────
 def job_backup_diario():

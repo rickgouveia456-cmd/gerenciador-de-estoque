@@ -18,15 +18,7 @@
                         <input type="text" name="nome" class="form-control"
                                placeholder="Ex: Alisson Ferreira da Silva" required autofocus>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Tipo / Cargo</label>
-                        <select name="tipo" class="form-select" id="selTipo" onchange="atualizarFuncao()">
-                            <option value="funcionario">👷 Funcionário</option>
-                            <option value="mestre">🦺 Mestre de Obra</option>
-                            <option value="tecnico_seguranca">🛡️ Técnico de Segurança</option>
-                            <option value="engenheiro">👔 Engenheiro</option>
-                        </select>
-                    </div>
+                    <input type="hidden" name="tipo" value="funcionario">
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Função / Especialidade</label>
                         <input type="text" name="funcao" id="inputFuncao" class="form-control"
@@ -37,11 +29,8 @@
                         <select name="escopo" class="form-select">
                             <option value="">— Selecione —</option>
                             <option value="estrutura">🏗️ Estrutura</option>
-                            <option value="acabamento">🎨 Acabamento</option>
                             <option value="infraestrutura">🔧 Infraestrutura</option>
-                            <option value="forma">📐 Forma</option>
                             <option value="acampamento">🏕️ Acampamento</option>
-                            <option value="geral">📦 Geral</option>
                         </select>
                         <div class="form-text">Define em qual frente de obra este colaborador atua</div>
                     </div>
@@ -90,11 +79,8 @@
                     <select id="filtroEscopo" class="form-select form-select-sm" style="max-width:160px">
                         <option value="">Todos os escopos</option>
                         <option value="estrutura">🏗️ Estrutura</option>
-                        <option value="acabamento">🎨 Acabamento</option>
                         <option value="infraestrutura">🔧 Infraestrutura</option>
-                        <option value="forma">📐 Forma</option>
                         <option value="acampamento">🏕️ Acampamento</option>
-                        <option value="geral">📦 Geral</option>
                     </select>
                 </div>
                 <div class="table-responsive">

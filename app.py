@@ -204,6 +204,7 @@ class Movimentacao(db.Model):
     observacao = db.Column(db.String(200))
     data = db.Column(db.DateTime, default=agora)
     item_id = db.Column(db.Integer, db.ForeignKey('item.id'), nullable=False)
+    devolvido = db.Column(db.Boolean, nullable=True)  # None=não aplicável, True=devolvido, False=não devolvido
 
 class Requisicao(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -512,6 +513,9 @@ def run_migrations():
 
             # ── Campo escopo em colaborador ──────────────────────────────────
             safe_exec(conn, "ALTER TABLE colaborador ADD COLUMN escopo VARCHAR(50)")
+
+            # ── Campo devolvido em movimentacao ──────────────────────────────
+            safe_exec(conn, "ALTER TABLE movimentacao ADD COLUMN devolvido BOOLEAN")
             # ── Campo tipo em colaborador ─────────────────────────────────────
             safe_exec(conn, "ALTER TABLE colaborador ADD COLUMN tipo VARCHAR(30) DEFAULT 'peao'")
 
@@ -1815,6 +1819,19 @@ def fixar_item(id):
     it.fixado = not it.fixado
     db.session.commit()
     return jsonify({'fixado': it.fixado})
+
+@app.route('/movimentacao/<int:id>/devolvido', methods=['POST'])
+@login_required
+def marcar_devolvido(id):
+    """Marca/desmarca uma movimentação de saída como devolvida."""
+    mov = Movimentacao.query.get_or_404(id)
+    u = usuario_atual()
+    if u.perfil not in ('admin', 'almoxarife'):
+        return jsonify({'error': 'Acesso negado.'}), 403
+    # Toggle: None/False → True, True → False
+    mov.devolvido = not bool(mov.devolvido)
+    db.session.commit()
+    return jsonify({'devolvido': mov.devolvido})
 
 @app.route('/item/<int:id>/desativar', methods=['POST'])
 @login_required

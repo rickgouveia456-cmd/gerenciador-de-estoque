@@ -95,8 +95,8 @@ app = create_app()
 @app.before_request
 def enforce_https_in_production():
     if app.config['SESSION_COOKIE_SECURE']:
-        proto = request.headers.get('X-Forwarded-Proto', request.scheme)
-        if proto != 'https':
+        proto = request.headers.get('X-Forwarded-Proto')
+        if proto and proto != 'https':
             return redirect(request.url.replace('http://', 'https://', 1), code=301)
 
 

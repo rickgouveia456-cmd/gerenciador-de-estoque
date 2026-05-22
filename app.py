@@ -2971,22 +2971,16 @@ def classificar_categorias_itens():
 def inicializar_banco():
     """Roda migrações, cria tabelas e seed — executado uma única vez."""
     try:
-        db.create_all()   # rápido — cria tabelas novas sem tocar nas existentes
-        run_migrations()  # adiciona colunas faltantes
+        db.create_all()
+        run_migrations()
         seed_data()
         classificar_categorias_itens()
     except Exception as e:
         logger.error(f'Inicialização do banco: {e}')
 
-# Inicialização em background para não bloquear o boot do gunicorn
-import threading as _threading
-
-def _init_bg():
-    with app.app_context():
-        inicializar_banco()
-
-_t = _threading.Thread(target=_init_bg, daemon=True)
-_t.start()
+# Inicialização única
+with app.app_context():
+    inicializar_banco()
 
 # ── BACKUP AUTOMÁTICO DIÁRIO ─────────────────────────────────────────────────
 def job_backup_diario():

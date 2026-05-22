@@ -11,6 +11,7 @@
             </div>
             <div class="card-body">
                 <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Colaborador que vai buscar</label>
@@ -39,7 +40,7 @@
                                     <td>
                                         {{ ri.item.nome }}
                                         <div class="small text-muted">
-                                            Estoque: {{ ri.item.quantidade }} {{ ri.item.unidade }}
+                                            Estoque: {{ ri.item.quantidade|fmt_qtd }} {{ ri.item.unidade }}
                                         </div>
                                     </td>
                                     <td>

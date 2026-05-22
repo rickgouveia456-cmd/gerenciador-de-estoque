@@ -14,6 +14,8 @@
                     <span class="badge bg-warning text-dark">⏳ Pendente</span>
                 {% elif req.status == 'aprovada' %}
                     <span class="badge bg-success">✅ Aprovada</span>
+                {% elif req.status == 'parcial' %}
+                    <span class="badge bg-warning text-dark">⚠️ Parcial</span>
                 {% elif req.status == 'recusada' %}
                     <span class="badge bg-danger">❌ Recusada</span>
                 {% elif req.status == 'entregue' %}
@@ -64,8 +66,9 @@
                 <h6 class="fw-bold mb-3"><i class="bi bi-box-seam me-2"></i>Materiais</h6>
 
                 {% if usuario_atual.perfil in ('admin', 'almoxarife') and req.status == 'pendente' %}
-                <!-- Formulário de aprovação -->
-                <form method="POST" action="/mestre/requisicoes/{{ req.id }}/aprovar">
+                <!-- Formulário de aprovação com suporte a aprovação parcial -->
+                <form method="POST" action="/mestre/requisicoes/{{ req.id }}/aprovar" id="formAprovacao">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="table-responsive mb-3">
                         <table class="table table-sm table-bordered mb-0">
                             <thead class="table-dark">
@@ -73,6 +76,8 @@
                                     <th>Material</th>
                                     <th class="text-center">Qtd Pedida</th>
                                     <th class="text-center">Estoque Atual</th>
+                                    <th class="text-center" id="colDecisao" style="display:none">Decisão</th>
+                                    <th id="colMotivo" style="display:none">Motivo (se recusar)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -84,29 +89,69 @@
                                         {% if ri.item.quantidade <= 0 %}
                                             <span class="badge bg-danger">Zerado</span>
                                         {% elif ri.item.quantidade < ri.quantidade %}
-                                            <span class="badge bg-warning text-dark">{{ ri.item.quantidade }} (insuficiente)</span>
+                                            <span class="badge bg-warning text-dark">{{ ri.item.quantidade|fmt_qtd }} (insuficiente)</span>
                                         {% else %}
-                                            <span class="badge bg-success">{{ ri.item.quantidade }}</span>
+                                            <span class="badge bg-success">{{ ri.item.quantidade|fmt_qtd }}</span>
                                         {% endif %}
+                                    </td>
+                                    <td class="text-center parcial-col" style="display:none">
+                                        <select name="item_status_{{ ri.id }}" class="form-select form-select-sm item-decisao">
+                                            <option value="aprovado" selected>✅ Aprovar</option>
+                                            <option value="recusado">❌ Recusar</option>
+                                        </select>
+                                    </td>
+                                    <td class="parcial-col" style="display:none">
+                                        <input type="text" name="item_motivo_{{ ri.id }}"
+                                               class="form-control form-control-sm"
+                                               placeholder="Motivo da recusa (opcional)">
                                     </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
-                    <div class="d-flex gap-2">
-                        <button type="submit" name="decisao" value="aprovada" class="btn btn-success btn-sm">
+
+                    <!-- Motivo geral para recusa total -->
+                    <div id="motivoGeralDiv" style="display:none" class="mb-3">
+                        <label class="form-label small fw-semibold">Motivo da recusa (opcional)</label>
+                        <input type="text" name="motivo_geral" class="form-control form-control-sm"
+                               placeholder="Ex: material em falta, aguardar reposição...">
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="submit" name="decisao" value="aprovada" class="btn btn-success btn-sm" id="btnAprovarTudo">
                             <i class="bi bi-check-all me-1"></i> Aprovar Tudo
                         </button>
+                        <button type="button" class="btn btn-warning btn-sm text-dark" id="btnParcial">
+                            <i class="bi bi-sliders me-1"></i> Aprovação Parcial
+                        </button>
+                        <button type="submit" name="decisao" value="parcial" class="btn btn-warning btn-sm text-dark d-none" id="btnConfirmarParcial">
+                            <i class="bi bi-check me-1"></i> Confirmar Parcial
+                        </button>
                         <button type="submit" name="decisao" value="recusada" class="btn btn-danger btn-sm"
-                                onclick="return confirm('Recusar esta requisição?')">
-                            <i class="bi bi-x-circle me-1"></i> Recusar
+                                id="btnRecusar"
+                                onclick="document.getElementById('motivoGeralDiv').style.display='block'; return true;">
+                            <i class="bi bi-x-circle me-1"></i> Recusar Tudo
                         </button>
                     </div>
                 </form>
 
+                <script>
+                document.getElementById('btnParcial').addEventListener('click', function() {
+                    // Mostrar colunas de decisão por item
+                    document.querySelectorAll('.parcial-col').forEach(el => el.style.display = '');
+                    document.getElementById('colDecisao').style.display = '';
+                    document.getElementById('colMotivo').style.display = '';
+                    // Trocar botões
+                    this.classList.add('d-none');
+                    document.getElementById('btnAprovarTudo').classList.add('d-none');
+                    document.getElementById('btnRecusar').classList.add('d-none');
+                    document.getElementById('btnConfirmarParcial').classList.remove('d-none');
+                });
+                </script>
+
                 {% else %}
-                <!-- Visualização normal -->
+                <!-- Visualização normal com status por item -->
                 <div class="table-responsive">
                     <table class="table table-sm table-bordered mb-0">
                         <thead class="table-dark">
@@ -114,23 +159,40 @@
                                 <th>Material</th>
                                 <th class="text-center">Qtd</th>
                                 <th class="text-center">Estoque</th>
+                                {% if req.status in ('aprovada', 'parcial', 'entregue', 'recusada') %}
+                                <th class="text-center">Status</th>
+                                {% endif %}
                                 <th>Obs.</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for ri in req.itens %}
-                            <tr>
+                            <tr class="{% if ri.status_item == 'recusado' %}table-danger{% elif ri.status_item == 'aprovado' %}table-success{% endif %}">
                                 <td>{{ ri.item.nome }}</td>
-                                <td class="text-center fw-bold">{{ ri.quantidade }} {{ ri.item.unidade }}</td>
+                                <td class="text-center fw-bold">{{ ri.quantidade|fmt_qtd }} {{ ri.item.unidade }}</td>
                                 <td class="text-center">
                                     {% if ri.item.quantidade <= 0 %}
                                         <span class="badge bg-danger">Zerado</span>
                                     {% elif ri.item.quantidade < ri.quantidade %}
-                                        <span class="badge bg-warning text-dark">{{ ri.item.quantidade }}</span>
+                                        <span class="badge bg-warning text-dark">{{ ri.item.quantidade|fmt_qtd }}</span>
                                     {% else %}
-                                        <span class="badge bg-success">{{ ri.item.quantidade }}</span>
+                                        <span class="badge bg-success">{{ ri.item.quantidade|fmt_qtd }}</span>
                                     {% endif %}
                                 </td>
+                                {% if req.status in ('aprovada', 'parcial', 'entregue', 'recusada') %}
+                                <td class="text-center">
+                                    {% if ri.status_item == 'aprovado' %}
+                                        <span class="badge bg-success">✅ Aprovado</span>
+                                    {% elif ri.status_item == 'recusado' %}
+                                        <span class="badge bg-danger" title="{{ ri.motivo_recusa or '' }}">❌ Recusado</span>
+                                        {% if ri.motivo_recusa %}
+                                        <div class="small text-muted">{{ ri.motivo_recusa }}</div>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-secondary">—</span>
+                                    {% endif %}
+                                </td>
+                                {% endif %}
                                 <td><small class="text-muted">{{ ri.observacao or '—' }}</small></td>
                             </tr>
                             {% endfor %}
@@ -150,9 +212,10 @@
             </div>
             <div class="card-body d-grid gap-2">
 
-                {% if usuario_atual.perfil in ('admin', 'almoxarife') and req.status == 'aprovada' %}
+                {% if usuario_atual.perfil in ('admin', 'almoxarife') and req.status in ('aprovada', 'parcial') %}
                 <form method="POST" action="/mestre/requisicoes/{{ req.id }}/entregar"
                       onsubmit="return confirm('Confirmar entrega? O estoque será baixado agora.')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button class="btn btn-success w-100 fw-semibold">
                         <i class="bi bi-bag-check me-1"></i> Confirmar Entrega
                     </button>
@@ -166,6 +229,7 @@
                     {% if usuario_atual.perfil in ('admin', 'almoxarife') or (usuario_atual.perfil in ('mestre', 'tecnico_seguranca') and req.mestre_id == usuario_atual.id) %}
                     <form method="POST" action="/mestre/requisicoes/{{ req.id }}/cancelar"
                           onsubmit="return confirm('Cancelar esta requisição?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button class="btn btn-outline-danger w-100">
                             <i class="bi bi-x-circle me-1"></i> Cancelar
                         </button>
@@ -197,6 +261,7 @@
                             <div class="small fw-semibold">Avaliada</div>
                             <div class="small text-muted">
                                 {% if req.status == 'aprovada' %}✅ Aprovada
+                                {% elif req.status == 'parcial' %}⚠️ Aprovada parcialmente
                                 {% elif req.status == 'recusada' %}❌ Recusada
                                 {% elif req.status == 'entregue' %}✅ Aprovada
                                 {% else %}Aguardando{% endif %}
@@ -210,6 +275,7 @@
                             <div class="small text-muted">
                                 {% if req.status == 'entregue' %}
                                     {{ req.data_entrega.strftime('%d/%m/%Y %H:%M') }}
+                                    {% if req.entregue_por %}— {{ req.entregue_por.nome }}{% endif %}
                                 {% else %}Aguardando{% endif %}
                             </div>
                         </div>

@@ -1,7 +1,8 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, send_file, session, abort
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, send_file, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect, CSRFError
 from werkzeug.security import generate_password_hash, check_password_hash
+from markupsafe import Markup, escape
 from datetime import datetime, date, timezone, timedelta
 from functools import wraps
 import re
@@ -34,7 +35,7 @@ logger.info('=' * 60)
 logger.info('DIAGNÓSTICO DE VARIÁVEIS DE AMBIENTE:')
 logger.info(f'  BACKUP_EMAIL_FROM = {os.environ.get("BACKUP_EMAIL_FROM", "NÃO DEFINIDO")}')
 _pass = os.environ.get("BACKUP_EMAIL_PASS", "")
-logger.info(f'  BACKUP_EMAIL_PASS = {"SIM (" + _pass[:3] + "***)" if _pass else "NÃO DEFINIDO"}')
+logger.info(f'  BACKUP_EMAIL_PASS = {"SIM" if _pass else "NÃO DEFINIDO"}')
 logger.info(f'  BACKUP_EMAIL_TO   = {os.environ.get("BACKUP_EMAIL_TO", "NÃO DEFINIDO")}')
 logger.info(f'  DATABASE_URL      = {"SIM" if os.environ.get("DATABASE_URL") else "NÃO DEFINIDO"}')
 logger.info('=' * 60)
@@ -46,36 +47,69 @@ def agora():
     """Retorna o datetime atual no horário de Brasília"""
     return datetime.now(TZ_BRASILIA).replace(tzinfo=None)
 
-app = Flask(__name__, static_folder='static', static_url_path='/static')
+db = SQLAlchemy()
+csrf = CSRFProtect()
 
-# SECRET_KEY deve ser definida como variável de ambiente no Railway.
-# Se não estiver definida, usa uma chave fixa de desenvolvimento (não segura para produção).
-_secret = os.environ.get('SECRET_KEY')
-if not _secret:
-    if os.environ.get('DATABASE_URL') or os.environ.get('URI_DO_BANCO_DE_DADOS'):
-        # Em produção sem SECRET_KEY: gera chave aleatória (sessões perdem ao restart)
-        _secret = secrets.token_hex(32)
-        logger.warning('⚠️  AVISO: SECRET_KEY não definida em produção — configure no Railway.')
-    else:
+
+def configure_app(app):
+    # SECRET_KEY deve ser definida como variável de ambiente no Railway.
+    # Em produção, a aplicação deve falhar rápido se a variável não estiver definida.
+    _secret = os.environ.get('SECRET_KEY')
+    if not _secret:
+        if os.environ.get('DATABASE_URL') or os.environ.get('URI_DO_BANCO_DE_DADOS'):
+            raise RuntimeError('SECRET_KEY não definida em produção. Configure SECRET_KEY no Railway.')
         _secret = 'dev-key-apenas-local'
-app.secret_key = _secret
+    app.secret_key = _secret
 
-# Railway fornece DATABASE_URL com prefixo "postgres://" (formato antigo),
-# mas o SQLAlchemy 1.4+ exige "postgresql://". Corrige automaticamente.
-_db_url = (
-    os.environ.get('DATABASE_URL') or
-    os.environ.get('URI_DO_BANCO_DE_DADOS') or
-    f'sqlite:///{os.path.join(os.path.dirname(os.path.abspath(__file__)), "instance", "estoque.db")}'
-)
-if _db_url.startswith('postgres://'):
-    _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
+    # Railway fornece DATABASE_URL com prefixo "postgres://" (formato antigo),
+    # mas o SQLAlchemy 1.4+ exige "postgresql://". Corrige automaticamente.
+    _db_url = (
+        os.environ.get('DATABASE_URL') or
+        os.environ.get('URI_DO_BANCO_DE_DADOS') or
+        f'sqlite:///{os.path.join(os.path.dirname(os.path.abspath(__file__)), "instance", "estoque.db")}'
+    )
+    if _db_url.startswith('postgres://'):
+        _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['WTF_CSRF_TIME_LIMIT'] = 7200  # tokens CSRF expiram em 2h
+    app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['WTF_CSRF_TIME_LIMIT'] = 7200
+    app.config['PREFERRED_URL_SCHEME'] = 'https'
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('DATABASE_URL') or os.environ.get('URI_DO_BANCO_DE_DADOS'))
+    app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 
-db = SQLAlchemy(app)
-csrf = CSRFProtect(app)
+
+def create_app():
+    app = Flask(__name__, static_folder='static', static_url_path='/static')
+    configure_app(app)
+    db.init_app(app)
+    csrf.init_app(app)
+    return app
+
+
+app = create_app()
+
+
+@app.before_request
+def enforce_https_in_production():
+    if app.config['SESSION_COOKIE_SECURE']:
+        proto = request.headers.get('X-Forwarded-Proto', request.scheme)
+        if proto != 'https':
+            return redirect(request.url.replace('http://', 'https://', 1), code=301)
+
+
+def flash_html(message, category='info'):
+    flash(Markup(message), category)
+
+
+def usuario_tem_acesso_almoxarifado(u, alm_id):
+    return u.perfil == 'admin' or (alm_id in u.almoxarifados_permitidos())
+
+
+def usuario_tem_acesso_item(u, it):
+    return u.perfil == 'admin' or (it and it.almoxarifado_id in u.almoxarifados_permitidos())
 
 # ── HEADERS DE SEGURANÇA ──────────────────────────────────────────────────────
 @app.after_request
@@ -84,6 +118,7 @@ def set_security_headers(response):
     response.headers['X-Frame-Options'] = 'SAMEORIGIN'
     response.headers['X-XSS-Protection'] = '1; mode=block'
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Strict-Transport-Security'] = 'max-age=63072000; includeSubDomains; preload'
     response.headers['Content-Security-Policy'] = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
@@ -211,6 +246,9 @@ class RequisicaoMestreItem(db.Model):
     item = db.relationship('Item')
     quantidade = db.Column(db.Float, nullable=False)
     observacao = db.Column(db.String(200))
+    # Aprovação por item: pendente | aprovado | recusado
+    status_item = db.Column(db.String(20), default='pendente')
+    motivo_recusa = db.Column(db.String(200))
 
 class Usuario(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -252,8 +290,9 @@ class Colaborador(db.Model):
     """Banco de dados de colaboradores/peões que retiram material no almoxarifado."""
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
-    funcao = db.Column(db.String(50))  # ex: pedreiro, servente, eletricista
-    escopo = db.Column(db.String(50))  # ex: estrutura, acabamento, infraestrutura, forma
+    funcao = db.Column(db.String(50))   # ex: pedreiro, servente, eletricista
+    escopo = db.Column(db.String(50))   # ex: estrutura, acabamento, infraestrutura, forma
+    tipo = db.Column(db.String(30), default='peao')  # peao | mestre | tecnico_seguranca | engenheiro | almoxarife
     ativo = db.Column(db.Boolean, default=True)
     data_cadastro = db.Column(db.DateTime, default=agora)
 
@@ -473,6 +512,8 @@ def run_migrations():
 
             # ── Campo escopo em colaborador ──────────────────────────────────
             safe_exec(conn, "ALTER TABLE colaborador ADD COLUMN escopo VARCHAR(50)")
+            # ── Campo tipo em colaborador ─────────────────────────────────────
+            safe_exec(conn, "ALTER TABLE colaborador ADD COLUMN tipo VARCHAR(30) DEFAULT 'peao'")
 
     except Exception as e:
         logger.error(f'Migração: {e}')
@@ -604,7 +645,7 @@ def deletar_almoxarifado(id):
 # ── CRUD ITEM ────────────────────────────────────────────────────────────────
 
 @app.route('/item/novo', methods=['GET', 'POST'])
-@login_required
+@almoxarife_required
 def novo_item():
     almoxarifados = Almoxarifado.query.all()
     if request.method == 'POST':
@@ -628,6 +669,10 @@ def novo_item():
 @login_required
 def editar_item(id):
     it = Item.query.get_or_404(id)
+    u = usuario_atual()
+    if u.perfil in ('mestre', 'tecnico_seguranca') or (u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos()):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('item', id=id))
     almoxarifados = Almoxarifado.query.all()
     if request.method == 'POST':
         it.nome = request.form['nome']
@@ -644,7 +689,6 @@ def editar_item(id):
                 nova_qtd = float(qtd_str)
                 if nova_qtd != it.quantidade:
                     # Registrar ajuste como movimentação
-                    u = usuario_atual()
                     diff = nova_qtd - it.quantidade
                     tipo = 'entrada' if diff > 0 else 'saida'
                     db.session.add(Movimentacao(
@@ -711,6 +755,10 @@ def movimentacao_lote():
 
     if request.method == 'POST':
         alm_id      = int(request.form['almoxarifado_id'])
+        if u.perfil != 'admin' and alm_id not in u.almoxarifados_permitidos():
+            flash('Acesso negado.', 'danger')
+            return redirect(url_for('movimentacao_lote'))
+
         tipo        = request.form['tipo']
         responsavel = request.form.get('responsavel', '')
         observacao  = request.form.get('observacao', '')
@@ -769,9 +817,9 @@ def movimentacao_lote():
             db.session.commit()
             tipo_label = '📥 Entrada' if request.form['tipo'] == 'entrada' else '📤 Saída'
             alm = db.session.get(Almoxarifado, alm_id)
-            flash(
-                f'<strong>{tipo_label} registrada!</strong> '
-                f'{len(movs)} item(ns) movimentado(s) em <strong>{alm.nome if alm else ""}</strong>. '
+            flash_html(
+                f'<strong>{escape(tipo_label)} registrada!</strong> '
+                f'{len(movs)} item(ns) movimentado(s) em <strong>{escape(alm.nome if alm else "")}</strong>. '
                 f'<a href="/almoxarifado/{alm_id}" class="alert-link">Ver Almoxarifado</a>',
                 'success'
             )
@@ -779,8 +827,8 @@ def movimentacao_lote():
             flash('Adicione pelo menos um item antes de confirmar.', 'warning')
 
         for e in erros:
-            flash(
-                f'<strong>Estoque insuficiente:</strong> {e} '
+            flash_html(
+                f'<strong>Estoque insuficiente:</strong> {escape(e)} '
                 f'<a href="/almoxarifado/{alm_id}" class="alert-link">Consultar Estoque</a>',
                 'danger'
             )
@@ -798,6 +846,11 @@ def movimentacao_lote():
 @login_required
 def movimentar(id):
     it = Item.query.get_or_404(id)
+    u = usuario_atual()
+    if u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('item', id=id))
+
     tipo = request.form['tipo']
     qtd = float(request.form['quantidade'])
     responsavel = request.form.get('responsavel', '').strip()
@@ -827,12 +880,16 @@ def movimentar(id):
 @app.route('/requisicoes')
 @login_required
 def requisicoes():
+    u = usuario_atual()
     colaborador  = request.args.get('colaborador', '')
     status       = request.args.get('status', '')
     data_ini     = request.args.get('data_ini', '')
     data_fim     = request.args.get('data_fim', '')
 
     q = Requisicao.query
+    if u.perfil != 'admin':
+        ids = u.almoxarifados_permitidos()
+        q = q.join(Item).filter(Item.almoxarifado_id.in_(ids)) if ids else q.filter(False)
     if colaborador:
         q = q.filter(Requisicao.colaborador.ilike(f'%{colaborador}%'))
     if status:
@@ -894,10 +951,12 @@ def requisicao_nova():
                 continue
             if not it or qtd <= 0:
                 continue
+            if u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos():
+                continue
             if qtd > it.quantidade:
-                flash(
-                    f'<strong>Estoque insuficiente:</strong> "{it.nome}" tem apenas '
-                    f'<strong>{it.quantidade} {it.unidade}</strong> disponível. '
+                flash_html(
+                    f'<strong>Estoque insuficiente:</strong> "{escape(it.nome)}" tem apenas '
+                    f'<strong>{it.quantidade} {escape(it.unidade)}</strong> disponível. '
                     f'<a href="/almoxarifado/{it.almoxarifado_id}" class="alert-link">Consultar Estoque</a>',
                     'danger'
                 )
@@ -920,9 +979,9 @@ def requisicao_nova():
 
         if criados:
             db.session.commit()
-            flash(
+            flash_html(
                 f'<strong>✅ Requisição registrada!</strong> '
-                f'{criados} item(ns) retirado(s) com sucesso para <strong>{colaborador}</strong>. '
+                f'{criados} item(ns) retirado(s) com sucesso para <strong>{escape(colaborador)}</strong>. '
                 f'<a href="/requisicoes" class="alert-link">Ver Requisições</a>',
                 'success'
             )
@@ -939,6 +998,10 @@ def requisicao_nova():
 @login_required
 def devolver_requisicao(id):
     req = Requisicao.query.get_or_404(id)
+    u = usuario_atual()
+    if u.perfil != 'admin' and req.item.almoxarifado_id not in u.almoxarifados_permitidos():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('requisicoes'))
     if req.status == 'aberta':
         req.status = 'devolvida'
         req.data_devolucao = agora()
@@ -1074,9 +1137,13 @@ def modelo_excel(id):
 @app.route('/relatorios/consumo')
 @login_required
 def relatorio_consumo():
+    u = usuario_atual()
     alm_id = request.args.get('almoxarifado_id', type=int)
     data_ini = request.args.get('data_ini', str(date.today().replace(day=1)))
     data_fim = request.args.get('data_fim', str(date.today()))
+    if alm_id and u.perfil != 'admin' and alm_id not in u.almoxarifados_permitidos():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('index'))
     query = Movimentacao.query.filter(
         Movimentacao.tipo == 'saida',
         Movimentacao.data >= data_ini,
@@ -1084,6 +1151,8 @@ def relatorio_consumo():
     )
     if alm_id:
         query = query.join(Item).filter(Item.almoxarifado_id == alm_id)
+    elif u.perfil != 'admin':
+        query = query.join(Item).filter(Item.almoxarifado_id.in_(u.almoxarifados_permitidos()))
     movs = query.order_by(Movimentacao.data.desc()).all()
     almoxarifados = Almoxarifado.query.all()
     return render_template('relatorio_consumo.html', movimentacoes=movs,
@@ -1093,9 +1162,13 @@ def relatorio_consumo():
 @app.route('/relatorios/consumo/exportar')
 @login_required
 def exportar_consumo():
+    u = usuario_atual()
     alm_id = request.args.get('almoxarifado_id', type=int)
     data_ini = request.args.get('data_ini', str(date.today().replace(day=1)))
     data_fim = request.args.get('data_fim', str(date.today()))
+    if alm_id and u.perfil != 'admin' and alm_id not in u.almoxarifados_permitidos():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('index'))
     query = Movimentacao.query.filter(
         Movimentacao.tipo == 'saida',
         Movimentacao.data >= data_ini,
@@ -1103,6 +1176,8 @@ def exportar_consumo():
     )
     if alm_id:
         query = query.join(Item).filter(Item.almoxarifado_id == alm_id)
+    elif u.perfil != 'admin':
+        query = query.join(Item).filter(Item.almoxarifado_id.in_(u.almoxarifados_permitidos()))
     movs = query.order_by(Movimentacao.data.desc()).all()
 
     wb = openpyxl.Workbook()
@@ -1154,10 +1229,15 @@ def exportar_consumo():
 @login_required
 def relatorio_consumo_pessoa():
     """Relatório de consumo agrupado por colaborador (extraído da observação)."""
+    u = usuario_atual()
     alm_id = request.args.get('almoxarifado_id', type=int)
     data_ini = request.args.get('data_ini', str(date.today().replace(day=1)))
     data_fim = request.args.get('data_fim', str(date.today()))
     responsavel_filtro = request.args.get('responsavel', '').strip()
+
+    if alm_id and u.perfil != 'admin' and alm_id not in u.almoxarifados_permitidos():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('index'))
 
     query = Movimentacao.query.filter(
         Movimentacao.tipo == 'saida',
@@ -1166,6 +1246,8 @@ def relatorio_consumo_pessoa():
     )
     if alm_id:
         query = query.join(Item).filter(Item.almoxarifado_id == alm_id)
+    elif u.perfil != 'admin':
+        query = query.join(Item).filter(Item.almoxarifado_id.in_(u.almoxarifados_permitidos()))
 
     movs = query.order_by(Movimentacao.data.desc()).all()
 
@@ -1227,10 +1309,15 @@ def exportar_consumo_pessoa():
     import re
     from collections import defaultdict
 
+    u = usuario_atual()
     alm_id           = request.args.get('almoxarifado_id', type=int)
     data_ini         = request.args.get('data_ini', str(date.today().replace(day=1)))
     data_fim         = request.args.get('data_fim', str(date.today()))
     responsavel_filtro = request.args.get('responsavel', '').strip()
+
+    if alm_id and u.perfil != 'admin' and alm_id not in u.almoxarifados_permitidos():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('index'))
 
     query = Movimentacao.query.filter(
         Movimentacao.tipo == 'saida',
@@ -1239,8 +1326,8 @@ def exportar_consumo_pessoa():
     )
     if alm_id:
         query = query.join(Item).filter(Item.almoxarifado_id == alm_id)
-    else:
-        query = query.join(Item)
+    elif u.perfil != 'admin':
+        query = query.join(Item).filter(Item.almoxarifado_id.in_(u.almoxarifados_permitidos()))
 
     movs = query.order_by(Movimentacao.data.asc()).all()
 
@@ -1365,9 +1452,13 @@ def exportar_consumo_pessoa():
 def ficha_epi():
     """Página para gerar ficha de EPI individual por funcionário."""
     import re
+    u = usuario_atual()
+    query = Movimentacao.query.join(Item).filter(
+        Movimentacao.tipo == 'saida', Item.categoria == 'epi')
+    if u.perfil != 'admin':
+        query = query.filter(Item.almoxarifado_id.in_(u.almoxarifados_permitidos()))
     funcionarios = set()
-    movs = Movimentacao.query.join(Item).filter(
-        Movimentacao.tipo == 'saida', Item.categoria == 'epi').all()
+    movs = query.all()
     for mov in movs:
         obs = mov.observacao or ''
         m = re.search(r'liberado\s+[Pp][/\s]+(.+)', obs, re.IGNORECASE)
@@ -1388,6 +1479,7 @@ def ficha_epi():
 def exportar_ficha_epi():
     """Exporta FORM.SEG.014 — Ficha de Controle de EPIs e Uniformes."""
     import re
+    u = usuario_atual()
     funcionario = request.args.get('funcionario', '').strip()
     data_ini    = request.args.get('data_ini', '2020-01-01')
     data_fim    = request.args.get('data_fim', str(date.today()))
@@ -1396,12 +1488,14 @@ def exportar_ficha_epi():
         flash('Selecione um funcionário.', 'warning')
         return redirect(url_for('ficha_epi'))
 
-    movs_todas = (Movimentacao.query.join(Item)
+    query = (Movimentacao.query.join(Item)
                   .filter(Movimentacao.tipo == 'saida',
                           Item.categoria == 'epi',
                           Movimentacao.data >= data_ini,
-                          Movimentacao.data <= data_fim + ' 23:59:59')
-                  .order_by(Movimentacao.data.asc()).all())
+                          Movimentacao.data <= data_fim + ' 23:59:59'))
+    if u.perfil != 'admin':
+        query = query.filter(Item.almoxarifado_id.in_(u.almoxarifados_permitidos()))
+    movs_todas = query.order_by(Movimentacao.data.asc()).all()
 
     def extrair_colab(mov):
         obs = mov.observacao or ''
@@ -1687,6 +1781,9 @@ def relatorio_alertas():
 @login_required
 def atualizar_status_compra(id):
     it = Item.query.get_or_404(id)
+    u = usuario_atual()
+    if u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos():
+        return ('', 403)
     it.status_compra = request.form.get('status_compra', 'pendente')
     db.session.commit()
     return ('', 204)
@@ -1695,6 +1792,9 @@ def atualizar_status_compra(id):
 @login_required
 def fixar_item(id):
     it = Item.query.get_or_404(id)
+    u = usuario_atual()
+    if u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos():
+        return jsonify({'error': 'Acesso negado.'}), 403
     it.fixado = not it.fixado
     db.session.commit()
     return jsonify({'fixado': it.fixado})
@@ -1744,6 +1844,10 @@ def reativar_item(id):
 @app.route('/almoxarifado/<int:id>/exportar')
 @login_required
 def exportar_almoxarifado(id):
+    u = usuario_atual()
+    if u.perfil != 'admin' and id not in u.almoxarifados_permitidos():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('index'))
     alm = Almoxarifado.query.get_or_404(id)
     itens = Item.query.filter_by(almoxarifado_id=id).all()
 
@@ -1859,12 +1963,10 @@ def api_colaboradores():
     from sqlalchemy import text
 
     # Determinar escopo do usuário logado (via almoxarifado vinculado)
-    # Mestre/técnico têm almoxarifado vinculado que indica o escopo
     escopo_usuario = None
     if u and u.almoxarifado_id:
-        alm = Almoxarifado.query.get(u.almoxarifado_id)
+        alm = db.session.get(Almoxarifado, u.almoxarifado_id)
         if alm:
-            # Extrai escopo do nome do almoxarifado (ex: "Almoxarifado Estrutura" → "estrutura")
             nome_lower = alm.nome.lower()
             for esc in ['estrutura', 'acabamento', 'infraestrutura', 'forma', 'acampamento']:
                 if esc in nome_lower:
@@ -1874,23 +1976,23 @@ def api_colaboradores():
     # 1. Colaboradores do mesmo escopo primeiro
     if escopo_usuario:
         rows = db.session.execute(
-            text(f"SELECT nome, funcao, escopo FROM colaborador WHERE ativo = TRUE AND nome {ilike} :q AND escopo {ilike} :esc ORDER BY nome LIMIT 10"),
+            text(f"SELECT nome, funcao, escopo, tipo FROM colaborador WHERE ativo = TRUE AND nome {ilike} :q AND escopo {ilike} :esc ORDER BY nome LIMIT 10"),
             {"q": like, "esc": f"%{escopo_usuario}%"}
         ).fetchall()
         for r in rows:
-            nomes.append({'nome': r[0], 'funcao': r[1] or '', 'escopo': r[2] or ''})
+            nomes.append({'nome': r[0], 'funcao': r[1] or '', 'escopo': r[2] or '', 'tipo': r[3] or 'peao'})
 
     # 2. Demais colaboradores (sem escopo ou escopo diferente)
     nomes_ja = {n['nome'] for n in nomes}
     rows = db.session.execute(
-        text(f"SELECT nome, funcao, escopo FROM colaborador WHERE ativo = TRUE AND nome {ilike} :q ORDER BY nome LIMIT 10"),
+        text(f"SELECT nome, funcao, escopo, tipo FROM colaborador WHERE ativo = TRUE AND nome {ilike} :q ORDER BY nome LIMIT 15"),
         {"q": like}
     ).fetchall()
     for r in rows:
         if r[0] not in nomes_ja:
-            nomes.append({'nome': r[0], 'funcao': r[1] or '', 'escopo': r[2] or ''})
+            nomes.append({'nome': r[0], 'funcao': r[1] or '', 'escopo': r[2] or '', 'tipo': r[3] or 'peao'})
 
-    # 3. Histórico de requisições (fallback)
+    # 3. Histórico de requisições (fallback — nomes que não estão no banco de colaboradores)
     nomes_ja = {n['nome'] for n in nomes}
     rows = db.session.execute(
         text(f"SELECT DISTINCT colaborador FROM requisicao_mestre WHERE colaborador {ilike} :q ORDER BY colaborador LIMIT 5"),
@@ -1898,9 +2000,9 @@ def api_colaboradores():
     ).fetchall()
     for r in rows:
         if r[0] not in nomes_ja:
-            nomes.append({'nome': r[0], 'funcao': '', 'escopo': ''})
+            nomes.append({'nome': r[0], 'funcao': '', 'escopo': '', 'tipo': ''})
 
-    return jsonify(nomes[:10])
+    return jsonify(nomes[:12])
 
 # ── GERENCIAR COLABORADORES ──────────────────────────────────────────────────
 
@@ -1924,6 +2026,7 @@ def novo_colaborador():
     nome = request.form.get('nome', '').strip()
     funcao = request.form.get('funcao', '').strip()
     escopo = request.form.get('escopo', '').strip()
+    tipo = request.form.get('tipo', 'peao').strip()
     if not nome:
         flash('Informe o nome do colaborador.', 'warning')
         return redirect(url_for('colaboradores'))
@@ -1931,7 +2034,7 @@ def novo_colaborador():
     if Colaborador.query.filter(Colaborador.nome.ilike(nome)).first():
         flash(f'Colaborador "{nome}" já está cadastrado.', 'warning')
         return redirect(url_for('colaboradores'))
-    db.session.add(Colaborador(nome=nome, funcao=funcao or None, escopo=escopo or None))
+    db.session.add(Colaborador(nome=nome, funcao=funcao or None, escopo=escopo or None, tipo=tipo or 'peao'))
     db.session.commit()
     flash(f'✅ Colaborador "{nome}" cadastrado!', 'success')
     return redirect(url_for('colaboradores'))
@@ -2191,7 +2294,7 @@ def mestre_requisicao_nova():
             ))
 
         db.session.commit()
-        flash(f'✅ Requisição <strong>#{req.id}</strong> enviada ao almoxarifado! Aguarde a separação.', 'success')
+        flash_html(f'✅ Requisição <strong>#{escape(req.id)}</strong> enviada ao almoxarifado! Aguarde a separação.', 'success')
         return redirect(url_for('mestre_requisicoes'))
 
     return render_template('mestre_requisicao_nova.html',
@@ -2249,7 +2352,14 @@ def mestre_requisicao_editar(id):
 @app.route('/mestre/requisicoes/<int:id>/aprovar', methods=['POST'])
 @login_required
 def mestre_requisicao_aprovar(id):
-    """Almoxarife aprova ou recusa a requisição inteira."""
+    """Almoxarife aprova, recusa ou aprova parcialmente a requisição.
+
+    Modos:
+    - decisao=aprovada  → aprova todos os itens de uma vez
+    - decisao=recusada  → recusa todos os itens
+    - decisao=parcial   → avalia item a item via campos item_status_<ri_id>
+                          e item_motivo_<ri_id> no formulário
+    """
     req = RequisicaoMestre.query.get_or_404(id)
     u = usuario_atual()
     if u.perfil not in ('admin', 'almoxarife'):
@@ -2260,31 +2370,73 @@ def mestre_requisicao_aprovar(id):
         return redirect(url_for('mestre_requisicao_detalhe', id=id))
 
     decisao = request.form.get('decisao', 'aprovada')
-    req.status = decisao  # 'aprovada' ou 'recusada'
-    db.session.commit()
 
-    if req.status == 'aprovada':
-        flash(f'✅ Requisição #{req.id} aprovada! Separe os materiais e confirme a entrega.', 'success')
-    else:
+    if decisao == 'parcial':
+        # Aprovação item a item
+        aprovados = 0
+        recusados = 0
+        for ri in req.itens:
+            st = request.form.get(f'item_status_{ri.id}', 'aprovado')
+            motivo = request.form.get(f'item_motivo_{ri.id}', '').strip()
+            ri.status_item = st  # 'aprovado' ou 'recusado'
+            ri.motivo_recusa = motivo if st == 'recusado' else None
+            if st == 'aprovado':
+                aprovados += 1
+            else:
+                recusados += 1
+
+        # Define status geral da requisição
+        if aprovados == 0:
+            req.status = 'recusada'
+            flash(f'❌ Requisição #{req.id} recusada — todos os itens foram recusados.', 'danger')
+        elif recusados == 0:
+            req.status = 'aprovada'
+            flash(f'✅ Requisição #{req.id} aprovada! Separe os materiais e confirme a entrega.', 'success')
+        else:
+            req.status = 'parcial'
+            flash(
+                f'⚠️ Requisição #{req.id} aprovada parcialmente: '
+                f'{aprovados} item(ns) aprovado(s), {recusados} recusado(s).',
+                'warning'
+            )
+    elif decisao == 'recusada':
+        req.status = 'recusada'
+        for ri in req.itens:
+            ri.status_item = 'recusado'
+            ri.motivo_recusa = request.form.get('motivo_geral', '').strip() or None
         flash(f'❌ Requisição #{req.id} recusada.', 'danger')
+    else:
+        # aprovada inteira
+        req.status = 'aprovada'
+        for ri in req.itens:
+            ri.status_item = 'aprovado'
+            ri.motivo_recusa = None
+        flash(f'✅ Requisição #{req.id} aprovada! Separe os materiais e confirme a entrega.', 'success')
 
+    db.session.commit()
     return redirect(url_for('mestre_requisicao_detalhe', id=id))
 
 @app.route('/mestre/requisicoes/<int:id>/entregar', methods=['POST'])
 @login_required
 def mestre_requisicao_entregar(id):
-    """Almoxarife confirma entrega — baixa o estoque."""
+    """Almoxarife confirma entrega — baixa o estoque apenas dos itens aprovados."""
     req = RequisicaoMestre.query.get_or_404(id)
     u = usuario_atual()
     if u.perfil not in ('admin', 'almoxarife'):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('mestre_requisicoes'))
-    if req.status not in ('pendente', 'aprovada'):
+    if req.status not in ('pendente', 'aprovada', 'parcial'):
         flash('Requisição já foi entregue, recusada ou cancelada.', 'warning')
         return redirect(url_for('mestre_requisicao_detalhe', id=id))
 
+    # Itens a entregar: aprovados (ou todos se não houve aprovação por item)
+    itens_a_entregar = [
+        ri for ri in req.itens
+        if ri.status_item in ('aprovado', 'pendente')
+    ]
+
     erros = []
-    for ri in req.itens:
+    for ri in itens_a_entregar:
         if ri.quantidade > ri.item.quantidade:
             erros.append(f'"{ri.item.nome}": apenas {ri.item.quantidade} {ri.item.unidade} disponível')
 
@@ -2293,8 +2445,9 @@ def mestre_requisicao_entregar(id):
             flash(f'⚠️ {e}', 'danger')
         return redirect(url_for('mestre_requisicao_detalhe', id=id))
 
-    for ri in req.itens:
+    for ri in itens_a_entregar:
         ri.item.quantidade = round(ri.item.quantidade - ri.quantidade, 4)
+        ri.status_item = 'aprovado'
         db.session.add(Movimentacao(
             tipo='saida',
             quantidade=ri.quantidade,
@@ -2307,7 +2460,7 @@ def mestre_requisicao_entregar(id):
     req.data_entrega = agora()
     req.entregue_por_id = u.id
     db.session.commit()
-    flash(f'✅ Entrega confirmada! Estoque atualizado para {len(req.itens)} item(ns).', 'success')
+    flash(f'✅ Entrega confirmada! Estoque atualizado para {len(itens_a_entregar)} item(ns).', 'success')
     return redirect(url_for('mestre_requisicao_detalhe', id=id))
 
 @app.route('/mestre/requisicoes/<int:id>/cancelar', methods=['POST'])

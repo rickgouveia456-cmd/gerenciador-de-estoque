@@ -23,7 +23,7 @@
 <!-- Resumo -->
 <div class="row g-3 mb-4">
     {% set pendentes = requisicoes | selectattr('status', 'eq', 'pendente') | list %}
-    {% set aprovadas = requisicoes | selectattr('status', 'eq', 'aprovada') | list %}
+    {% set em_separacao = (requisicoes | selectattr('status', 'eq', 'aprovada') | list) + (requisicoes | selectattr('status', 'eq', 'parcial') | list) %}
     {% set entregues = requisicoes | selectattr('status', 'eq', 'entregue') | list %}
     <div class="col-6 col-md-3">
         <div class="card border-0 shadow-sm text-center p-3">
@@ -33,7 +33,7 @@
     </div>
     <div class="col-6 col-md-3">
         <div class="card border-0 shadow-sm text-center p-3">
-            <div class="fs-3 fw-bold text-info">{{ aprovadas | length }}</div>
+            <div class="fs-3 fw-bold text-info">{{ em_separacao | length }}</div>
             <div class="small text-muted">Em Separação</div>
         </div>
     </div>
@@ -86,10 +86,14 @@
                             <span class="badge bg-warning text-dark">⏳ Pendente</span>
                         {% elif req.status == 'aprovada' %}
                             <span class="badge bg-info text-dark">📦 Em Separação</span>
+                        {% elif req.status == 'parcial' %}
+                            <span class="badge bg-warning text-dark">⚠️ Parcial</span>
+                        {% elif req.status == 'recusada' %}
+                            <span class="badge bg-danger">❌ Recusada</span>
                         {% elif req.status == 'entregue' %}
                             <span class="badge bg-success">✅ Entregue</span>
                         {% elif req.status == 'cancelada' %}
-                            <span class="badge bg-secondary">❌ Cancelada</span>
+                            <span class="badge bg-secondary">🚫 Cancelada</span>
                         {% endif %}
                     </td>
                     <td>
@@ -123,10 +127,14 @@
                     <span class="badge bg-warning text-dark">⏳ Pendente</span>
                 {% elif req.status == 'aprovada' %}
                     <span class="badge bg-info text-dark">📦 Separando</span>
+                {% elif req.status == 'parcial' %}
+                    <span class="badge bg-warning text-dark">⚠️ Parcial</span>
+                {% elif req.status == 'recusada' %}
+                    <span class="badge bg-danger">❌ Recusada</span>
                 {% elif req.status == 'entregue' %}
                     <span class="badge bg-success">✅ Entregue</span>
                 {% elif req.status == 'cancelada' %}
-                    <span class="badge bg-secondary">❌ Cancelada</span>
+                    <span class="badge bg-secondary">🚫 Cancelada</span>
                 {% endif %}
             </div>
             <div class="small text-muted mb-1">

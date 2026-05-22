@@ -2978,9 +2978,18 @@ def inicializar_banco():
     except Exception as e:
         logger.error(f'Inicialização do banco: {e}')
 
-# Inicialização única
-with app.app_context():
-    inicializar_banco()
+# Inicializa na primeira requisição para não bloquear o boot do gunicorn
+_banco_inicializado = False
+
+@app.before_request
+def init_on_first_request():
+    global _banco_inicializado
+    if not _banco_inicializado:
+        _banco_inicializado = True
+        try:
+            inicializar_banco()
+        except Exception as e:
+            logger.error(f'Erro na inicialização: {e}')
 
 # ── BACKUP AUTOMÁTICO DIÁRIO ─────────────────────────────────────────────────
 def job_backup_diario():

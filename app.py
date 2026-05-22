@@ -803,15 +803,27 @@ def movimentacao_lote():
                 erros.append(f'"{it.nome}": estoque insuficiente ({it.quantidade} {it.unidade})')
                 continue
 
-            it.quantidade = round(it.quantidade + qtd if tipo == 'entrada' else it.quantidade - qtd, 4)
+            # Devolução = entrada no estoque com observação especial
+            tipo_real = 'entrada' if tipo in ('devolucao_epi', 'devolucao_ferramenta') else tipo
+            it.quantidade = round(it.quantidade + qtd if tipo_real == 'entrada' else it.quantidade - qtd, 4)
+
             if tipo == 'saida' and colab:
                 obs_linha = f'liberado P/ {colab}'
                 if observacao:
                     obs_linha += f' | {observacao}'
+            elif tipo == 'devolucao_epi':
+                obs_linha = f'Devolução EPI — {colab}' if colab else 'Devolução EPI'
+                if observacao:
+                    obs_linha += f' | {observacao}'
+            elif tipo == 'devolucao_ferramenta':
+                obs_linha = f'Devolução Ferramenta — {colab}' if colab else 'Devolução Ferramenta'
+                if observacao:
+                    obs_linha += f' | {observacao}'
             else:
                 obs_linha = observacao
+
             movs.append(Movimentacao(
-                tipo=tipo, quantidade=qtd,
+                tipo=tipo_real, quantidade=qtd,
                 responsavel=resp_linha,
                 observacao=obs_linha,
                 item_id=it.id
@@ -1953,6 +1965,32 @@ def api_alertas():
         'unidade': i.unidade, 'status': i.status,
         'almoxarifado': i.almoxarifado.nome
     } for i in itens])
+
+@app.route('/api/almoxarife/notificacoes')
+@login_required
+def api_almoxarife_notificacoes():
+    """Retorna requisições pendentes para o almoxarife logado — usado para popup de alerta."""
+    u = usuario_atual()
+    if u.perfil not in ('admin', 'almoxarife'):
+        return jsonify([])
+    # Busca requisições pendentes do almoxarifado do almoxarife
+    if u.perfil == 'almoxarife' and u.almoxarifado_id:
+        reqs = RequisicaoMestre.query.filter_by(
+            almoxarifado_id=u.almoxarifado_id,
+            status='pendente'
+        ).order_by(RequisicaoMestre.data_criacao.desc()).limit(5).all()
+    else:
+        reqs = RequisicaoMestre.query.filter_by(
+            status='pendente'
+        ).order_by(RequisicaoMestre.data_criacao.desc()).limit(5).all()
+    return jsonify([{
+        'id': r.id,
+        'mestre': r.mestre.nome,
+        'colaborador': r.colaborador,
+        'almoxarifado': r.almoxarifado.nome,
+        'itens': len(r.itens),
+        'data': r.data_criacao.strftime('%d/%m/%Y %H:%M')
+    } for r in reqs])
 
 @app.route('/api/colaboradores')
 @login_required

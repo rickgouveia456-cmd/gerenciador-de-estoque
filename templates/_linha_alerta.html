@@ -19,11 +19,12 @@
             <select class="form-select form-select-sm"
                     onchange="atualizarStatus({{ item.id }}, this)"
                     style="max-width:200px">
-                <option value="pendente"        {% if item.status_compra == 'pendente' %}selected{% endif %}>🔴 URGENTE</option>
-                <option value="verificando"     {% if item.status_compra == 'verificando' %}selected{% endif %}>🔍 Verificando Inventário</option>
-                <option value="pedido_efetuado" {% if item.status_compra == 'pedido_efetuado' %}selected{% endif %}>📋 Pedido Efetuado</option>
-                <option value="pedido_rota"     {% if item.status_compra == 'pedido_rota' %}selected{% endif %}>🚚 Pedido em Rota</option>
-                <option value="recebido"        {% if item.status_compra == 'recebido' %}selected{% endif %}>✅ Recebido</option>
+                <option value="solicitar"        {% if item.status_compra == 'solicitar' or item.status_compra == 'pendente' %}selected{% endif %}>📋 SOLICITAR</option>
+                <option value="em_atraso"        {% if item.status_compra == 'em_atraso' %}selected{% endif %}>🔴 EM ATRASO</option>
+                <option value="programado"       {% if item.status_compra == 'programado' %}selected{% endif %}>📅 PROGRAMADO</option>
+                <option value="sem_saldo"        {% if item.status_compra == 'sem_saldo' %}selected{% endif %}>⚠️ SEM SALDO</option>
+                <option value="pedido"           {% if item.status_compra == 'pedido' or item.status_compra == 'pedido_efetuado' %}selected{% endif %}>🛒 PEDIDO</option>
+                <option value="suplementacao"    {% if item.status_compra == 'suplementacao' or item.status_compra == 'pedido_rota' %}selected{% endif %}>🔄 EM SUPLEMENTAÇÃO</option>
             </select>
         </div>
     </td>

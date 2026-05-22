@@ -141,11 +141,18 @@ function atualizarStatus(itemId, select) {
         // Atualizar badge ao lado
         const badge = document.getElementById(`badge_status_${itemId}`);
         const cores = {
-            'pendente':        ['danger',    '🔴 URGENTE'],
-            'verificando':     ['secondary', '🔍 Verificando Inventário'],
-            'pedido_efetuado': ['primary',   '📋 Pedido Efetuado'],
-            'pedido_rota':     ['info',      '🚚 Pedido em Rota'],
-            'recebido':        ['success',   '✅ Recebido'],
+            'solicitar':      ['warning',   '📋 SOLICITAR'],
+            'em_atraso':      ['danger',    '🔴 EM ATRASO'],
+            'programado':     ['primary',   '📅 PROGRAMADO'],
+            'sem_saldo':      ['secondary', '⚠️ SEM SALDO'],
+            'pedido':         ['info',      '🛒 PEDIDO'],
+            'suplementacao':  ['success',   '🔄 EM SUPLEMENTAÇÃO'],
+            // compatibilidade com valores antigos
+            'pendente':        ['warning',  '📋 SOLICITAR'],
+            'verificando':     ['secondary','⚠️ SEM SALDO'],
+            'pedido_efetuado': ['info',     '🛒 PEDIDO'],
+            'pedido_rota':     ['success',  '🔄 EM SUPLEMENTAÇÃO'],
+            'recebido':        ['success',  '🔄 EM SUPLEMENTAÇÃO'],
         };
         if (badge && cores[val]) {
             badge.className = `badge bg-${cores[val][0]}`;

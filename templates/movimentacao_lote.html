@@ -25,6 +25,8 @@
                     <select name="tipo" id="tipoLote" class="form-select" required>
                         <option value="entrada">📥 Entrada</option>
                         <option value="saida">📤 Saída</option>
+                        <option value="devolucao_epi">🔄 Devolução EPI</option>
+                        <option value="devolucao_ferramenta">🔧 Devolução Ferramenta</option>
                     </select>
                 </div>
                 <div class="col-6 col-md-4">
@@ -224,6 +226,11 @@ function atualizarCamposLinha(idx, tipo) {
     if (tipo === 'saida') {
         divColab.style.display = '';
         inputColab.required = true;
+        inputColab.placeholder = 'Colaborador *';
+    } else if (tipo === 'devolucao_epi' || tipo === 'devolucao_ferramenta') {
+        divColab.style.display = '';
+        inputColab.required = true;
+        inputColab.placeholder = 'Quem está devolvendo *';
     } else {
         divColab.style.display = 'none';
         inputColab.required = false;

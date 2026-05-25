@@ -40,7 +40,7 @@
                             <select name="perfil" class="form-select" required id="selectPerfil"
                                     onchange="toggleAlmox()">
                                 <option value="colaborador" {% if usuario and usuario.perfil == 'colaborador' %}selected{% endif %}>
-                                    👤 Colaborador
+                                    👔 Engenheiro
                                 </option>
                                 <option value="almoxarife" {% if usuario and usuario.perfil == 'almoxarife' %}selected{% endif %}>
                                     📦 Almoxarife
@@ -71,7 +71,7 @@
                                 </option>
                                 {% endfor %}
                             </select>
-                            <div class="form-text">Colaborador só acessa este almoxarifado</div>
+                            <div class="form-text">Engenheiro acessa este almoxarifado</div>
                         </div>
                         {% if usuario %}
                         <div class="col-12">

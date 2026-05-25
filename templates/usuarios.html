@@ -41,7 +41,7 @@
                         {% elif u.perfil == 'almoxarife' %}
                             <span class="badge bg-info text-dark">📦 Almoxarife</span>
                         {% else %}
-                            <span class="badge bg-secondary">👤 Colaborador</span>
+                            <span class="badge bg-secondary">👔 Engenheiro</span>
                         {% endif %}
                     </td>
                     <td>{{ u.almoxarifado.nome if u.almoxarifado else '— Todos —' }}</td>
@@ -95,7 +95,7 @@
                 {% elif u.perfil == 'almoxarife' %}
                     <span class="badge bg-info text-dark">📦 Almoxarife</span>
                 {% else %}
-                    <span class="badge bg-secondary">👤 Colaborador</span>
+                    <span class="badge bg-secondary">👔 Engenheiro</span>
                 {% endif %}
             </div>
             <div class="small text-muted mb-2">

@@ -61,7 +61,17 @@
             <div class="card-header fw-bold text-white d-flex justify-content-between align-items-center"
                  style="background:var(--accent)">
                 <span><i class="bi bi-people me-2"></i>Colaboradores Cadastrados</span>
-                <span class="badge bg-white text-dark">{{ colaboradores|selectattr('ativo')|list|length }} ativos</span>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-white text-dark">{{ colaboradores|selectattr('ativo')|list|length }} ativos</span>
+                    {% if usuario_atual and usuario_atual.perfil == 'admin' %}
+                    <form action="/admin/seed-colaboradores" method="POST" class="mb-0">
+                        <button type="submit" class="btn btn-sm btn-light fw-semibold"
+                                onclick="return confirm('Cadastrar os 69 colaboradores da estrutura? Duplicatas serão ignoradas.')">
+                            <i class="bi bi-cloud-download me-1"></i> Importar Estrutura
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
             </div>
             <div class="card-body p-0">
                 {% if colaboradores %}

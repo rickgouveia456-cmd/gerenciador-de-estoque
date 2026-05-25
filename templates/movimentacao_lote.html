@@ -277,7 +277,15 @@ document.getElementById('selectAlmox').addEventListener('change', () => {
 adicionarLinha();
 
 function toggleDevolvido(movId, btn) {
-    fetch(`/movimentacao/${movId}/devolvido`, {method: 'POST'})
+    const csrfToken = document.querySelector('input[name="csrf_token"]')?.value || '';
+    fetch(`/movimentacao/${movId}/devolvido`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': csrfToken
+        },
+        body: `csrf_token=${csrfToken}`
+    })
     .then(r => r.json())
     .then(data => {
         if (data.devolvido) {
@@ -287,7 +295,8 @@ function toggleDevolvido(movId, btn) {
             btn.innerHTML = '<span class="badge bg-danger px-2 py-1">❌ Não</span>';
             btn.title = 'Não devolvido — clique para marcar';
         }
-    });
+    })
+    .catch(e => console.error('Erro ao marcar devolução:', e));
 }
 </script>
 {% endblock %}

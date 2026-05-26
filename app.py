@@ -1216,6 +1216,7 @@ def exportar_consumo():
     borda   = Border(left=Side(style='thin'), right=Side(style='thin'),
                      top=Side(style='thin'), bottom=Side(style='thin'))
 
+    alm_nome = db.session.get(Almoxarifado, alm_id).nome if alm_id else 'Todos os Almoxarifados'
     ws.merge_cells('A1:H1')
     ws['A1'] = f'Relatório de Consumo — {alm_nome}'
     ws['A1'].font = Font(bold=True, size=13, color='1A3A5C')

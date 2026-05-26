@@ -111,7 +111,7 @@
                     </td>
                     <td class="small">{{ mov.responsavel or '—' }}</td>
                     <td class="text-center">
-                        {% if mov.tipo == 'saida' and (mov.item.categoria in ('epi', 'maquinario') or (mov.observacao and 'Devolução' in mov.observacao)) %}
+                        {% if mov.tipo == 'saida' and mov.item.categoria in ('epi', 'maquinario') %}
                         <button class="btn btn-sm border-0 p-1"
                                 id="btn_dev_{{ mov.id }}"
                                 onclick="toggleDevolvido({{ mov.id }}, this)"

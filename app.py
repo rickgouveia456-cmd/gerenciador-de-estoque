@@ -388,8 +388,15 @@ def inject_sidebar():
     if u.perfil == 'admin':
         alms = Almoxarifado.query.all()
     elif u.perfil in ('mestre', 'tecnico_seguranca'):
-        # Mestre e técnico veem só o almoxarifado deles
-        alms = [u.almoxarifado] if u.almoxarifado_id else []
+        # Mestre vê só o almoxarifado dele
+        # Técnico de segurança vê o almoxarifado principal + acessos extras
+        if u.perfil == 'tecnico_seguranca':
+            ids = u.almoxarifados_permitidos()
+            alms = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).all() if ids else (
+                [u.almoxarifado] if u.almoxarifado_id else []
+            )
+        else:
+            alms = [u.almoxarifado] if u.almoxarifado_id else []
     else:
         ids = u.almoxarifados_permitidos()
         alms = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).all() if ids else []
@@ -2282,7 +2289,12 @@ def mestre_requisicao_nova():
         if not u.almoxarifado_id:
             flash('Você não está vinculado a nenhum almoxarifado. Contate o administrador.', 'warning')
             return redirect(url_for('mestre_requisicoes'))
-        almoxarifados = [u.almoxarifado]
+        # Técnico de segurança pode ver múltiplos almoxarifados (principal + acessos extras)
+        if u.perfil == 'tecnico_seguranca':
+            ids = u.almoxarifados_permitidos()
+            almoxarifados = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).all() if ids else [u.almoxarifado]
+        else:
+            almoxarifados = [u.almoxarifado]
     else:
         almoxarifados = Almoxarifado.query.all()
 

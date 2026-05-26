@@ -1216,27 +1216,43 @@ def exportar_consumo():
     borda   = Border(left=Side(style='thin'), right=Side(style='thin'),
                      top=Side(style='thin'), bottom=Side(style='thin'))
 
-    alm_nome = db.session.get(Almoxarifado, alm_id).nome if alm_id else 'Todos os Almoxarifados'
-    ws.merge_cells('A1:G1')
+    ws.merge_cells('A1:H1')
     ws['A1'] = f'Relatório de Consumo — {alm_nome}'
     ws['A1'].font = Font(bold=True, size=13, color='1A3A5C')
-    ws.merge_cells('A2:G2')
+    ws.merge_cells('A2:H2')
     ws['A2'] = f'Período: {data_ini} a {data_fim}   |   Gerado em: {agora().strftime("%d/%m/%Y %H:%M")}'
     ws['A2'].font = Font(italic=True, size=10, color='666666')
 
-    headers = ['Data', 'Código', 'Item', 'Almoxarifado', 'Quantidade', 'Responsável', 'Observação']
+    headers = ['Data', 'Código', 'Item', 'Almoxarifado', 'Quantidade', 'Responsável', 'Colaborador', 'Observação']
     for col, h in enumerate(headers, 1):
         c = ws.cell(row=4, column=col, value=h)
         c.font = h_font; c.fill = h_fill
         c.alignment = Alignment(horizontal='center'); c.border = borda
 
     for row_num, mov in enumerate(movs, 5):
+        # Separar colaborador da observação
+        obs = mov.observacao or ''
+        if 'liberado P/' in obs or 'liberado p/' in obs:
+            partes = re.split(r'liberado [Pp]/', obs, maxsplit=1)
+            resto = partes[-1].split(' | ', 1)
+            colab_nome = resto[0].strip()
+            obs_limpa = resto[1].strip() if len(resto) > 1 else ''
+        elif 'Colaborador:' in obs:
+            partes = obs.split('Colaborador:', 1)[-1].split('|', 1)
+            colab_nome = partes[0].strip()
+            obs_limpa = partes[1].strip() if len(partes) > 1 else ''
+        else:
+            colab_nome = ''
+            obs_limpa = obs
+
         dados = [
             mov.data.strftime('%d/%m/%Y %H:%M'),
             mov.item.codigo, mov.item.nome,
             mov.item.almoxarifado.nome,
             f'{mov.quantidade} {mov.item.unidade}',
-            mov.responsavel or '', mov.observacao or ''
+            mov.responsavel or '',
+            colab_nome,
+            obs_limpa
         ]
         for col, val in enumerate(dados, 1):
             c = ws.cell(row=row_num, column=col, value=val)
@@ -1244,7 +1260,7 @@ def exportar_consumo():
             if row_num % 2 == 0:
                 c.fill = PatternFill('solid', fgColor='F0F4F8')
 
-    for i, w in enumerate([18, 14, 45, 35, 14, 20, 40], 1):
+    for i, w in enumerate([18, 14, 45, 35, 14, 20, 30, 30], 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
     buf = io.BytesIO()

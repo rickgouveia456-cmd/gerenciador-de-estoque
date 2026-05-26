@@ -71,11 +71,24 @@
                     <th>Almoxarifado</th>
                     <th>Quantidade</th>
                     <th>Responsável</th>
+                    <th>Colaborador</th>
                     <th>Observação</th>
                 </tr>
             </thead>
             <tbody id="tbodyConsumo">
                 {% for mov in movimentacoes %}
+                {% set obs = mov.observacao or '' %}
+                {% if 'liberado P/' in obs or 'liberado p/' in obs %}
+                    {% set partes = obs.split('liberado P/')[-1].split('liberado p/')[-1].split(' | ') %}
+                    {% set colab_nome = partes[0].strip() %}
+                    {% set obs_limpa = partes[1:] | join(' | ') if partes|length > 1 else '' %}
+                {% elif 'Colaborador:' in obs %}
+                    {% set colab_nome = obs.split('Colaborador:')[-1].split('|')[0].strip() %}
+                    {% set obs_limpa = obs.split('|')[-1].strip() if '|' in obs else '' %}
+                {% else %}
+                    {% set colab_nome = '' %}
+                    {% set obs_limpa = obs %}
+                {% endif %}
                 <tr data-busca="{{ mov.item.nome | lower }} {{ mov.item.codigo | lower }} {{ mov.item.almoxarifado.nome | lower }}">
                     <td class="text-muted small">{{ mov.data.strftime('%d/%m/%Y %H:%M') }}</td>
                     <td>
@@ -87,7 +100,8 @@
                     <td>{{ mov.item.almoxarifado.nome }}</td>
                     <td class="fw-bold text-danger">{{ mov.quantidade }} {{ mov.item.unidade }}</td>
                     <td>{{ mov.responsavel or '—' }}</td>
-                    <td class="text-muted">{{ mov.observacao or '—' }}</td>
+                    <td class="fw-semibold">{{ colab_nome or '—' }}</td>
+                    <td class="text-muted small">{{ obs_limpa or '—' }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

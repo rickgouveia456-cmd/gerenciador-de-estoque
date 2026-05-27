@@ -2809,80 +2809,81 @@ def _smtp_connect():
 
 
 def enviar_backup_por_almoxarifado():
-    """Envia backup para admins e almoxarifes.
-    'to' = destinatário fixo (verificado no Resend).
-    'cc' = demais usuários com email — funciona sem domínio próprio no Resend."""
-    import resend
-    import base64
+    """Envia backup via Gmail SMTP para todos os usuários com email cadastrado."""
+    import smtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.base import MIMEBase
+    from email.mime.text import MIMEText
+    from email import encoders
 
-    resend_api_key = os.environ.get('RESEND_API_KEY')
-    destinatario_fixo = os.environ.get('BACKUP_EMAIL_TO', 'rickgouveia157@gmail.com')
+    remetente  = os.environ.get('BACKUP_EMAIL_FROM', 'rickgouveia157@gmail.com')
+    senha_app  = os.environ.get('BACKUP_EMAIL_PASS', '')
+    hoje       = date.today().strftime('%d/%m/%Y')
 
-    if not resend_api_key:
-        logger.info('BACKUP: variável RESEND_API_KEY não configurada.')
-        return False, 'Variável RESEND_API_KEY não configurada no Railway.'
+    if not senha_app:
+        logger.warning('BACKUP: BACKUP_EMAIL_PASS não configurada.')
+        return False, 'Variável BACKUP_EMAIL_PASS não configurada no Railway.'
 
-    resend.api_key = resend_api_key
-    remetente = os.environ.get('RESEND_FROM_EMAIL', 'onboarding@resend.dev')
-    hoje = date.today().strftime('%d/%m/%Y')
-    enviados = 0
-    erros = 0
+    # Coletar todos os destinatários com email
+    destinatarios = set()
+    destinatarios.add(remetente)  # sempre inclui o próprio remetente
+    for u in Usuario.query.filter_by(ativo=True).all():
+        if u.email and u.email.strip():
+            destinatarios.add(u.email.strip())
+
+    # Emails fixos da equipe
+    emails_fixos = [
+        'simao.reis@stanza.com.br',
+        'bianca.melo@stanza.com.br',
+        'deyvid.lopes@stanza.com.br',
+        'henrique.silva@stanza.com.br',
+        'ariel.apolonio@stanza.com.br',
+        'alisson.guimaraes@stanza.com.br',
+        'laura.santos@stanza.com.br',
+        'alanderson.santos@stanza.com.br',
+    ]
+    for e in emails_fixos:
+        destinatarios.add(e)
+
+    lista_dest = sorted(destinatarios)
+    logger.info(f'BACKUP: enviando para {len(lista_dest)} destinatários: {lista_dest}')
 
     try:
-        # ── 1. Backup completo para admins + almoxarifes em cc ──
-        admins_emails = [u.email for u in Usuario.query.filter_by(perfil='admin', ativo=True).all() if u.email]
-        almoxarifes_emails = [u.email for u in Usuario.query.filter_by(perfil='almoxarife', ativo=True).all() if u.email]
-        cc_completo = list(set(admins_emails + almoxarifes_emails) - {destinatario_fixo})
+        buf = gerar_excel_backup()
+        buf.seek(0)
+        conteudo = buf.read()
 
-        buf_completo = gerar_excel_backup()
-        buf_completo.seek(0)
-        arquivo_completo_base64 = base64.b64encode(buf_completo.read()).decode('utf-8')
+        msg = MIMEMultipart()
+        msg['From']    = remetente
+        msg['To']      = remetente
+        msg['Bcc']     = ', '.join(d for d in lista_dest if d != remetente)
+        msg['Subject'] = f'Backup Completo Estoque Logi-Prime — {hoje}'
 
-        payload = {
-            "from": f"Logi-Prime Backup <{remetente}>",
-            "to": [destinatario_fixo],
-            "subject": f"Backup Completo Estoque — {hoje}",
-            "text": f"Backup automático completo.\nData: {datetime.now().strftime('%d/%m/%Y %H:%M')}\n\nContém todos os almoxarifados.",
-            "attachments": [{"filename": f"backup_completo_{date.today()}.xlsx", "content": arquivo_completo_base64}]
-        }
-        if cc_completo:
-            payload["cc"] = cc_completo
-        try:
-            resend.Emails.send(payload)
-            logger.info(f'BACKUP: completo enviado para {[destinatario_fixo] + cc_completo}')
-            enviados += 1
-        except Exception as e:
-            logger.info(f'BACKUP: erro backup completo — {e}')
-            erros += 1
+        corpo = (
+            f'Backup automático do sistema de estoque.\n'
+            f'Data: {datetime.now().strftime("%d/%m/%Y %H:%M")}\n\n'
+            f'Este arquivo contém todos os almoxarifados.\n'
+            f'Guarde em local seguro.'
+        )
+        msg.attach(MIMEText(corpo, 'plain', 'utf-8'))
 
-        # ── 2. Backup individual por almoxarifado em cc para cada almoxarife ──
-        for alm in Almoxarifado.query.all():
-            cc_alm = [u.email for u in alm.usuarios if u.perfil == 'almoxarife' and u.ativo and u.email and u.email != destinatario_fixo]
-            if not cc_alm:
-                continue
-            buf_alm = gerar_excel_backup_almoxarifado(alm)
-            buf_alm.seek(0)
-            payload_alm = {
-                "from": f"Logi-Prime Backup <{remetente}>",
-                "to": [destinatario_fixo],
-                "cc": cc_alm,
-                "subject": f"Backup {alm.nome} — {hoje}",
-                "text": f"Backup do almoxarifado: {alm.nome}\nData: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
-                "attachments": [{"filename": f"backup_{alm.nome.replace(' ','_')}_{date.today()}.xlsx", "content": base64.b64encode(buf_alm.read()).decode('utf-8')}]
-            }
-            try:
-                resend.Emails.send(payload_alm)
-                logger.info(f'BACKUP: "{alm.nome}" enviado cc={cc_alm}')
-                enviados += 1
-            except Exception as e:
-                logger.info(f'BACKUP: erro "{alm.nome}" — {e}')
-                erros += 1
+        part = MIMEBase('application', 'octet-stream')
+        part.set_payload(conteudo)
+        encoders.encode_base64(part)
+        part.add_header('Content-Disposition',
+                        f'attachment; filename="backup_completo_{date.today()}.xlsx"')
+        msg.attach(part)
+
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+            smtp.login(remetente, senha_app)
+            smtp.send_message(msg)
+
+        logger.info(f'BACKUP: ✅ enviado com sucesso para {len(lista_dest)} destinatários.')
+        return True, None
 
     except Exception as e:
-        logger.info(f'BACKUP: erro geral — {e}')
+        logger.error(f'BACKUP: ❌ erro ao enviar — {e}')
         return False, str(e)
-
-    return erros == 0, None
 
 @app.route('/admin/seed-colaboradores', methods=['POST'])
 @admin_required

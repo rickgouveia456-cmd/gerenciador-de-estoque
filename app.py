@@ -2831,12 +2831,17 @@ def enviar_backup_por_almoxarifado():
 
     def _enviar(destinatarios, assunto, corpo, buf_excel, nome_arquivo):
         """Envia um email com anexo Excel para a lista de destinatários."""
+        if not destinatarios:
+            logger.warning(f'BACKUP: lista de destinatários vazia para "{assunto}"')
+            return
         buf_excel.seek(0)
         msg = MIMEMultipart()
         msg['From']    = remetente
-        msg['To']      = destinatarios[0]
-        if len(destinatarios) > 1:
-            msg['Bcc'] = ', '.join(destinatarios[1:])
+        msg['To']      = remetente  # sempre envia para o remetente
+        # Todos os outros em BCC
+        todos = list(set(destinatarios) | {remetente})
+        if len(todos) > 1:
+            msg['Bcc'] = ', '.join(d for d in todos if d != remetente)
         msg['Subject'] = assunto
         msg.attach(MIMEText(corpo, 'plain', 'utf-8'))
         part = MIMEBase('application', 'octet-stream')
@@ -2846,7 +2851,8 @@ def enviar_backup_por_almoxarifado():
         msg.attach(part)
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
             smtp.login(remetente, senha_app)
-            smtp.send_message(msg)
+            smtp.sendmail(remetente, todos, msg.as_string())
+        logger.info(f'BACKUP: enviado para {todos}')
 
     erros = 0
 

@@ -2822,7 +2822,7 @@ def enviar_backup_por_almoxarifado():
     from email import encoders
 
     remetente = os.environ.get('BACKUP_EMAIL_FROM', 'rickgouveia157@gmail.com')
-    senha_app = os.environ.get('BACKUP_EMAIL_PASS', '')
+    senha_app = os.environ.get('BACKUP_EMAIL_PASS', '').replace(' ', '')  # remove espaços da senha de app
     hoje      = date.today().strftime('%d/%m/%Y')
 
     if not senha_app:

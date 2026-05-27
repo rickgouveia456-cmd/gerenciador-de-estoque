@@ -3025,20 +3025,14 @@ def backup_manual():
         acao = request.form.get('acao', 'download')
 
         if acao == 'email':
-            import threading
-            def _enviar_bg():
-                with app.app_context():
-                    try:
-                        ok, erro_msg = enviar_backup_por_almoxarifado()
-                        if ok:
-                            logger.info('BACKUP MANUAL: ✅ enviado com sucesso em background.')
-                        else:
-                            logger.error(f'BACKUP MANUAL: ❌ erro — {erro_msg}')
-                    except Exception as e:
-                        logger.error(f'BACKUP MANUAL: ❌ exceção — {e}')
-            t = threading.Thread(target=_enviar_bg, daemon=True)
-            t.start()
-            flash('✅ Backup sendo enviado em segundo plano! Verifique seu email em alguns minutos.', 'success')
+            try:
+                ok, erro_msg = enviar_backup_por_almoxarifado()
+                if ok:
+                    flash('✅ Backup enviado com sucesso! Verifique seu email.', 'success')
+                else:
+                    flash(f'❌ Erro ao enviar: {erro_msg}', 'danger')
+            except Exception as e:
+                flash(f'❌ Erro: {str(e)}', 'danger')
             return redirect(url_for('backup_manual'))
 
         # Download direto

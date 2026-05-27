@@ -2809,81 +2809,115 @@ def _smtp_connect():
 
 
 def enviar_backup_por_almoxarifado():
-    """Envia backup via Gmail SMTP para todos os usuários com email cadastrado."""
+    """Envia backup via Gmail SMTP personalizado por perfil:
+    - Admin → backup completo (todos os almoxarifados)
+    - Almoxarife → backup só do seu almoxarifado
+    - Engenheiro/Colaborador → backup do almoxarifado vinculado
+    - Emails fixos da equipe → backup completo
+    """
     import smtplib
     from email.mime.multipart import MIMEMultipart
     from email.mime.base import MIMEBase
     from email.mime.text import MIMEText
     from email import encoders
 
-    remetente  = os.environ.get('BACKUP_EMAIL_FROM', 'rickgouveia157@gmail.com')
-    senha_app  = os.environ.get('BACKUP_EMAIL_PASS', '')
-    hoje       = date.today().strftime('%d/%m/%Y')
+    remetente = os.environ.get('BACKUP_EMAIL_FROM', 'rickgouveia157@gmail.com')
+    senha_app = os.environ.get('BACKUP_EMAIL_PASS', '')
+    hoje      = date.today().strftime('%d/%m/%Y')
 
     if not senha_app:
         logger.warning('BACKUP: BACKUP_EMAIL_PASS não configurada.')
         return False, 'Variável BACKUP_EMAIL_PASS não configurada no Railway.'
 
-    # Coletar todos os destinatários com email
-    destinatarios = set()
-    destinatarios.add(remetente)  # sempre inclui o próprio remetente
-    for u in Usuario.query.filter_by(ativo=True).all():
-        if u.email and u.email.strip():
-            destinatarios.add(u.email.strip())
-
-    # Emails fixos da equipe
-    emails_fixos = [
-        'simao.reis@stanza.com.br',
-        'bianca.melo@stanza.com.br',
-        'deyvid.lopes@stanza.com.br',
-        'henrique.silva@stanza.com.br',
-        'ariel.apolonio@stanza.com.br',
-        'alisson.guimaraes@stanza.com.br',
-        'laura.santos@stanza.com.br',
-        'alanderson.santos@stanza.com.br',
-    ]
-    for e in emails_fixos:
-        destinatarios.add(e)
-
-    lista_dest = sorted(destinatarios)
-    logger.info(f'BACKUP: enviando para {len(lista_dest)} destinatários: {lista_dest}')
-
-    try:
-        buf = gerar_excel_backup()
-        buf.seek(0)
-        conteudo = buf.read()
-
+    def _enviar(destinatarios, assunto, corpo, buf_excel, nome_arquivo):
+        """Envia um email com anexo Excel para a lista de destinatários."""
+        buf_excel.seek(0)
         msg = MIMEMultipart()
         msg['From']    = remetente
-        msg['To']      = remetente
-        msg['Bcc']     = ', '.join(d for d in lista_dest if d != remetente)
-        msg['Subject'] = f'Backup Completo Estoque Logi-Prime — {hoje}'
-
-        corpo = (
-            f'Backup automático do sistema de estoque.\n'
-            f'Data: {datetime.now().strftime("%d/%m/%Y %H:%M")}\n\n'
-            f'Este arquivo contém todos os almoxarifados.\n'
-            f'Guarde em local seguro.'
-        )
+        msg['To']      = destinatarios[0]
+        if len(destinatarios) > 1:
+            msg['Bcc'] = ', '.join(destinatarios[1:])
+        msg['Subject'] = assunto
         msg.attach(MIMEText(corpo, 'plain', 'utf-8'))
-
         part = MIMEBase('application', 'octet-stream')
-        part.set_payload(conteudo)
+        part.set_payload(buf_excel.read())
         encoders.encode_base64(part)
-        part.add_header('Content-Disposition',
-                        f'attachment; filename="backup_completo_{date.today()}.xlsx"')
+        part.add_header('Content-Disposition', f'attachment; filename="{nome_arquivo}"')
         msg.attach(part)
-
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
             smtp.login(remetente, senha_app)
             smtp.send_message(msg)
 
-        logger.info(f'BACKUP: ✅ enviado com sucesso para {len(lista_dest)} destinatários.')
-        return True, None
+    erros = 0
+
+    try:
+        # ── 1. Admins + emails fixos da equipe → backup COMPLETO ──
+        emails_admin = [u.email for u in Usuario.query.filter_by(perfil='admin', ativo=True).all() if u.email]
+        emails_fixos = [
+            'simao.reis@stanza.com.br', 'bianca.melo@stanza.com.br',
+            'deyvid.lopes@stanza.com.br', 'henrique.silva@stanza.com.br',
+            'ariel.apolonio@stanza.com.br', 'alisson.guimaraes@stanza.com.br',
+            'laura.santos@stanza.com.br', 'alanderson.santos@stanza.com.br',
+            remetente,
+        ]
+        dest_completo = list(set(emails_admin + emails_fixos))
+        buf = gerar_excel_backup()
+        try:
+            _enviar(dest_completo,
+                    f'Backup Completo Estoque — {hoje}',
+                    f'Backup automático completo.\nData: {datetime.now().strftime("%d/%m/%Y %H:%M")}\nContém todos os almoxarifados.',
+                    buf, f'backup_completo_{date.today()}.xlsx')
+            logger.info(f'BACKUP: completo enviado para {dest_completo}')
+        except Exception as e:
+            logger.error(f'BACKUP: erro backup completo — {e}')
+            erros += 1
+
+        # ── 2. Almoxarifes → backup só do SEU almoxarifado ──
+        for alm in Almoxarifado.query.all():
+            dest_alm = [u.email for u in alm.usuarios
+                        if u.perfil == 'almoxarife' and u.ativo and u.email
+                        and u.email not in dest_completo]
+            if not dest_alm:
+                continue
+            buf_alm = gerar_excel_backup_almoxarifado(alm)
+            try:
+                _enviar(dest_alm,
+                        f'Backup {alm.nome} — {hoje}',
+                        f'Backup do almoxarifado: {alm.nome}\nData: {datetime.now().strftime("%d/%m/%Y %H:%M")}',
+                        buf_alm, f'backup_{alm.nome.replace(" ","_")}_{date.today()}.xlsx')
+                logger.info(f'BACKUP: "{alm.nome}" enviado para {dest_alm}')
+            except Exception as e:
+                logger.error(f'BACKUP: erro "{alm.nome}" — {e}')
+                erros += 1
+
+        # ── 3. Engenheiros/Colaboradores → backup do almoxarifado vinculado ──
+        for u in Usuario.query.filter(
+            Usuario.perfil.in_(['colaborador']),
+            Usuario.ativo == True,
+            Usuario.email != None,
+            Usuario.almoxarifado_id != None
+        ).all():
+            if u.email in dest_completo:
+                continue
+            alm = u.almoxarifado
+            if not alm:
+                continue
+            buf_eng = gerar_excel_backup_almoxarifado(alm)
+            try:
+                _enviar([u.email],
+                        f'Backup {alm.nome} — {hoje}',
+                        f'Backup do almoxarifado: {alm.nome}\nData: {datetime.now().strftime("%d/%m/%Y %H:%M")}',
+                        buf_eng, f'backup_{alm.nome.replace(" ","_")}_{date.today()}.xlsx')
+                logger.info(f'BACKUP: engenheiro {u.email} recebeu backup de "{alm.nome}"')
+            except Exception as e:
+                logger.error(f'BACKUP: erro engenheiro {u.email} — {e}')
+                erros += 1
 
     except Exception as e:
-        logger.error(f'BACKUP: ❌ erro ao enviar — {e}')
+        logger.error(f'BACKUP: erro geral — {e}')
         return False, str(e)
+
+    return erros == 0, None
 
 @app.route('/admin/seed-colaboradores', methods=['POST'])
 @admin_required

@@ -3025,15 +3025,20 @@ def backup_manual():
         acao = request.form.get('acao', 'download')
 
         if acao == 'email':
-            try:
-                ok, erro_msg = enviar_backup_por_almoxarifado()
-                if ok:
-                    flash('✅ Backup enviado por email com sucesso! Admins receberam o backup completo e cada almoxarife recebeu o seu.', 'success')
-                else:
-                    detalhe = f' Detalhe: {erro_msg}' if erro_msg else ' Verifique as configurações BACKUP_EMAIL_FROM e BACKUP_EMAIL_PASS no Railway.'
-                    flash(f'❌ Erro ao enviar email.{detalhe}', 'danger')
-            except Exception as e:
-                flash(f'❌ Erro inesperado ao enviar email: {str(e)}', 'danger')
+            import threading
+            def _enviar_bg():
+                with app.app_context():
+                    try:
+                        ok, erro_msg = enviar_backup_por_almoxarifado()
+                        if ok:
+                            logger.info('BACKUP MANUAL: ✅ enviado com sucesso em background.')
+                        else:
+                            logger.error(f'BACKUP MANUAL: ❌ erro — {erro_msg}')
+                    except Exception as e:
+                        logger.error(f'BACKUP MANUAL: ❌ exceção — {e}')
+            t = threading.Thread(target=_enviar_bg, daemon=True)
+            t.start()
+            flash('✅ Backup sendo enviado em segundo plano! Verifique seu email em alguns minutos.', 'success')
             return redirect(url_for('backup_manual'))
 
         # Download direto

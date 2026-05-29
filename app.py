@@ -297,6 +297,30 @@ class Colaborador(db.Model):
     ativo = db.Column(db.Boolean, default=True)
     data_cadastro = db.Column(db.DateTime, default=agora)
 
+class Ferramenta(db.Model):
+    """Frota de ferramentas e máquinas por almoxarifado."""
+    id = db.Column(db.Integer, primary_key=True)
+    identificacao = db.Column(db.String(50), nullable=False)  # ID/patrimônio
+    nome = db.Column(db.String(200), nullable=False)
+    almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=False)
+    almoxarifado = db.relationship('Almoxarifado', backref='ferramentas')
+    status = db.Column(db.String(20), default='disponivel')   # disponivel | em_uso | atrasado
+    responsavel_atual = db.Column(db.String(100))
+    data_saida = db.Column(db.DateTime, nullable=True)        # quando foi retirada
+    observacao = db.Column(db.String(200))
+    ativo = db.Column(db.Boolean, default=True)
+    data_cadastro = db.Column(db.DateTime, default=agora)
+    historico = db.relationship('HistoricoFerramenta', backref='ferramenta', lazy=True, order_by='HistoricoFerramenta.data_saida.desc()')
+
+class HistoricoFerramenta(db.Model):
+    """Registro de cada saída/devolução de ferramenta."""
+    id = db.Column(db.Integer, primary_key=True)
+    ferramenta_id = db.Column(db.Integer, db.ForeignKey('ferramenta.id'), nullable=False)
+    colaborador = db.Column(db.String(100), nullable=False)
+    data_saida = db.Column(db.DateTime, nullable=False)
+    data_devolucao = db.Column(db.DateTime, nullable=True)
+    registrado_por = db.Column(db.String(100))
+
 class AcessoExtra(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
@@ -523,8 +547,46 @@ def run_migrations():
 
             # ── Campo devolvido em movimentacao ──────────────────────────────
             safe_exec(conn, "ALTER TABLE movimentacao ADD COLUMN devolvido BOOLEAN")
+
+            # ── Tabela ferramentas ────────────────────────────────────────────
+            if is_pg:
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS ferramenta (
+                        id SERIAL PRIMARY KEY,
+                        identificacao VARCHAR(50) NOT NULL,
+                        nome VARCHAR(200) NOT NULL,
+                        almoxarifado_id INTEGER NOT NULL REFERENCES almoxarifado(id),
+                        status VARCHAR(20) DEFAULT 'disponivel',
+                        responsavel_atual VARCHAR(100),
+                        observacao VARCHAR(200),
+                        ativo BOOLEAN DEFAULT TRUE,
+                        data_cadastro TIMESTAMP
+                    )
+                """)
+            else:
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS ferramenta (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        identificacao VARCHAR(50) NOT NULL,
+                        nome VARCHAR(200) NOT NULL,
+                        almoxarifado_id INTEGER NOT NULL REFERENCES almoxarifado(id),
+                        status VARCHAR(20) DEFAULT 'disponivel',
+                        responsavel_atual VARCHAR(100),
+                        observacao VARCHAR(200),
+                        ativo BOOLEAN DEFAULT TRUE,
+                        data_cadastro DATETIME
+                    )
+                """)
             # ── Campo tipo em colaborador ─────────────────────────────────────
             safe_exec(conn, "ALTER TABLE colaborador ADD COLUMN tipo VARCHAR(30) DEFAULT 'peao'")
+            # ── Campo data_saida em ferramenta ────────────────────────────────
+            safe_exec(conn, "ALTER TABLE ferramenta ADD COLUMN data_saida TIMESTAMP")
+            if not is_pg:
+                safe_exec(conn, "ALTER TABLE ferramenta ADD COLUMN data_saida DATETIME")
+            # ── Campo data_saida em ferramenta ────────────────────────────────
+            safe_exec(conn, "ALTER TABLE ferramenta ADD COLUMN data_saida TIMESTAMP")
+            if not is_pg:
+                safe_exec(conn, "ALTER TABLE ferramenta ADD COLUMN data_saida DATETIME")
 
     except Exception as e:
         logger.error(f'Migração: {e}')
@@ -2087,6 +2149,103 @@ def api_colaboradores():
             nomes.append({'nome': r[0], 'funcao': '', 'escopo': '', 'tipo': ''})
 
     return jsonify(nomes[:12])
+
+# ── FROTA DE FERRAMENTAS ─────────────────────────────────────────────────────
+
+@app.route('/almoxarifado/<int:alm_id>/ferramentas')
+@login_required
+def ferramentas(alm_id):
+    u = usuario_atual()
+    alm = Almoxarifado.query.get_or_404(alm_id)
+    if u.perfil not in ('admin', 'almoxarife') and alm_id not in u.almoxarifados_permitidos():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('index'))
+    lista = Ferramenta.query.filter_by(almoxarifado_id=alm_id, ativo=True).order_by(Ferramenta.nome).all()
+    return render_template('ferramentas.html', almoxarifado=alm, ferramentas=lista)
+
+@app.route('/almoxarifado/<int:alm_id>/ferramentas/nova', methods=['GET', 'POST'])
+@login_required
+def nova_ferramenta(alm_id):
+    u = usuario_atual()
+    alm = Almoxarifado.query.get_or_404(alm_id)
+    if u.perfil not in ('admin', 'almoxarife'):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('ferramentas', alm_id=alm_id))
+    if request.method == 'POST':
+        f = Ferramenta(
+            identificacao=request.form['identificacao'].strip(),
+            nome=request.form['nome'].strip(),
+            almoxarifado_id=alm_id,
+            observacao=request.form.get('observacao', '').strip() or None
+        )
+        db.session.add(f)
+        db.session.commit()
+        flash(f'Ferramenta "{f.nome}" cadastrada!', 'success')
+        return redirect(url_for('ferramentas', alm_id=alm_id))
+    return render_template('ferramenta_form.html', almoxarifado=alm, ferramenta=None)
+
+@app.route('/ferramenta/<int:id>/status', methods=['POST'])
+@login_required
+def atualizar_status_ferramenta(id):
+    f = Ferramenta.query.get_or_404(id)
+    u = usuario_atual()
+    if u.perfil not in ('admin', 'almoxarife'):
+        return jsonify({'error': 'Acesso negado'}), 403
+    novo_status = request.form.get('status', 'disponivel')
+    responsavel = request.form.get('responsavel', '').strip()
+    if novo_status == 'em_uso':
+        f.status = 'em_uso'
+        f.responsavel_atual = responsavel
+        f.data_saida = agora()
+        # Registrar no histórico
+        db.session.add(HistoricoFerramenta(
+            ferramenta_id=f.id,
+            colaborador=responsavel,
+            data_saida=f.data_saida,
+            registrado_por=u.nome
+        ))
+    else:
+        # Fechar o registro aberto no histórico
+        hist = HistoricoFerramenta.query.filter_by(
+            ferramenta_id=f.id, data_devolucao=None
+        ).order_by(HistoricoFerramenta.data_saida.desc()).first()
+        if hist:
+            hist.data_devolucao = agora()
+        f.status = 'disponivel'
+        f.responsavel_atual = None
+        f.data_saida = None
+    db.session.commit()
+    data_saida_iso = f.data_saida.isoformat() if f.data_saida else None
+    return jsonify({'status': f.status, 'responsavel': f.responsavel_atual or '', 'data_saida': data_saida_iso})
+
+@app.route('/ferramenta/<int:id>/historico')
+@login_required
+def historico_ferramenta(id):
+    """Retorna o histórico de uso da ferramenta em JSON."""
+    f = Ferramenta.query.get_or_404(id)
+    hist = HistoricoFerramenta.query.filter_by(ferramenta_id=id).order_by(
+        HistoricoFerramenta.data_saida.desc()
+    ).limit(20).all()
+    return jsonify({
+        'ferramenta': f.nome,
+        'id': f.identificacao,
+        'historico': [{
+            'colaborador': h.colaborador,
+            'data_saida': h.data_saida.strftime('%d/%m/%Y %H:%M'),
+            'data_devolucao': h.data_devolucao.strftime('%d/%m/%Y %H:%M') if h.data_devolucao else None,
+            'registrado_por': h.registrado_por or '—'
+        } for h in hist]
+    })
+
+@app.route('/ferramenta/<int:id>/deletar', methods=['POST'])
+@admin_required
+def deletar_ferramenta(id):
+    f = Ferramenta.query.get_or_404(id)
+    alm_id = f.almoxarifado_id
+    f.ativo = False
+    db.session.commit()
+    flash(f'Ferramenta "{f.nome}" removida.', 'warning')
+    return redirect(url_for('ferramentas', alm_id=alm_id))
 
 # ── GERENCIAR COLABORADORES ──────────────────────────────────────────────────
 

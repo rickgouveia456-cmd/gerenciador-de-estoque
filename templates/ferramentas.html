@@ -1,0 +1,376 @@
+{% extends 'base.html' %}
+{% block title %}Frota — {{ almoxarifado.nome }}{% endblock %}
+{% block page_title %}🔧 Frota de Ferramentas — {{ almoxarifado.nome }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <a href="/almoxarifado/{{ almoxarifado.id }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Voltar ao Almoxarifado
+    </a>
+    {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
+    <a href="/almoxarifado/{{ almoxarifado.id }}/ferramentas/nova" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i> Nova Ferramenta
+    </a>
+    {% endif %}
+</div>
+
+<!-- Resumo -->
+<div class="row g-3 mb-4">
+    {% set disponiveis = ferramentas | selectattr('status', 'eq', 'disponivel') | list %}
+    {% set em_uso = ferramentas | selectattr('status', 'eq', 'em_uso') | list %}
+    <div class="col-4">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-3 fw-bold" style="color:var(--accent)">{{ ferramentas|length }}</div>
+            <div class="small text-muted">Total</div>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-3 fw-bold text-success">{{ disponiveis|length }}</div>
+            <div class="small text-muted">Disponíveis</div>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-3 fw-bold text-warning">{{ em_uso|length }}</div>
+            <div class="small text-muted">Em Uso</div>
+        </div>
+    </div>
+</div>
+
+{% if ferramentas %}
+<div class="mb-3">
+    <div class="input-group">
+        <span class="input-group-text border-end-0"><i class="bi bi-search text-muted"></i></span>
+        <input type="text" id="buscaFerramenta" class="form-control border-start-0"
+               placeholder="Pesquisar por ID ou nome..."
+               oninput="filtrar(this.value)">
+        <button class="btn btn-outline-secondary" type="button"
+                onclick="document.getElementById('buscaFerramenta').value=''; filtrar('')">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm d-none d-md-block">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Ferramenta</th>
+                    <th>Status</th>
+                    <th>Com quem</th>
+                    <th>⏱️ Prazo (24h)</th>
+                    <th>Observação</th>
+                    {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
+                    <th>Ações</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody id="tbodyFerr">
+                {% for f in ferramentas %}
+                <tr data-busca="{{ f.identificacao | lower }} {{ f.nome | lower }}"
+                    {% if f.status == 'em_uso' and f.data_saida %}
+                    data-saida="{{ f.data_saida.isoformat() }}"
+                    {% endif %}>
+                    <td><code>{{ f.identificacao }}</code></td>
+                    <td><strong>{{ f.nome }}</strong></td>
+                    <td>
+                        {% if f.status == 'disponivel' %}
+                            <span class="badge bg-success" id="badge_{{ f.id }}">🟢 Disponível</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark" id="badge_{{ f.id }}">🟡 Em Uso</span>
+                        {% endif %}
+                    </td>
+                    <td id="resp_{{ f.id }}" class="small">{{ f.responsavel_atual or '—' }}</td>
+                    <td id="prazo_{{ f.id }}">
+                        {% if f.status == 'em_uso' and f.data_saida %}
+                            <span class="badge" id="timer_{{ f.id }}">calculando...</span>
+                        {% else %}
+                            <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-muted small">{{ f.observacao or '—' }}</td>
+                    {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
+                    <td id="acoes_{{ f.id }}">
+                        {% if f.status == 'disponivel' %}
+                        <button class="btn btn-sm btn-warning" onclick="marcarEmUso({{ f.id }}, this)">
+                            <i class="bi bi-person-check me-1"></i> Dar Saída
+                        </button>
+                        {% else %}
+                        <button class="btn btn-sm btn-success" onclick="marcarDisponivel({{ f.id }}, this)">
+                            <i class="bi bi-arrow-return-left me-1"></i> Devolver
+                        </button>
+                        {% endif %}
+                        <button class="btn btn-sm btn-outline-secondary" onclick="verHistorico({{ f.id }})" title="Histórico">
+                            <i class="bi bi-three-dots-vertical"></i>
+                        </button>
+                        {% if usuario_atual.perfil == 'admin' %}
+                        <form action="/ferramenta/{{ f.id }}/deletar" method="POST" class="d-inline"
+                              onsubmit="return confirm('Remover ferramenta?')">
+                            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div id="semResultados" class="text-center py-4 text-muted" style="display:none">
+            <i class="bi bi-search fs-2 d-block mb-2"></i>Nenhuma ferramenta encontrada.
+        </div>
+    </div>
+</div>
+
+<!-- Cards Mobile -->
+<div class="d-md-none">
+    {% for f in ferramentas %}
+    <div class="card border-0 shadow-sm mb-3 {% if f.status == 'em_uso' %}border-warning{% endif %}">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                    <div class="fw-bold">{{ f.nome }}</div>
+                    <code class="small text-muted">{{ f.identificacao }}</code>
+                </div>
+                {% if f.status == 'disponivel' %}
+                    <span class="badge bg-success">🟢 Disponível</span>
+                {% else %}
+                    <span class="badge bg-warning text-dark">🟡 Em Uso</span>
+                {% endif %}
+            </div>
+            {% if f.responsavel_atual %}
+            <div class="small text-muted mb-1"><i class="bi bi-person me-1"></i>{{ f.responsavel_atual }}</div>
+            {% endif %}
+            {% if f.status == 'em_uso' and f.data_saida %}
+            <div class="mb-2" id="prazo_mob_{{ f.id }}" data-saida="{{ f.data_saida.isoformat() }}"></div>
+            {% endif %}
+            {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
+            <div class="d-flex gap-2 mt-2">
+                {% if f.status == 'disponivel' %}
+                <button class="btn btn-sm btn-warning flex-fill" onclick="marcarEmUso({{ f.id }}, this)">
+                    <i class="bi bi-person-check me-1"></i> Dar Saída
+                </button>
+                {% else %}
+                <button class="btn btn-sm btn-success flex-fill" onclick="marcarDisponivel({{ f.id }}, this)">
+                    <i class="bi bi-arrow-return-left me-1"></i> Devolver
+                </button>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% else %}
+<div class="card border-0 shadow-sm">
+    <div class="text-center py-5 text-muted">
+        <i class="bi bi-tools fs-1 d-block mb-2"></i>
+        Nenhuma ferramenta cadastrada.
+        {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
+        <br><a href="/almoxarifado/{{ almoxarifado.id }}/ferramentas/nova" class="btn btn-primary mt-3">
+            <i class="bi bi-plus-lg me-1"></i> Cadastrar Primeira Ferramenta
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Modal responsável -->
+<div class="modal fade" id="modalResponsavel" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header" style="background:var(--accent);color:#fff">
+                <h6 class="modal-title fw-bold"><i class="bi bi-person-check me-2"></i>Quem está retirando?</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="inputResponsavel" class="form-control"
+                       placeholder="Nome do colaborador" autocomplete="off">
+                <div id="sugestoesResp" class="list-group mt-1" style="max-height:150px;overflow-y:auto"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="confirmarSaida()">Confirmar Saída</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Modal Histórico -->
+<div class="modal fade" id="modalHistorico" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background:var(--accent);color:#fff">
+                <h6 class="modal-title fw-bold"><i class="bi bi-clock-history me-2"></i>Histórico de Uso</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0" id="historicoBody">
+                <div class="text-center text-muted py-3">Carregando...</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let _ferrId = null;
+
+// ── Contador regressivo 24h ───────────────────────────────────────────────────
+function atualizarContadores() {
+    document.querySelectorAll('[data-saida]').forEach(el => {
+        const saida = new Date(el.dataset.saida);
+        const limite = new Date(saida.getTime() + 24 * 60 * 60 * 1000);
+        const agora = new Date();
+        const diff = limite - agora;
+        const ferrId = el.id?.replace('prazo_mob_', '') || el.querySelector('[id^="timer_"]')?.id?.replace('timer_', '');
+
+        // Encontrar o badge do timer
+        const timerId = el.id?.startsWith('prazo_mob_')
+            ? null
+            : el.querySelector ? el.querySelector('[id^="timer_"]')?.id : null;
+
+        // Para desktop: buscar pelo id da linha
+        const rowId = el.closest('tr')?.querySelector('[id^="timer_"]')?.id?.replace('timer_', '');
+        const timerEl = rowId ? document.getElementById(`timer_${rowId}`) : null;
+        const badgeEl = el.id?.startsWith('prazo_mob_') ? el : timerEl;
+
+        if (!badgeEl) return;
+
+        if (diff <= 0) {
+            // Atrasado
+            const horas = Math.abs(Math.floor(diff / 3600000));
+            const mins = Math.abs(Math.floor((diff % 3600000) / 60000));
+            badgeEl.className = 'badge bg-danger alert-pulse';
+            badgeEl.innerHTML = `⚠️ ATRASADO ${horas}h${mins}m`;
+        } else {
+            const horas = Math.floor(diff / 3600000);
+            const mins = Math.floor((diff % 3600000) / 60000);
+            const secs = Math.floor((diff % 60000) / 1000);
+            if (diff < 3 * 3600000) {
+                badgeEl.className = 'badge bg-warning text-dark';
+            } else {
+                badgeEl.className = 'badge bg-info text-dark';
+            }
+            badgeEl.innerHTML = `⏱️ ${String(horas).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+        }
+    });
+}
+setInterval(atualizarContadores, 1000);
+atualizarContadores();
+
+// ── Filtro ────────────────────────────────────────────────────────────────────
+function filtrar(q) {
+    q = q.toLowerCase().trim();
+    const rows = document.querySelectorAll('#tbodyFerr tr');
+    let vis = 0;
+    rows.forEach(tr => {
+        const ok = tr.dataset.busca.includes(q);
+        tr.style.display = ok ? '' : 'none';
+        if (ok) vis++;
+    });
+    document.getElementById('semResultados').style.display = vis === 0 ? '' : 'none';
+}
+
+// ── Dar Saída ─────────────────────────────────────────────────────────────────
+function marcarEmUso(id, btn) {
+    _ferrId = id;
+    document.getElementById('inputResponsavel').value = '';
+    document.getElementById('sugestoesResp').innerHTML = '';
+    new bootstrap.Modal(document.getElementById('modalResponsavel')).show();
+}
+
+function confirmarSaida() {
+    const resp = document.getElementById('inputResponsavel').value.trim();
+    if (!resp) { alert('Informe o nome do colaborador.'); return; }
+    const csrf = document.querySelector('input[name="csrf_token"]')?.value || '';
+    fetch(`/ferramenta/${_ferrId}/status`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: `status=em_uso&responsavel=${encodeURIComponent(resp)}&csrf_token=${csrf}`
+    }).then(r => r.json()).then(data => {
+        bootstrap.Modal.getInstance(document.getElementById('modalResponsavel')).hide();
+        document.getElementById(`badge_${_ferrId}`).outerHTML =
+            `<span class="badge bg-warning text-dark" id="badge_${_ferrId}">🟡 Em Uso</span>`;
+        document.getElementById(`resp_${_ferrId}`).textContent = data.responsavel;
+        // Adicionar timer
+        const prazoEl = document.getElementById(`prazo_${_ferrId}`);
+        if (prazoEl && data.data_saida) {
+            prazoEl.innerHTML = `<span class="badge bg-info text-dark" id="timer_${_ferrId}">⏱️ calculando...</span>`;
+            prazoEl.closest('tr').dataset.saida = data.data_saida;
+        }
+        // Atualizar botão
+        document.getElementById(`acoes_${_ferrId}`).querySelector('button').outerHTML =
+            `<button class="btn btn-sm btn-success" onclick="marcarDisponivel(${_ferrId}, this)">
+                <i class="bi bi-arrow-return-left me-1"></i> Devolver</button>`;
+        atualizarContadores();
+    });
+}
+
+// ── Devolver ──────────────────────────────────────────────────────────────────
+function marcarDisponivel(id, btn) {
+    if (!confirm('Confirmar devolução?')) return;
+    const csrf = document.querySelector('input[name="csrf_token"]')?.value || '';
+    fetch(`/ferramenta/${id}/status`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: `status=disponivel&responsavel=&csrf_token=${csrf}`
+    }).then(r => r.json()).then(() => {
+        document.getElementById(`badge_${id}`).outerHTML =
+            `<span class="badge bg-success" id="badge_${id}">🟢 Disponível</span>`;
+        document.getElementById(`resp_${id}`).textContent = '—';
+        const prazoEl = document.getElementById(`prazo_${id}`);
+        if (prazoEl) prazoEl.innerHTML = '<span class="text-muted small">—</span>';
+        const tr = document.querySelector(`#tbodyFerr tr[data-saida]`);
+        if (tr) delete tr.dataset.saida;
+        btn.outerHTML = `<button class="btn btn-sm btn-warning" onclick="marcarEmUso(${id}, this)">
+            <i class="bi bi-person-check me-1"></i> Dar Saída</button>`;
+    });
+}
+
+// ── Histórico (3 pontinhos) ────────────────────────────────────────────────
+function verHistorico(id) {
+    const body = document.getElementById('historicoBody');
+    body.innerHTML = '<div class="text-center text-muted py-3"><i class="bi bi-hourglass-split"></i> Carregando...</div>';
+    new bootstrap.Modal(document.getElementById('modalHistorico')).show();
+    fetch(`/ferramenta/${id}/historico`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.historico.length === 0) {
+                body.innerHTML = '<div class="text-center text-muted py-3"><i class="bi bi-inbox fs-2 d-block mb-2"></i>Nenhum registro de uso.</div>';
+                return;
+            }
+            let html = `<h6 class="fw-bold mb-3">${data.ferramenta} <code class="small">${data.id}</code></h6>`;
+            html += '<table class="table table-sm table-bordered mb-0"><thead class="table-dark"><tr><th>Colaborador</th><th>Saída</th><th>Devolução</th><th>Registrado por</th></tr></thead><tbody>';
+            data.historico.forEach(h => {
+                const devol = h.data_devolucao
+                    ? `<span class="badge bg-success">✅ ${h.data_devolucao}</span>`
+                    : `<span class="badge bg-danger">❌ Pendente</span>`;
+                html += `<tr><td class="fw-semibold">${h.colaborador}</td><td class="small">${h.data_saida}</td><td>${devol}</td><td class="small text-muted">${h.registrado_por}</td></tr>`;
+            });
+            html += '</tbody></table>';
+            body.innerHTML = html;
+        })
+        .catch(() => { body.innerHTML = '<div class="text-center text-danger py-3">Erro ao carregar histórico.</div>'; });
+}
+
+// ── Autocomplete ──────────────────────────────────────────────────────────────
+document.getElementById('inputResponsavel')?.addEventListener('input', function() {
+    const q = this.value.trim();
+    const lista = document.getElementById('sugestoesResp');
+    if (q.length < 1) { lista.innerHTML = ''; return; }
+    fetch(`/api/colaboradores?q=${encodeURIComponent(q)}`)
+        .then(r => r.json()).then(data => {
+            lista.innerHTML = data.slice(0,5).map(c =>
+                `<button type="button" class="list-group-item list-group-item-action py-1 small"
+                         onclick="document.getElementById('inputResponsavel').value='${c.nome}';
+                                  document.getElementById('sugestoesResp').innerHTML=''">
+                    ${c.nome}${c.funcao ? ' — ' + c.funcao : ''}
+                </button>`
+            ).join('');
+        });
+});
+</script>
+{% endblock %}

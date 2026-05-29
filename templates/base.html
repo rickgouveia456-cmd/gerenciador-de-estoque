@@ -71,7 +71,12 @@
         {% for alm in sidebar_alms %}
         <a href="/almoxarifado/{{ alm.id }}" class="nav-link {% if request.endpoint == 'almoxarifado' and request.view_args.id == alm.id %}active{% endif %}">
             <i class="bi bi-archive me-2"></i>
-            <span>{{ alm.nome | truncate(22, True) }}</span>
+            <span>{{ alm.nome | truncate(20, True) }}</span>
+        </a>
+        <a href="/almoxarifado/{{ alm.id }}/ferramentas"
+           class="nav-link ps-4 py-1 {% if request.endpoint == 'ferramentas' and request.view_args.alm_id == alm.id %}active{% endif %}"
+           style="font-size:0.82rem">
+            <i class="bi bi-chevron-right me-1" style="font-size:0.7rem"></i>Ferramentas
         </a>
         {% endfor %}
         {% if usuario_atual and usuario_atual.perfil == 'admin' %}

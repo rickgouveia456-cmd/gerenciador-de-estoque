@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}Nova Ferramenta — {{ almoxarifado.nome }}{% endblock %}
+{% block page_title %}🔧 Nova Ferramenta{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header fw-bold text-white" style="background:var(--accent)">
+                <i class="bi bi-tools me-2"></i>Cadastrar Ferramenta — {{ almoxarifado.nome }}
+            </div>
+            <div class="card-body p-4">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">ID / Patrimônio *</label>
+                        <input type="text" name="identificacao" class="form-control" required
+                               placeholder="Ex: MOTO-001, FURAD-003">
+                        <div class="form-text">Identificação única da ferramenta/máquina</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Nome da Ferramenta *</label>
+                        <input type="text" name="nome" class="form-control" required
+                               placeholder="Ex: Furadeira de Impacto, Betoneira 400L">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Observação</label>
+                        <input type="text" name="observacao" class="form-control"
+                               placeholder="Ex: Número de série, cor, marca...">
+                    </div>
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i> Cadastrar
+                        </button>
+                        <a href="/almoxarifado/{{ almoxarifado.id }}/ferramentas" class="btn btn-outline-secondary">
+                            Cancelar
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

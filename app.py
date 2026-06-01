@@ -58,7 +58,9 @@ def configure_app(app):
     if not _secret:
         if os.environ.get('DATABASE_URL') or os.environ.get('URI_DO_BANCO_DE_DADOS'):
             raise RuntimeError('SECRET_KEY não definida em produção. Configure SECRET_KEY no Railway.')
-        _secret = 'dev-key-apenas-local'
+        # Desenvolvimento local: gera chave aleatória por sessão (não previsível)
+        import secrets as _secrets
+        _secret = _secrets.token_hex(32)
     app.secret_key = _secret
 
     # Railway fornece DATABASE_URL com prefixo "postgres://" (formato antigo),
@@ -78,6 +80,7 @@ def configure_app(app):
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('DATABASE_URL') or os.environ.get('URI_DO_BANCO_DE_DADOS'))
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=60)  # sessão expira em 60 min de inatividade
     app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 
 
@@ -98,6 +101,9 @@ def enforce_https_in_production():
         proto = request.headers.get('X-Forwarded-Proto')
         if proto and proto != 'https':
             return redirect(request.url.replace('http://', 'https://', 1), code=301)
+    # Renova a sessão a cada request para manter o timeout de inatividade
+    if 'usuario_id' in session:
+        session.modified = True
 
 
 def flash_html(message, category='info'):
@@ -119,6 +125,9 @@ def set_security_headers(response):
     response.headers['X-XSS-Protection'] = '1; mode=block'
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     response.headers['Strict-Transport-Security'] = 'max-age=63072000; includeSubDomains; preload'
+    response.headers['Permissions-Policy'] = (
+        'geolocation=(), microphone=(), camera=(), payment=(), usb=()'
+    )
     response.headers['Content-Security-Policy'] = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
@@ -151,6 +160,21 @@ def _register_attempt(ip: str):
 
 def _clear_attempts(ip: str):
     _login_attempts.pop(ip, None)
+
+# ── RATE LIMITING DE API ──────────────────────────────────────────────────────
+_api_calls: dict = {}
+_API_MAX = 120        # máximo de chamadas por janela
+_API_WINDOW = 60      # janela de 60 segundos
+
+def _check_api_rate(ip: str) -> bool:
+    """Retorna True se o IP excedeu o limite de chamadas de API."""
+    now = datetime.now().timestamp()
+    calls = [t for t in _api_calls.get(ip, []) if now - t < _API_WINDOW]
+    _api_calls[ip] = calls
+    if len(calls) >= _API_MAX:
+        return True
+    _api_calls[ip].append(now)
+    return False
 
 # ── FILTRO JINJA2 — formata quantidades sem ponto flutuante feio ─────────────
 @app.template_filter('fmt_qtd')
@@ -2098,6 +2122,8 @@ def exportar_almoxarifado(id):
 @app.route('/api/alertas')
 @login_required
 def api_alertas():
+    if _check_api_rate(request.remote_addr or '0.0.0.0'):
+        return jsonify({'error': 'Too many requests'}), 429
     itens = Item.query.filter(Item.quantidade <= Item.estoque_minimo, Item.ativo == True).all()
     return jsonify([{
         'id': i.id, 'nome': i.nome, 'codigo': i.codigo,
@@ -2135,6 +2161,8 @@ def api_almoxarife_notificacoes():
 @app.route('/api/colaboradores')
 @login_required
 def api_colaboradores():
+    if _check_api_rate(request.remote_addr or '0.0.0.0'):
+        return jsonify([]), 429
     """Autocomplete — busca colaboradores por nome, priorizando o escopo do usuário logado."""
     q = request.args.get('q', '').strip()
     u = usuario_atual()
@@ -2326,6 +2354,8 @@ def deletar_ferramenta(id):
 @app.route('/api/ferramenta/verificar-id')
 @login_required
 def verificar_id_ferramenta():
+    if _check_api_rate(request.remote_addr or '0.0.0.0'):
+        return jsonify({'disponivel': True}), 429
     """Verifica se um ID/patrimônio já está cadastrado em qualquer almoxarifado."""
     identificacao = request.args.get('id', '').strip()
     excluir_id = request.args.get('excluir', type=int)  # para edição futura

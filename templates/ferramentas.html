@@ -414,23 +414,35 @@ function confirmarManutencao() {
 function marcarDisponivel(id, btn) {
     if (!confirm('Confirmar devolução / conclusão?')) return;
     const csrf = document.querySelector('input[name="csrf_token"]')?.value || '';
+
+    // Desabilitar botão para evitar duplo clique
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Aguarde...'; }
+
     fetch(`/ferramenta/${id}/status`, {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         body: `status=disponivel&responsavel=&csrf_token=${csrf}`
-    }).then(r => r.json()).then(() => {
-        document.getElementById(`badge_${id}`).outerHTML =
-            `<span class="badge bg-success" id="badge_${id}">🟢 Disponível</span>`;
+    })
+    .then(r => {
+        if (!r.ok) throw new Error(`Erro HTTP ${r.status}`);
+        return r.json();
+    })
+    .then(() => {
+        // Atualizar badge
+        const badgeEl = document.getElementById(`badge_${id}`);
+        if (badgeEl) badgeEl.outerHTML = `<span class="badge bg-success" id="badge_${id}">🟢 Disponível</span>`;
+        // Limpar responsável
         const respEl = document.getElementById(`resp_${id}`);
         if (respEl) respEl.textContent = '—';
+        // Limpar prazo
         const prazoEl = document.getElementById(`prazo_${id}`);
         if (prazoEl) prazoEl.innerHTML = '<span class="text-muted small">—</span>';
-        // Remover data-saida da linha
-        const tr = document.querySelector(`#tbodyFerr tr`);
-        if (tr) delete tr.dataset.saida;
-        // Atualizar botões
+        // Remover data-saida da linha correta (busca pelo id da célula de ações)
         const acoesEl = document.getElementById(`acoes_${id}`);
         if (acoesEl) {
+            const tr = acoesEl.closest('tr');
+            if (tr) delete tr.dataset.saida;
+            // Atualizar botões
             acoesEl.innerHTML =
                 `<button class="btn btn-sm btn-warning" onclick="marcarEmUso(${id}, this)">
                     <i class="bi bi-person-check me-1"></i> Dar Saída</button>
@@ -439,6 +451,10 @@ function marcarDisponivel(id, btn) {
                  <button class="btn btn-sm btn-outline-secondary" onclick="verHistorico(${id})" title="Histórico">
                     <i class="bi bi-clock-history"></i></button>`;
         }
+    })
+    .catch(err => {
+        alert('Erro ao concluir: ' + err.message);
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Concluir'; }
     });
 }
 

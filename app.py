@@ -302,9 +302,10 @@ class Ferramenta(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     identificacao = db.Column(db.String(50), nullable=False)  # ID/patrimônio
     nome = db.Column(db.String(200), nullable=False)
+    empresa = db.Column(db.String(100))                       # empresa proprietária (vazio = própria)
     almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=False)
     almoxarifado = db.relationship('Almoxarifado', backref='ferramentas')
-    status = db.Column(db.String(20), default='disponivel')   # disponivel | em_uso | atrasado
+    status = db.Column(db.String(20), default='disponivel')   # disponivel | em_uso | atrasado | manutencao
     responsavel_atual = db.Column(db.String(100))
     data_saida = db.Column(db.DateTime, nullable=True)        # quando foi retirada
     observacao = db.Column(db.String(200))
@@ -313,13 +314,15 @@ class Ferramenta(db.Model):
     historico = db.relationship('HistoricoFerramenta', backref='ferramenta', lazy=True, order_by='HistoricoFerramenta.data_saida.desc()')
 
 class HistoricoFerramenta(db.Model):
-    """Registro de cada saída/devolução de ferramenta."""
+    """Registro de cada saída/devolução/manutenção de ferramenta."""
     id = db.Column(db.Integer, primary_key=True)
     ferramenta_id = db.Column(db.Integer, db.ForeignKey('ferramenta.id'), nullable=False)
     colaborador = db.Column(db.String(100), nullable=False)
     data_saida = db.Column(db.DateTime, nullable=False)
     data_devolucao = db.Column(db.DateTime, nullable=True)
     registrado_por = db.Column(db.String(100))
+    tipo_evento = db.Column(db.String(20), default='uso')     # uso | manutencao
+    motivo_manutencao = db.Column(db.String(300), nullable=True)
 
 class AcessoExtra(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -580,13 +583,45 @@ def run_migrations():
             # ── Campo tipo em colaborador ─────────────────────────────────────
             safe_exec(conn, "ALTER TABLE colaborador ADD COLUMN tipo VARCHAR(30) DEFAULT 'peao'")
             # ── Campo data_saida em ferramenta ────────────────────────────────
-            safe_exec(conn, "ALTER TABLE ferramenta ADD COLUMN data_saida TIMESTAMP")
-            if not is_pg:
+            if is_pg:
+                safe_exec(conn, "ALTER TABLE ferramenta ADD COLUMN data_saida TIMESTAMP")
+            else:
                 safe_exec(conn, "ALTER TABLE ferramenta ADD COLUMN data_saida DATETIME")
-            # ── Campo data_saida em ferramenta ────────────────────────────────
-            safe_exec(conn, "ALTER TABLE ferramenta ADD COLUMN data_saida TIMESTAMP")
-            if not is_pg:
-                safe_exec(conn, "ALTER TABLE ferramenta ADD COLUMN data_saida DATETIME")
+            # ── Campo empresa em ferramenta ───────────────────────────────────
+            safe_exec(conn, "ALTER TABLE ferramenta ADD COLUMN empresa VARCHAR(100)")
+
+            # ── Tabela historico_ferramenta ───────────────────────────────────
+            if is_pg:
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS historico_ferramenta (
+                        id SERIAL PRIMARY KEY,
+                        ferramenta_id INTEGER NOT NULL REFERENCES ferramenta(id),
+                        colaborador VARCHAR(100) NOT NULL,
+                        data_saida TIMESTAMP NOT NULL,
+                        data_devolucao TIMESTAMP,
+                        registrado_por VARCHAR(100),
+                        tipo_evento VARCHAR(20) DEFAULT 'uso',
+                        motivo_manutencao VARCHAR(300)
+                    )
+                """)
+            else:
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS historico_ferramenta (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        ferramenta_id INTEGER NOT NULL REFERENCES ferramenta(id),
+                        colaborador VARCHAR(100) NOT NULL,
+                        data_saida DATETIME NOT NULL,
+                        data_devolucao DATETIME,
+                        registrado_por VARCHAR(100),
+                        tipo_evento VARCHAR(20) DEFAULT 'uso',
+                        motivo_manutencao VARCHAR(300)
+                    )
+                """)
+            # ── Colunas novas em historico_ferramenta (bancos existentes) ────
+            safe_exec(conn, "ALTER TABLE historico_ferramenta ADD COLUMN tipo_evento VARCHAR(20) DEFAULT 'uso'")
+            safe_exec(conn, "ALTER TABLE historico_ferramenta ADD COLUMN motivo_manutencao VARCHAR(300)")
+            # Preencher tipo_evento nos registros antigos
+            safe_exec(conn, "UPDATE historico_ferramenta SET tipo_evento = 'uso' WHERE tipo_evento IS NULL")
 
     except Exception as e:
         logger.error(f'Migração: {e}')
@@ -2172,9 +2207,24 @@ def nova_ferramenta(alm_id):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('ferramentas', alm_id=alm_id))
     if request.method == 'POST':
+        identificacao = request.form['identificacao'].strip()
+        # Verificar duplicidade de ID em qualquer almoxarifado ativo
+        existente = Ferramenta.query.filter_by(identificacao=identificacao, ativo=True).first()
+        if existente:
+            alm_existente = existente.almoxarifado
+            flash(
+                f'⚠️ ID "{identificacao}" já está cadastrado: '
+                f'<strong>{existente.nome}</strong> — '
+                f'Almoxarifado: <strong>{alm_existente.nome}</strong> — '
+                f'Status: <strong>{existente.status.replace("_", " ").title()}</strong>',
+                'danger'
+            )
+            return render_template('ferramenta_form.html', almoxarifado=alm, ferramenta=None,
+                                   form_data=request.form)
         f = Ferramenta(
-            identificacao=request.form['identificacao'].strip(),
+            identificacao=identificacao,
             nome=request.form['nome'].strip(),
+            empresa=request.form.get('empresa', '').strip() or None,
             almoxarifado_id=alm_id,
             observacao=request.form.get('observacao', '').strip() or None
         )
@@ -2182,7 +2232,7 @@ def nova_ferramenta(alm_id):
         db.session.commit()
         flash(f'Ferramenta "{f.nome}" cadastrada!', 'success')
         return redirect(url_for('ferramentas', alm_id=alm_id))
-    return render_template('ferramenta_form.html', almoxarifado=alm, ferramenta=None)
+    return render_template('ferramenta_form.html', almoxarifado=alm, ferramenta=None, form_data={})
 
 @app.route('/ferramenta/<int:id>/status', methods=['POST'])
 @login_required
@@ -2193,19 +2243,39 @@ def atualizar_status_ferramenta(id):
         return jsonify({'error': 'Acesso negado'}), 403
     novo_status = request.form.get('status', 'disponivel')
     responsavel = request.form.get('responsavel', '').strip()
+    motivo = request.form.get('motivo', '').strip()
+
     if novo_status == 'em_uso':
         f.status = 'em_uso'
         f.responsavel_atual = responsavel
         f.data_saida = agora()
-        # Registrar no histórico
         db.session.add(HistoricoFerramenta(
             ferramenta_id=f.id,
             colaborador=responsavel,
             data_saida=f.data_saida,
-            registrado_por=u.nome
+            registrado_por=u.nome,
+            tipo_evento='uso'
+        ))
+    elif novo_status == 'manutencao':
+        # Fechar registro aberto se houver
+        hist_aberto = HistoricoFerramenta.query.filter_by(
+            ferramenta_id=f.id, data_devolucao=None
+        ).order_by(HistoricoFerramenta.data_saida.desc()).first()
+        if hist_aberto:
+            hist_aberto.data_devolucao = agora()
+        f.status = 'manutencao'
+        f.responsavel_atual = motivo or 'Em manutenção'
+        f.data_saida = agora()
+        db.session.add(HistoricoFerramenta(
+            ferramenta_id=f.id,
+            colaborador=u.nome,
+            data_saida=f.data_saida,
+            registrado_por=u.nome,
+            tipo_evento='manutencao',
+            motivo_manutencao=motivo or None
         ))
     else:
-        # Fechar o registro aberto no histórico
+        # Devolver / disponivel
         hist = HistoricoFerramenta.query.filter_by(
             ferramenta_id=f.id, data_devolucao=None
         ).order_by(HistoricoFerramenta.data_saida.desc()).first()
@@ -2214,6 +2284,7 @@ def atualizar_status_ferramenta(id):
         f.status = 'disponivel'
         f.responsavel_atual = None
         f.data_saida = None
+
     db.session.commit()
     data_saida_iso = f.data_saida.isoformat() if f.data_saida else None
     return jsonify({'status': f.status, 'responsavel': f.responsavel_atual or '', 'data_saida': data_saida_iso})
@@ -2229,11 +2300,14 @@ def historico_ferramenta(id):
     return jsonify({
         'ferramenta': f.nome,
         'id': f.identificacao,
+        'empresa': f.empresa or '',
         'historico': [{
             'colaborador': h.colaborador,
             'data_saida': h.data_saida.strftime('%d/%m/%Y %H:%M'),
             'data_devolucao': h.data_devolucao.strftime('%d/%m/%Y %H:%M') if h.data_devolucao else None,
-            'registrado_por': h.registrado_por or '—'
+            'registrado_por': h.registrado_por or '—',
+            'tipo_evento': h.tipo_evento or 'uso',
+            'motivo_manutencao': h.motivo_manutencao or ''
         } for h in hist]
     })
 
@@ -2246,6 +2320,39 @@ def deletar_ferramenta(id):
     db.session.commit()
     flash(f'Ferramenta "{f.nome}" removida.', 'warning')
     return redirect(url_for('ferramentas', alm_id=alm_id))
+
+@app.route('/api/ferramenta/verificar-id')
+@login_required
+def verificar_id_ferramenta():
+    """Verifica se um ID/patrimônio já está cadastrado em qualquer almoxarifado."""
+    identificacao = request.args.get('id', '').strip()
+    excluir_id = request.args.get('excluir', type=int)  # para edição futura
+    if not identificacao or identificacao == '__noop__':
+        return jsonify({'disponivel': True})
+    q = Ferramenta.query.filter_by(identificacao=identificacao, ativo=True)
+    if excluir_id:
+        q = q.filter(Ferramenta.id != excluir_id)
+    existente = q.first()
+    if existente:
+        return jsonify({
+            'disponivel': False,
+            'nome': existente.nome,
+            'almoxarifado': existente.almoxarifado.nome,
+            'status': existente.status,
+            'empresa': existente.empresa or 'Própria'
+        })
+    return jsonify({'disponivel': True})
+
+@app.route('/api/ferramentas/empresas')
+@login_required
+def api_empresas_ferramentas():
+    """Retorna lista de empresas já cadastradas nas ferramentas para autocomplete."""
+    q = request.args.get('q', '').strip()
+    empresas = db.session.query(Ferramenta.empresa)\
+        .filter(Ferramenta.ativo == True, Ferramenta.empresa != None)\
+        .distinct().all()
+    nomes = [e[0] for e in empresas if e[0] and q.lower() in e[0].lower()]
+    return jsonify(sorted(nomes)[:10])
 
 # ── GERENCIAR COLABORADORES ──────────────────────────────────────────────────
 

@@ -18,22 +18,29 @@
 <div class="row g-3 mb-4">
     {% set disponiveis = ferramentas | selectattr('status', 'eq', 'disponivel') | list %}
     {% set em_uso = ferramentas | selectattr('status', 'eq', 'em_uso') | list %}
-    <div class="col-4">
+    {% set manutencao = ferramentas | selectattr('status', 'eq', 'manutencao') | list %}
+    <div class="col-3">
         <div class="card border-0 shadow-sm text-center p-3">
             <div class="fs-3 fw-bold" style="color:var(--accent)">{{ ferramentas|length }}</div>
             <div class="small text-muted">Total</div>
         </div>
     </div>
-    <div class="col-4">
+    <div class="col-3">
         <div class="card border-0 shadow-sm text-center p-3">
             <div class="fs-3 fw-bold text-success">{{ disponiveis|length }}</div>
             <div class="small text-muted">Disponíveis</div>
         </div>
     </div>
-    <div class="col-4">
+    <div class="col-3">
         <div class="card border-0 shadow-sm text-center p-3">
             <div class="fs-3 fw-bold text-warning">{{ em_uso|length }}</div>
             <div class="small text-muted">Em Uso</div>
+        </div>
+    </div>
+    <div class="col-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-3 fw-bold text-danger">{{ manutencao|length }}</div>
+            <div class="small text-muted">Manutenção</div>
         </div>
     </div>
 </div>
@@ -43,7 +50,7 @@
     <div class="input-group">
         <span class="input-group-text border-end-0"><i class="bi bi-search text-muted"></i></span>
         <input type="text" id="buscaFerramenta" class="form-control border-start-0"
-               placeholder="Pesquisar por ID ou nome..."
+               placeholder="Pesquisar por ID, nome ou empresa..."
                oninput="filtrar(this.value)">
         <button class="btn btn-outline-secondary" type="button"
                 onclick="document.getElementById('buscaFerramenta').value=''; filtrar('')">
@@ -59,8 +66,9 @@
                 <tr>
                     <th>ID</th>
                     <th>Ferramenta</th>
+                    <th>Empresa</th>
                     <th>Status</th>
-                    <th>Com quem</th>
+                    <th>Com quem / Motivo</th>
                     <th>⏱️ Prazo (24h)</th>
                     <th>Observação</th>
                     {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
@@ -70,15 +78,24 @@
             </thead>
             <tbody id="tbodyFerr">
                 {% for f in ferramentas %}
-                <tr data-busca="{{ f.identificacao | lower }} {{ f.nome | lower }}"
+                <tr data-busca="{{ f.identificacao | lower }} {{ f.nome | lower }} {{ f.empresa | lower if f.empresa else '' }}"
                     {% if f.status == 'em_uso' and f.data_saida %}
                     data-saida="{{ f.data_saida.isoformat() }}"
                     {% endif %}>
                     <td><code>{{ f.identificacao }}</code></td>
                     <td><strong>{{ f.nome }}</strong></td>
                     <td>
+                        {% if f.empresa %}
+                            <span class="badge bg-secondary">{{ f.empresa }}</span>
+                        {% else %}
+                            <span class="badge bg-light text-success border border-success">Própria</span>
+                        {% endif %}
+                    </td>
+                    <td>
                         {% if f.status == 'disponivel' %}
                             <span class="badge bg-success" id="badge_{{ f.id }}">🟢 Disponível</span>
+                        {% elif f.status == 'manutencao' %}
+                            <span class="badge bg-danger" id="badge_{{ f.id }}">🔧 Manutenção</span>
                         {% else %}
                             <span class="badge bg-warning text-dark" id="badge_{{ f.id }}">🟡 Em Uso</span>
                         {% endif %}
@@ -98,13 +115,23 @@
                         <button class="btn btn-sm btn-warning" onclick="marcarEmUso({{ f.id }}, this)">
                             <i class="bi bi-person-check me-1"></i> Dar Saída
                         </button>
+                        <button class="btn btn-sm btn-danger" onclick="marcarManutencao({{ f.id }})">
+                            <i class="bi bi-tools me-1"></i> Manutenção
+                        </button>
+                        {% elif f.status == 'manutencao' %}
+                        <button class="btn btn-sm btn-success" onclick="marcarDisponivel({{ f.id }}, this)">
+                            <i class="bi bi-check-circle me-1"></i> Concluir
+                        </button>
                         {% else %}
                         <button class="btn btn-sm btn-success" onclick="marcarDisponivel({{ f.id }}, this)">
                             <i class="bi bi-arrow-return-left me-1"></i> Devolver
                         </button>
+                        <button class="btn btn-sm btn-danger" onclick="marcarManutencao({{ f.id }})">
+                            <i class="bi bi-tools me-1"></i> Manutenção
+                        </button>
                         {% endif %}
                         <button class="btn btn-sm btn-outline-secondary" onclick="verHistorico({{ f.id }})" title="Histórico">
-                            <i class="bi bi-three-dots-vertical"></i>
+                            <i class="bi bi-clock-history"></i>
                         </button>
                         {% if usuario_atual.perfil == 'admin' %}
                         <form action="/ferramenta/{{ f.id }}/deletar" method="POST" class="d-inline"
@@ -127,15 +154,22 @@
 <!-- Cards Mobile -->
 <div class="d-md-none">
     {% for f in ferramentas %}
-    <div class="card border-0 shadow-sm mb-3 {% if f.status == 'em_uso' %}border-warning{% endif %}">
+    <div class="card border-0 shadow-sm mb-3 {% if f.status == 'em_uso' %}border-warning{% elif f.status == 'manutencao' %}border-danger{% endif %}">
         <div class="card-body">
             <div class="d-flex justify-content-between align-items-start mb-2">
                 <div>
                     <div class="fw-bold">{{ f.nome }}</div>
                     <code class="small text-muted">{{ f.identificacao }}</code>
+                    {% if f.empresa %}
+                    <div class="small mt-1"><span class="badge bg-secondary">{{ f.empresa }}</span></div>
+                    {% else %}
+                    <div class="small mt-1"><span class="badge bg-light text-success border border-success">Própria</span></div>
+                    {% endif %}
                 </div>
                 {% if f.status == 'disponivel' %}
                     <span class="badge bg-success">🟢 Disponível</span>
+                {% elif f.status == 'manutencao' %}
+                    <span class="badge bg-danger">🔧 Manutenção</span>
                 {% else %}
                     <span class="badge bg-warning text-dark">🟡 Em Uso</span>
                 {% endif %}
@@ -147,16 +181,29 @@
             <div class="mb-2" id="prazo_mob_{{ f.id }}" data-saida="{{ f.data_saida.isoformat() }}"></div>
             {% endif %}
             {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
-            <div class="d-flex gap-2 mt-2">
+            <div class="d-flex gap-2 mt-2 flex-wrap">
                 {% if f.status == 'disponivel' %}
                 <button class="btn btn-sm btn-warning flex-fill" onclick="marcarEmUso({{ f.id }}, this)">
                     <i class="bi bi-person-check me-1"></i> Dar Saída
+                </button>
+                <button class="btn btn-sm btn-danger flex-fill" onclick="marcarManutencao({{ f.id }})">
+                    <i class="bi bi-tools me-1"></i> Manutenção
+                </button>
+                {% elif f.status == 'manutencao' %}
+                <button class="btn btn-sm btn-success flex-fill" onclick="marcarDisponivel({{ f.id }}, this)">
+                    <i class="bi bi-check-circle me-1"></i> Concluir Manutenção
                 </button>
                 {% else %}
                 <button class="btn btn-sm btn-success flex-fill" onclick="marcarDisponivel({{ f.id }}, this)">
                     <i class="bi bi-arrow-return-left me-1"></i> Devolver
                 </button>
+                <button class="btn btn-sm btn-danger flex-fill" onclick="marcarManutencao({{ f.id }})">
+                    <i class="bi bi-tools me-1"></i> Manutenção
+                </button>
                 {% endif %}
+                <button class="btn btn-sm btn-outline-secondary" onclick="verHistorico({{ f.id }})">
+                    <i class="bi bi-clock-history"></i>
+                </button>
             </div>
             {% endif %}
         </div>
@@ -178,7 +225,7 @@
 </div>
 {% endif %}
 
-<!-- Modal responsável -->
+<!-- Modal responsável (Dar Saída) -->
 <div class="modal fade" id="modalResponsavel" tabindex="-1">
     <div class="modal-dialog modal-sm">
         <div class="modal-content">
@@ -198,12 +245,37 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Manutenção -->
+<div class="modal fade" id="modalManutencao" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h6 class="modal-title fw-bold"><i class="bi bi-tools me-2"></i>Enviar para Manutenção</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <label class="form-label fw-semibold small">Motivo / Descrição do problema</label>
+                <textarea id="inputMotivo" class="form-control" rows="3"
+                          placeholder="Ex: Correia partida, motor com ruído, revisão preventiva..."></textarea>
+                <div class="form-text">Opcional — descreva o problema ou tipo de manutenção.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger btn-sm" onclick="confirmarManutencao()">
+                    <i class="bi bi-tools me-1"></i> Confirmar Manutenção
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Histórico -->
 <div class="modal fade" id="modalHistorico" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
             <div class="modal-header" style="background:var(--accent);color:#fff">
-                <h6 class="modal-title fw-bold"><i class="bi bi-clock-history me-2"></i>Histórico de Uso</h6>
+                <h6 class="modal-title fw-bold"><i class="bi bi-clock-history me-2"></i>Histórico de Movimentação</h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-0" id="historicoBody">
@@ -225,22 +297,11 @@ function atualizarContadores() {
         const limite = new Date(saida.getTime() + 24 * 60 * 60 * 1000);
         const agora = new Date();
         const diff = limite - agora;
-        const ferrId = el.id?.replace('prazo_mob_', '') || el.querySelector('[id^="timer_"]')?.id?.replace('timer_', '');
-
-        // Encontrar o badge do timer
-        const timerId = el.id?.startsWith('prazo_mob_')
-            ? null
-            : el.querySelector ? el.querySelector('[id^="timer_"]')?.id : null;
-
-        // Para desktop: buscar pelo id da linha
         const rowId = el.closest('tr')?.querySelector('[id^="timer_"]')?.id?.replace('timer_', '');
         const timerEl = rowId ? document.getElementById(`timer_${rowId}`) : null;
         const badgeEl = el.id?.startsWith('prazo_mob_') ? el : timerEl;
-
         if (!badgeEl) return;
-
         if (diff <= 0) {
-            // Atrasado
             const horas = Math.abs(Math.floor(diff / 3600000));
             const mins = Math.abs(Math.floor((diff % 3600000) / 60000));
             badgeEl.className = 'badge bg-danger alert-pulse';
@@ -249,11 +310,7 @@ function atualizarContadores() {
             const horas = Math.floor(diff / 3600000);
             const mins = Math.floor((diff % 3600000) / 60000);
             const secs = Math.floor((diff % 60000) / 1000);
-            if (diff < 3 * 3600000) {
-                badgeEl.className = 'badge bg-warning text-dark';
-            } else {
-                badgeEl.className = 'badge bg-info text-dark';
-            }
+            badgeEl.className = diff < 3 * 3600000 ? 'badge bg-warning text-dark' : 'badge bg-info text-dark';
             badgeEl.innerHTML = `⏱️ ${String(horas).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
         }
     });
@@ -295,13 +352,11 @@ function confirmarSaida() {
         document.getElementById(`badge_${_ferrId}`).outerHTML =
             `<span class="badge bg-warning text-dark" id="badge_${_ferrId}">🟡 Em Uso</span>`;
         document.getElementById(`resp_${_ferrId}`).textContent = data.responsavel;
-        // Adicionar timer
         const prazoEl = document.getElementById(`prazo_${_ferrId}`);
         if (prazoEl && data.data_saida) {
             prazoEl.innerHTML = `<span class="badge bg-info text-dark" id="timer_${_ferrId}">⏱️ calculando...</span>`;
             prazoEl.closest('tr').dataset.saida = data.data_saida;
         }
-        // Atualizar botão
         document.getElementById(`acoes_${_ferrId}`).querySelector('button').outerHTML =
             `<button class="btn btn-sm btn-success" onclick="marcarDisponivel(${_ferrId}, this)">
                 <i class="bi bi-arrow-return-left me-1"></i> Devolver</button>`;
@@ -309,9 +364,46 @@ function confirmarSaida() {
     });
 }
 
-// ── Devolver ──────────────────────────────────────────────────────────────────
+// ── Manutenção ────────────────────────────────────────────────────────────────
+function marcarManutencao(id) {
+    _ferrId = id;
+    document.getElementById('inputMotivo').value = '';
+    new bootstrap.Modal(document.getElementById('modalManutencao')).show();
+}
+
+function confirmarManutencao() {
+    const motivo = document.getElementById('inputMotivo').value.trim();
+    const csrf = document.querySelector('input[name="csrf_token"]')?.value || '';
+    fetch(`/ferramenta/${_ferrId}/status`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: `status=manutencao&motivo=${encodeURIComponent(motivo)}&csrf_token=${csrf}`
+    }).then(r => r.json()).then(data => {
+        bootstrap.Modal.getInstance(document.getElementById('modalManutencao')).hide();
+        // Atualizar badge de status
+        document.getElementById(`badge_${_ferrId}`).outerHTML =
+            `<span class="badge bg-danger" id="badge_${_ferrId}">🔧 Manutenção</span>`;
+        // Atualizar coluna "com quem"
+        const respEl = document.getElementById(`resp_${_ferrId}`);
+        if (respEl) respEl.textContent = motivo || 'Em manutenção';
+        // Limpar prazo
+        const prazoEl = document.getElementById(`prazo_${_ferrId}`);
+        if (prazoEl) prazoEl.innerHTML = '<span class="text-muted small">—</span>';
+        // Atualizar botões
+        const acoesEl = document.getElementById(`acoes_${_ferrId}`);
+        if (acoesEl) {
+            acoesEl.innerHTML =
+                `<button class="btn btn-sm btn-success" onclick="marcarDisponivel(${_ferrId}, this)">
+                    <i class="bi bi-check-circle me-1"></i> Concluir</button>
+                 <button class="btn btn-sm btn-outline-secondary" onclick="verHistorico(${_ferrId})" title="Histórico">
+                    <i class="bi bi-clock-history"></i></button>`;
+        }
+    });
+}
+
+// ── Devolver / Concluir ───────────────────────────────────────────────────────
 function marcarDisponivel(id, btn) {
-    if (!confirm('Confirmar devolução?')) return;
+    if (!confirm('Confirmar devolução / conclusão?')) return;
     const csrf = document.querySelector('input[name="csrf_token"]')?.value || '';
     fetch(`/ferramenta/${id}/status`, {
         method: 'POST',
@@ -320,17 +412,28 @@ function marcarDisponivel(id, btn) {
     }).then(r => r.json()).then(() => {
         document.getElementById(`badge_${id}`).outerHTML =
             `<span class="badge bg-success" id="badge_${id}">🟢 Disponível</span>`;
-        document.getElementById(`resp_${id}`).textContent = '—';
+        const respEl = document.getElementById(`resp_${id}`);
+        if (respEl) respEl.textContent = '—';
         const prazoEl = document.getElementById(`prazo_${id}`);
         if (prazoEl) prazoEl.innerHTML = '<span class="text-muted small">—</span>';
-        const tr = document.querySelector(`#tbodyFerr tr[data-saida]`);
+        // Remover data-saida da linha
+        const tr = document.querySelector(`#tbodyFerr tr`);
         if (tr) delete tr.dataset.saida;
-        btn.outerHTML = `<button class="btn btn-sm btn-warning" onclick="marcarEmUso(${id}, this)">
-            <i class="bi bi-person-check me-1"></i> Dar Saída</button>`;
+        // Atualizar botões
+        const acoesEl = document.getElementById(`acoes_${id}`);
+        if (acoesEl) {
+            acoesEl.innerHTML =
+                `<button class="btn btn-sm btn-warning" onclick="marcarEmUso(${id}, this)">
+                    <i class="bi bi-person-check me-1"></i> Dar Saída</button>
+                 <button class="btn btn-sm btn-danger" onclick="marcarManutencao(${id})">
+                    <i class="bi bi-tools me-1"></i> Manutenção</button>
+                 <button class="btn btn-sm btn-outline-secondary" onclick="verHistorico(${id})" title="Histórico">
+                    <i class="bi bi-clock-history"></i></button>`;
+        }
     });
 }
 
-// ── Histórico (3 pontinhos) ────────────────────────────────────────────────
+// ── Histórico ─────────────────────────────────────────────────────────────────
 function verHistorico(id) {
     const body = document.getElementById('historicoBody');
     body.innerHTML = '<div class="text-center text-muted py-3"><i class="bi bi-hourglass-split"></i> Carregando...</div>';
@@ -339,24 +442,54 @@ function verHistorico(id) {
         .then(r => r.json())
         .then(data => {
             if (data.historico.length === 0) {
-                body.innerHTML = '<div class="text-center text-muted py-3"><i class="bi bi-inbox fs-2 d-block mb-2"></i>Nenhum registro de uso.</div>';
+                body.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-inbox fs-2 d-block mb-2"></i>Nenhum registro de movimentação.</div>';
                 return;
             }
-            let html = `<h6 class="fw-bold mb-3">${data.ferramenta} <code class="small">${data.id}</code></h6>`;
-            html += '<table class="table table-sm table-bordered mb-0"><thead class="table-dark"><tr><th>Colaborador</th><th>Saída</th><th>Devolução</th><th>Registrado por</th></tr></thead><tbody>';
+            const empresa = data.empresa
+                ? `<span class="badge bg-secondary ms-2">${data.empresa}</span>`
+                : `<span class="badge bg-light text-success border border-success ms-2">Própria</span>`;
+            let html = `<div class="p-3 border-bottom">
+                <span class="fw-bold">${data.ferramenta}</span>
+                <code class="small text-muted ms-2">${data.id}</code>
+                ${empresa}
+            </div>`;
+            html += `<table class="table table-sm table-bordered mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Tipo</th>
+                        <th>Colaborador / Motivo</th>
+                        <th>Entrada</th>
+                        <th>Saída / Conclusão</th>
+                        <th>Registrado por</th>
+                    </tr>
+                </thead><tbody>`;
             data.historico.forEach(h => {
                 const devol = h.data_devolucao
                     ? `<span class="badge bg-success">✅ ${h.data_devolucao}</span>`
                     : `<span class="badge bg-danger">❌ Pendente</span>`;
-                html += `<tr><td class="fw-semibold">${h.colaborador}</td><td class="small">${h.data_saida}</td><td>${devol}</td><td class="small text-muted">${h.registrado_por}</td></tr>`;
+                const tipoBadge = h.tipo_evento === 'manutencao'
+                    ? `<span class="badge bg-danger">🔧 Manutenção</span>`
+                    : `<span class="badge bg-warning text-dark">🟡 Uso</span>`;
+                const colaborador = h.tipo_evento === 'manutencao' && h.motivo_manutencao
+                    ? `${h.colaborador}<br><small class="text-muted">${h.motivo_manutencao}</small>`
+                    : h.colaborador;
+                html += `<tr>
+                    <td>${tipoBadge}</td>
+                    <td class="fw-semibold">${colaborador}</td>
+                    <td class="small">${h.data_saida}</td>
+                    <td>${devol}</td>
+                    <td class="small text-muted">${h.registrado_por}</td>
+                </tr>`;
             });
             html += '</tbody></table>';
             body.innerHTML = html;
         })
-        .catch(() => { body.innerHTML = '<div class="text-center text-danger py-3">Erro ao carregar histórico.</div>'; });
+        .catch(() => {
+            body.innerHTML = '<div class="text-center text-danger py-3">Erro ao carregar histórico.</div>';
+        });
 }
 
-// ── Autocomplete ──────────────────────────────────────────────────────────────
+// ── Autocomplete colaboradores ────────────────────────────────────────────────
 document.getElementById('inputResponsavel')?.addEventListener('input', function() {
     const q = this.value.trim();
     const lista = document.getElementById('sugestoesResp');

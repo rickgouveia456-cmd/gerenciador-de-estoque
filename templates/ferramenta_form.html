@@ -7,28 +7,63 @@
     <div class="col-md-6">
         <div class="card border-0 shadow-sm">
             <div class="card-header fw-bold text-white" style="background:var(--accent)">
-                <i class="bi bi-tools me-2"></i>Cadastrar Ferramenta — {{ almoxarifado.nome }}
+                <i class="bi bi-tools me-2"></i>Cadastrar Ferramenta / Máquina — {{ almoxarifado.nome }}
             </div>
             <div class="card-body p-4">
-                <form method="POST">
+                <form method="POST" id="formFerramenta">
+
+                    <!-- ID / Patrimônio com validação em tempo real -->
                     <div class="mb-3">
                         <label class="form-label fw-semibold">ID / Patrimônio *</label>
-                        <input type="text" name="identificacao" class="form-control" required
-                               placeholder="Ex: MOTO-001, FURAD-003">
-                        <div class="form-text">Identificação única da ferramenta/máquina</div>
+                        <input type="text" name="identificacao" id="inputId" class="form-control" required
+                               placeholder="Ex: MOTO-001, FURAD-003"
+                               value="{{ form_data.get('identificacao', '') if form_data else '' }}"
+                               autocomplete="off">
+                        <div class="form-text">Identificação única da ferramenta/máquina em todos os almoxarifados</div>
+                        <!-- Alerta de duplicidade -->
+                        <div id="alertaDuplicado" class="alert alert-danger py-2 mt-2 d-none" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                            <span id="msgDuplicado"></span>
+                        </div>
+                        <div id="alertaDisponivel" class="alert alert-success py-2 mt-2 d-none" role="alert">
+                            <i class="bi bi-check-circle-fill me-1"></i> ID disponível para cadastro.
+                        </div>
                     </div>
+
+                    <!-- Nome -->
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Nome da Ferramenta *</label>
+                        <label class="form-label fw-semibold">Nome da Ferramenta / Máquina *</label>
                         <input type="text" name="nome" class="form-control" required
-                               placeholder="Ex: Furadeira de Impacto, Betoneira 400L">
+                               placeholder="Ex: Furadeira de Impacto, Betoneira 400L, Escavadeira"
+                               value="{{ form_data.get('nome', '') if form_data else '' }}">
                     </div>
+
+                    <!-- Empresa fornecedora -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                            <i class="bi bi-building me-1"></i>Empresa Fornecedora / Proprietária
+                        </label>
+                        <input type="text" name="empresa" id="inputEmpresa" class="form-control"
+                               placeholder="Ex: Locamáquinas, Rental Brasil, Construtora XYZ..."
+                               value="{{ form_data.get('empresa', '') if form_data else '' }}"
+                               autocomplete="off">
+                        <div class="form-text">
+                            Informe a empresa que fornece ou aluga o maquinário.
+                            Deixe vazio se for equipamento próprio da obra.
+                        </div>
+                        <div id="sugestoesEmpresa" class="list-group mt-1" style="max-height:150px;overflow-y:auto"></div>
+                    </div>
+
+                    <!-- Observação -->
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Observação</label>
                         <input type="text" name="observacao" class="form-control"
-                               placeholder="Ex: Número de série, cor, marca...">
+                               placeholder="Ex: Número de série, cor, marca, modelo..."
+                               value="{{ form_data.get('observacao', '') if form_data else '' }}">
                     </div>
+
                     <div class="d-flex gap-2 mt-4">
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" id="btnCadastrar" class="btn btn-primary">
                             <i class="bi bi-check-lg me-1"></i> Cadastrar
                         </button>
                         <a href="/almoxarifado/{{ almoxarifado.id }}/ferramentas" class="btn btn-outline-secondary">
@@ -40,4 +75,87 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let _idValido = true;
+let _debounce = null;
+
+const inputId = document.getElementById('inputId');
+const alertaDup = document.getElementById('alertaDuplicado');
+const alertaOk  = document.getElementById('alertaDisponivel');
+const msgDup    = document.getElementById('msgDuplicado');
+const btnCad    = document.getElementById('btnCadastrar');
+
+inputId.addEventListener('input', function() {
+    const val = this.value.trim();
+    alertaDup.classList.add('d-none');
+    alertaOk.classList.add('d-none');
+    _idValido = true;
+    btnCad.disabled = false;
+
+    clearTimeout(_debounce);
+    if (val.length < 2) return;
+
+    _debounce = setTimeout(() => {
+        fetch(`/api/ferramenta/verificar-id?id=${encodeURIComponent(val)}`)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.disponivel) {
+                    const statusLabel = {
+                        'disponivel': '🟢 Disponível',
+                        'em_uso': '🟡 Em Uso',
+                        'manutencao': '🔧 Em Manutenção'
+                    }[data.status] || data.status;
+                    msgDup.innerHTML =
+                        `ID <strong>"${val}"</strong> já cadastrado: ` +
+                        `<strong>${data.nome}</strong> — ` +
+                        `Almoxarifado: <strong>${data.almoxarifado}</strong> — ` +
+                        `Empresa: <strong>${data.empresa}</strong> — ` +
+                        `Status: <strong>${statusLabel}</strong>`;
+                    alertaDup.classList.remove('d-none');
+                    alertaOk.classList.add('d-none');
+                    _idValido = false;
+                    btnCad.disabled = true;
+                } else {
+                    alertaOk.classList.remove('d-none');
+                    alertaDup.classList.add('d-none');
+                    _idValido = true;
+                    btnCad.disabled = false;
+                }
+            });
+    }, 500);
+});
+
+// Bloquear submit se ID duplicado
+document.getElementById('formFerramenta').addEventListener('submit', function(e) {
+    if (!_idValido) {
+        e.preventDefault();
+        alert('Este ID já está cadastrado. Escolha um ID diferente.');
+    }
+});
+
+// Autocomplete de empresas já cadastradas
+const inputEmpresa = document.getElementById('inputEmpresa');
+inputEmpresa?.addEventListener('input', function() {
+    const q = this.value.trim();
+    const lista = document.getElementById('sugestoesEmpresa');
+    if (q.length < 2) { lista.innerHTML = ''; return; }
+    fetch(`/api/ferramenta/verificar-id?id=__noop__`)  // só para manter padrão
+        .catch(() => {});
+    // Buscar empresas já cadastradas via endpoint dedicado
+    fetch(`/api/ferramentas/empresas?q=${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(data => {
+            lista.innerHTML = data.slice(0,5).map(emp =>
+                `<button type="button" class="list-group-item list-group-item-action py-1 small"
+                         onclick="document.getElementById('inputEmpresa').value='${emp}';
+                                  document.getElementById('sugestoesEmpresa').innerHTML=''">
+                    <i class="bi bi-building me-1"></i>${emp}
+                </button>`
+            ).join('');
+        }).catch(() => { lista.innerHTML = ''; });
+});
+</script>
 {% endblock %}

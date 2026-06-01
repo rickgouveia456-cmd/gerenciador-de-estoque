@@ -284,6 +284,7 @@ class Usuario(db.Model):
     almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=True)
     email = db.Column(db.String(120), nullable=True)
     ativo = db.Column(db.Boolean, default=True)
+    totp_secret = db.Column(db.String(32), nullable=True)   # 2FA — None = desativado
     almoxarifado = db.relationship('Almoxarifado', backref='usuarios')
     acessos_extras = db.relationship('AcessoExtra', backref='usuario', lazy=True, cascade='all, delete-orphan')
 
@@ -614,6 +615,9 @@ def run_migrations():
             # ── Campo empresa em ferramenta ───────────────────────────────────
             safe_exec(conn, "ALTER TABLE ferramenta ADD COLUMN empresa VARCHAR(100)")
 
+            # ── Campo 2FA em usuario ──────────────────────────────────────────
+            safe_exec(conn, "ALTER TABLE usuario ADD COLUMN totp_secret VARCHAR(32)")
+
             # ── Tabela historico_ferramenta ───────────────────────────────────
             if is_pg:
                 safe_exec(conn, """
@@ -663,13 +667,29 @@ def login():
             return render_template('login.html'), 429
         login_val = request.form.get('login', '').strip()
         senha_val = request.form.get('senha', '')
+        totp_val  = request.form.get('totp_code', '').strip().replace(' ', '')
         if not login_val or not senha_val:
             flash('Preencha login e senha.', 'warning')
             return render_template('login.html')
         u = Usuario.query.filter_by(login=login_val, ativo=True).first()
         if u and u.check_senha(senha_val):
+            # Verificar 2FA se estiver ativado
+            if u.totp_secret:
+                try:
+                    import pyotp
+                    totp = pyotp.TOTP(u.totp_secret)
+                    if not totp_val or not totp.verify(totp_val, valid_window=1):
+                        _register_attempt(ip)
+                        flash('Código 2FA inválido ou expirado.', 'danger')
+                        return render_template('login.html', requer_2fa=True,
+                                               login_val=login_val)
+                except Exception:
+                    flash('Erro ao verificar 2FA. Tente novamente.', 'danger')
+                    return render_template('login.html', requer_2fa=True,
+                                           login_val=login_val)
             _clear_attempts(ip)
             session.clear()
+            session.permanent = True
             session['usuario_id'] = u.id
             flash(f'Bem-vindo, {u.nome}!', 'success')
             return redirect(url_for('index'))
@@ -681,6 +701,60 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for('login'))
+
+# ── 2FA — AUTENTICAÇÃO DE DOIS FATORES ───────────────────────────────────────
+@app.route('/perfil/2fa/ativar', methods=['GET', 'POST'])
+@login_required
+def ativar_2fa():
+    """Gera QR Code para o usuário configurar o 2FA no Google Authenticator."""
+    import pyotp, qrcode, io as _io, base64
+    u = usuario_atual()
+    if request.method == 'POST':
+        codigo = request.form.get('codigo', '').strip().replace(' ', '')
+        secret = session.get('totp_secret_pendente')
+        if not secret:
+            flash('Sessão expirada. Tente novamente.', 'danger')
+            return redirect(url_for('ativar_2fa'))
+        totp = pyotp.TOTP(secret)
+        if totp.verify(codigo, valid_window=1):
+            u.totp_secret = secret
+            session.pop('totp_secret_pendente', None)
+            db.session.commit()
+            flash('✅ 2FA ativado com sucesso! Seu login agora exige o código do app.', 'success')
+            return redirect(url_for('index'))
+        flash('Código inválido. Tente novamente.', 'danger')
+        return redirect(url_for('ativar_2fa'))
+
+    # Gerar novo secret e QR Code
+    secret = pyotp.random_base32()
+    session['totp_secret_pendente'] = secret
+    uri = pyotp.totp.TOTP(secret).provisioning_uri(
+        name=u.login, issuer_name='Logi-Prime Obra Patamares'
+    )
+    img = qrcode.make(uri)
+    buf = _io.BytesIO()
+    img.save(buf, format='PNG')
+    qr_b64 = base64.b64encode(buf.getvalue()).decode()
+    return render_template('2fa_ativar.html', qr_b64=qr_b64, secret=secret, usuario=u)
+
+@app.route('/perfil/2fa/desativar', methods=['POST'])
+@login_required
+def desativar_2fa():
+    u = usuario_atual()
+    u.totp_secret = None
+    db.session.commit()
+    flash('2FA desativado.', 'warning')
+    return redirect(url_for('index'))
+
+@app.route('/admin/2fa/desativar/<int:uid>', methods=['POST'])
+@admin_required
+def admin_desativar_2fa(uid):
+    """Admin pode desativar 2FA de qualquer usuário (ex: perdeu o celular)."""
+    u = Usuario.query.get_or_404(uid)
+    u.totp_secret = None
+    db.session.commit()
+    flash(f'2FA de {u.nome} desativado pelo admin.', 'warning')
+    return redirect(url_for('usuarios'))
 
 @app.route('/healthz')
 def healthz():
@@ -3046,6 +3120,25 @@ def gerar_excel_backup():
     buf.seek(0)
     return buf
 
+def _criptografar_backup(buf_excel, senha_zip):
+    """Empacota o Excel em ZIP com criptografia AES-256 protegido por senha."""
+    try:
+        import pyzipper, io as _io
+        buf_zip = _io.BytesIO()
+        with pyzipper.AESZipFile(buf_zip, 'w',
+                                  compression=pyzipper.ZIP_DEFLATED,
+                                  encryption=pyzipper.WZ_AES) as zf:
+            zf.setpassword(senha_zip.encode('utf-8'))
+            buf_excel.seek(0)
+            zf.writestr(f'backup_estoque_{date.today()}.xlsx', buf_excel.read())
+        buf_zip.seek(0)
+        return buf_zip, True
+    except ImportError:
+        # pyzipper não instalado — envia sem criptografia com aviso
+        logger.warning('BACKUP: pyzipper não disponível — enviando sem criptografia.')
+        buf_excel.seek(0)
+        return buf_excel, False
+
 def enviar_backup_email(buf):
     """Envia o backup completo por email (para admin ou destinatário fixo)."""
     import smtplib
@@ -3057,37 +3150,47 @@ def enviar_backup_email(buf):
     remetente = os.environ.get('BACKUP_EMAIL_FROM')
     senha     = os.environ.get('BACKUP_EMAIL_PASS')
     destinatario = os.environ.get('BACKUP_EMAIL_TO', 'rickgouveia17@gmail.com')
+    senha_zip = os.environ.get('BACKUP_ZIP_PASS', 'LogiPrime@2024#Backup')
 
     if not remetente or not senha:
         logger.info('BACKUP: variáveis BACKUP_EMAIL_FROM e BACKUP_EMAIL_PASS não configuradas.')
         return False
+
+    buf_anexo, criptografado = _criptografar_backup(buf, senha_zip)
+    ext = 'zip' if criptografado else 'xlsx'
+    nome_arquivo = f'backup_estoque_{date.today()}.{ext}'
 
     msg = MIMEMultipart()
     msg['From'] = remetente
     msg['To'] = destinatario
     msg['Subject'] = f'Backup Estoque Obra Patamares — {date.today().strftime("%d/%m/%Y")}'
 
-    corpo = f"""
-    Backup automático do sistema de estoque.
-    Data: {datetime.now().strftime("%d/%m/%Y %H:%M")}
-    
-    Este arquivo contém todos os dados de estoque de todos os almoxarifados.
-    Guarde em local seguro.
-    """
+    aviso_cripto = (
+        f'\n🔒 Arquivo protegido com senha AES-256.\n'
+        f'Senha do arquivo: configure BACKUP_ZIP_PASS no Railway.\n'
+        if criptografado else
+        '\n⚠️ ATENÇÃO: arquivo enviado SEM criptografia (pyzipper não instalado).\n'
+    )
+    corpo = (
+        f'Backup automático do sistema de estoque.\n'
+        f'Data: {datetime.now().strftime("%d/%m/%Y %H:%M")}\n'
+        f'{aviso_cripto}\n'
+        f'Este arquivo contém todos os dados de estoque de todos os almoxarifados.\n'
+        f'Guarde em local seguro.'
+    )
     msg.attach(MIMEText(corpo, 'plain'))
 
     part = MIMEBase('application', 'octet-stream')
-    part.set_payload(buf.read())
+    part.set_payload(buf_anexo.read())
     encoders.encode_base64(part)
-    part.add_header('Content-Disposition',
-                    f'attachment; filename="backup_estoque_{date.today()}.xlsx"')
+    part.add_header('Content-Disposition', f'attachment; filename="{nome_arquivo}"')
     msg.attach(part)
 
     try:
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
             smtp.login(remetente, senha)
             smtp.send_message(msg)
-        logger.info(f'BACKUP: enviado para {destinatario}')
+        logger.info(f'BACKUP: enviado para {destinatario} (criptografado={criptografado})')
         return True
     except Exception as e:
         logger.info(f'BACKUP: erro ao enviar email — {e}')
@@ -3121,6 +3224,7 @@ def enviar_backup_por_almoxarifado():
 
     remetente = os.environ.get('BACKUP_EMAIL_FROM', 'rickgouveia157@gmail.com')
     senha_app = os.environ.get('BACKUP_EMAIL_PASS', '').replace(' ', '')  # remove espaços da senha de app
+    senha_zip = os.environ.get('BACKUP_ZIP_PASS', 'LogiPrime@2024#Backup')
     hoje      = date.today().strftime('%d/%m/%Y')
 
     if not senha_app:
@@ -3128,29 +3232,32 @@ def enviar_backup_por_almoxarifado():
         return False, 'Variável BACKUP_EMAIL_PASS não configurada no Railway.'
 
     def _enviar(destinatarios, assunto, corpo, buf_excel, nome_arquivo):
-        """Envia um email com anexo Excel para a lista de destinatários."""
+        """Envia um email com anexo Excel criptografado para a lista de destinatários."""
         if not destinatarios:
             logger.warning(f'BACKUP: lista de destinatários vazia para "{assunto}"')
             return
-        buf_excel.seek(0)
+        buf_anexo, criptografado = _criptografar_backup(buf_excel, senha_zip)
+        ext = 'zip' if criptografado else 'xlsx'
+        nome_final = nome_arquivo.replace('.xlsx', f'.{ext}')
+        aviso = '🔒 Arquivo protegido com senha AES-256. Senha: variável BACKUP_ZIP_PASS no Railway.' if criptografado else '⚠️ Sem criptografia.'
+        buf_anexo.seek(0)
         msg = MIMEMultipart()
         msg['From']    = remetente
-        msg['To']      = remetente  # sempre envia para o remetente
-        # Todos os outros em BCC
+        msg['To']      = remetente
         todos = list(set(destinatarios) | {remetente})
         if len(todos) > 1:
             msg['Bcc'] = ', '.join(d for d in todos if d != remetente)
         msg['Subject'] = assunto
-        msg.attach(MIMEText(corpo, 'plain', 'utf-8'))
+        msg.attach(MIMEText(f'{corpo}\n\n{aviso}', 'plain', 'utf-8'))
         part = MIMEBase('application', 'octet-stream')
-        part.set_payload(buf_excel.read())
+        part.set_payload(buf_anexo.read())
         encoders.encode_base64(part)
-        part.add_header('Content-Disposition', f'attachment; filename="{nome_arquivo}"')
+        part.add_header('Content-Disposition', f'attachment; filename="{nome_final}"')
         msg.attach(part)
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
             smtp.login(remetente, senha_app)
             smtp.sendmail(remetente, todos, msg.as_string())
-        logger.info(f'BACKUP: enviado para {todos}')
+        logger.info(f'BACKUP: enviado para {todos} (criptografado={criptografado})')
 
     erros = 0
 

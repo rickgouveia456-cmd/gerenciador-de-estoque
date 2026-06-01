@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Ativar 2FA{% endblock %}
+{% block page_title %}🔐 Autenticação de Dois Fatores{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header fw-bold text-white" style="background:#1F3864">
+                <i class="bi bi-shield-lock me-2"></i>Ativar 2FA — {{ usuario.nome }}
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted small mb-3">
+                    Escaneie o QR Code abaixo com o <strong>Google Authenticator</strong>
+                    ou <strong>Authy</strong>. Depois, insira o código de 6 dígitos para confirmar.
+                </p>
+
+                <div class="text-center mb-3">
+                    <img src="data:image/png;base64,{{ qr_b64 }}" class="img-fluid rounded border" style="max-width:220px">
+                </div>
+
+                <div class="alert alert-secondary py-2 text-center small mb-3">
+                    <strong>Chave manual:</strong><br>
+                    <code class="fs-6">{{ secret }}</code>
+                    <div class="text-muted" style="font-size:0.75rem">Use se não conseguir escanear o QR Code</div>
+                </div>
+
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Código de verificação *</label>
+                        <input type="text" name="codigo" class="form-control form-control-lg text-center fw-bold"
+                               placeholder="000 000" maxlength="6" autocomplete="one-time-code"
+                               inputmode="numeric" pattern="[0-9]*" required autofocus>
+                        <div class="form-text">Digite o código de 6 dígitos do app autenticador.</div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary flex-fill">
+                            <i class="bi bi-check-lg me-1"></i> Confirmar e Ativar
+                        </button>
+                        <a href="/" class="btn btn-outline-secondary">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="alert alert-warning mt-3 small">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+            <strong>Importante:</strong> Guarde a chave manual em local seguro.
+            Se perder o celular, o admin pode desativar o 2FA para você.
+        </div>
+    </div>
+</div>
+{% endblock %}

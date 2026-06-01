@@ -622,6 +622,8 @@ def run_migrations():
             safe_exec(conn, "ALTER TABLE historico_ferramenta ADD COLUMN motivo_manutencao VARCHAR(300)")
             # Preencher tipo_evento nos registros antigos
             safe_exec(conn, "UPDATE historico_ferramenta SET tipo_evento = 'uso' WHERE tipo_evento IS NULL")
+            # Garantir que ferramenta aceita status 'manutencao' (sem restrição de CHECK no SQLite)
+            safe_exec(conn, "UPDATE ferramenta SET status = 'disponivel' WHERE status NOT IN ('disponivel','em_uso','manutencao','atrasado')")
 
     except Exception as e:
         logger.error(f'Migração: {e}')

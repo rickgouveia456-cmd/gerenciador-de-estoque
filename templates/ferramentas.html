@@ -374,22 +374,27 @@ function marcarManutencao(id) {
 function confirmarManutencao() {
     const motivo = document.getElementById('inputMotivo').value.trim();
     const csrf = document.querySelector('input[name="csrf_token"]')?.value || '';
+    const btn = document.querySelector('#modalManutencao .btn-danger');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Aguarde...'; }
+
     fetch(`/ferramenta/${_ferrId}/status`, {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         body: `status=manutencao&motivo=${encodeURIComponent(motivo)}&csrf_token=${csrf}`
-    }).then(r => r.json()).then(data => {
+    })
+    .then(r => {
+        if (!r.ok) throw new Error(`Erro HTTP ${r.status}`);
+        return r.json();
+    })
+    .then(data => {
+        if (data.error) throw new Error(data.error);
         bootstrap.Modal.getInstance(document.getElementById('modalManutencao')).hide();
-        // Atualizar badge de status
         document.getElementById(`badge_${_ferrId}`).outerHTML =
             `<span class="badge bg-danger" id="badge_${_ferrId}">🔧 Manutenção</span>`;
-        // Atualizar coluna "com quem"
         const respEl = document.getElementById(`resp_${_ferrId}`);
         if (respEl) respEl.textContent = motivo || 'Em manutenção';
-        // Limpar prazo
         const prazoEl = document.getElementById(`prazo_${_ferrId}`);
         if (prazoEl) prazoEl.innerHTML = '<span class="text-muted small">—</span>';
-        // Atualizar botões
         const acoesEl = document.getElementById(`acoes_${_ferrId}`);
         if (acoesEl) {
             acoesEl.innerHTML =
@@ -398,6 +403,10 @@ function confirmarManutencao() {
                  <button class="btn btn-sm btn-outline-secondary" onclick="verHistorico(${_ferrId})" title="Histórico">
                     <i class="bi bi-clock-history"></i></button>`;
         }
+    })
+    .catch(err => {
+        alert('Erro ao enviar para manutenção: ' + err.message);
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-tools me-1"></i> Confirmar Manutenção'; }
     });
 }
 

@@ -707,7 +707,7 @@ def logout():
 @login_required
 def ativar_2fa():
     """Gera QR Code para o usuário configurar o 2FA no Google Authenticator."""
-    import pyotp, qrcode, io as _io, base64
+    import pyotp, io as _io, base64
     u = usuario_atual()
     if request.method == 'POST':
         codigo = request.form.get('codigo', '').strip().replace(' ', '')
@@ -725,17 +725,28 @@ def ativar_2fa():
         flash('Código inválido. Tente novamente.', 'danger')
         return redirect(url_for('ativar_2fa'))
 
-    # Gerar novo secret e QR Code
+    # Gerar novo secret
     secret = pyotp.random_base32()
     session['totp_secret_pendente'] = secret
     uri = pyotp.totp.TOTP(secret).provisioning_uri(
         name=u.login, issuer_name='Logi-Prime Obra Patamares'
     )
-    img = qrcode.make(uri)
-    buf = _io.BytesIO()
-    img.save(buf, format='PNG')
-    qr_b64 = base64.b64encode(buf.getvalue()).decode()
-    return render_template('2fa_ativar.html', qr_b64=qr_b64, secret=secret, usuario=u)
+
+    # Gerar QR Code como SVG (sem dependência de Pillow/PIL)
+    try:
+        import qrcode, qrcode.image.svg
+        factory = qrcode.image.svg.SvgPathImage
+        img = qrcode.make(uri, image_factory=factory, box_size=10)
+        buf = _io.BytesIO()
+        img.save(buf)
+        qr_svg = buf.getvalue().decode('utf-8')
+        qr_b64 = None
+    except Exception:
+        qr_svg = None
+        qr_b64 = None
+
+    return render_template('2fa_ativar.html', qr_svg=qr_svg, qr_b64=qr_b64,
+                           secret=secret, usuario=u, uri=uri)
 
 @app.route('/perfil/2fa/desativar', methods=['POST'])
 @login_required

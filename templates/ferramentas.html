@@ -254,27 +254,41 @@
                 <h6 class="modal-title fw-bold"><i class="bi bi-camera-fill me-2"></i>Foto de Retirada — Prova</h6>
             </div>
             <div class="modal-body text-center p-3">
-                <p class="small text-muted mb-2">Tire uma foto do colaborador com a ferramenta/máquina.</p>
-                <!-- Preview da câmera -->
-                <video id="videoCamera" class="rounded border w-100 mb-2" autoplay playsinline style="max-height:280px;display:none"></video>
-                <!-- Preview da foto tirada -->
-                <img id="fotoPreview" class="rounded border w-100 mb-2" style="max-height:280px;display:none" alt="Foto capturada">
-                <canvas id="canvasFoto" style="display:none"></canvas>
-                <div id="fotoStatus" class="small text-muted mb-2">Iniciando câmera...</div>
-                <div class="d-flex gap-2 justify-content-center flex-wrap">
-                    <button type="button" class="btn btn-primary btn-sm" id="btnCapturar" style="display:none" onclick="capturarFoto()">
-                        <i class="bi bi-camera me-1"></i> Tirar Foto
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" id="btnRetirar" style="display:none" onclick="repetirFoto()">
-                        <i class="bi bi-arrow-repeat me-1"></i> Repetir
+                <p class="small text-muted mb-3">Tire uma foto do colaborador com a ferramenta/máquina como comprovante de retirada.</p>
+
+                <!-- Preview da foto -->
+                <img id="fotoPreview" class="rounded border w-100 mb-3"
+                     style="max-height:300px;object-fit:contain;display:none" alt="Foto capturada">
+
+                <!-- Botão que abre câmera diretamente -->
+                <div id="areaCaptura">
+                    <label for="inputFotoCaptura" class="btn btn-primary w-100 mb-2" style="cursor:pointer">
+                        <i class="bi bi-camera-fill me-2"></i> Abrir Câmera
+                    </label>
+                    <input type="file" id="inputFotoCaptura" accept="image/*" capture="environment"
+                           style="display:none" onchange="fotoSelecionada(this)">
+                    <div class="text-muted small">ou</div>
+                    <label for="inputFotoGaleria" class="btn btn-outline-secondary w-100 mt-2" style="cursor:pointer">
+                        <i class="bi bi-image me-2"></i> Escolher da Galeria
+                    </label>
+                    <input type="file" id="inputFotoGaleria" accept="image/*"
+                           style="display:none" onchange="fotoSelecionada(this)">
+                </div>
+
+                <div id="areaConfirma" style="display:none">
+                    <button class="btn btn-outline-secondary btn-sm w-100 mt-2" onclick="repetirFoto()">
+                        <i class="bi bi-arrow-repeat me-1"></i> Repetir foto
                     </button>
                 </div>
+
+                <div id="fotoStatus" class="small text-muted mt-2"></div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary btn-sm" onclick="pularFoto()">
                     <i class="bi bi-skip-forward me-1"></i> Pular (sem foto)
                 </button>
-                <button type="button" class="btn btn-success btn-sm" id="btnEnviarFoto" style="display:none" onclick="enviarFoto()">
+                <button type="button" class="btn btn-success btn-sm" id="btnEnviarFoto"
+                        style="display:none" onclick="enviarFoto()">
                     <i class="bi bi-check-lg me-1"></i> Confirmar Foto
                 </button>
             </div>
@@ -405,86 +419,48 @@ function confirmarSaida() {
     });
 }
 
-// ── CÂMERA — FOTO DE RETIRADA ─────────────────────────────────────────────
+// ── CÂMERA — FOTO DE RETIRADA (input file com capture) ───────────────────────
 let _histId = null;
-let _stream = null;
 let _fotoBase64 = null;
 
 function abrirCamera() {
     _fotoBase64 = null;
-    document.getElementById('videoCamera').style.display = 'none';
     document.getElementById('fotoPreview').style.display = 'none';
-    document.getElementById('btnCapturar').style.display = 'none';
-    document.getElementById('btnRetirar').style.display = 'none';
+    document.getElementById('areaCaptura').style.display = 'block';
+    document.getElementById('areaConfirma').style.display = 'none';
     document.getElementById('btnEnviarFoto').style.display = 'none';
-    document.getElementById('fotoStatus').textContent = 'Iniciando câmera...';
+    document.getElementById('fotoStatus').textContent = '';
+    document.getElementById('inputFotoCaptura').value = '';
+    document.getElementById('inputFotoGaleria').value = '';
     new bootstrap.Modal(document.getElementById('modalFoto')).show();
-
-    // Aguarda o modal terminar a animação antes de pedir câmera
-    document.getElementById('modalFoto').addEventListener('shown.bs.modal', function iniciarCam() {
-        document.getElementById('modalFoto').removeEventListener('shown.bs.modal', iniciarCam);
-
-        // Tenta câmera traseira primeiro, depois câmera qualquer
-        const constraints = [
-            { video: { facingMode: { exact: 'environment' } }, audio: false },
-            { video: { facingMode: 'environment' }, audio: false },
-            { video: true, audio: false }
-        ];
-
-        function tentarCamera(idx) {
-            if (idx >= constraints.length) {
-                document.getElementById('fotoStatus').textContent = '⚠️ Câmera não disponível neste dispositivo.';
-                return;
-            }
-            navigator.mediaDevices.getUserMedia(constraints[idx])
-                .then(stream => {
-                    _stream = stream;
-                    const video = document.getElementById('videoCamera');
-                    video.srcObject = stream;
-                    video.style.display = 'block';
-                    document.getElementById('btnCapturar').style.display = 'inline-block';
-                    document.getElementById('fotoStatus').textContent = 'Câmera pronta. Posicione o colaborador com a ferramenta.';
-                })
-                .catch(err => {
-                    console.warn('Tentativa ' + idx + ' falhou:', err.name, err.message);
-                    tentarCamera(idx + 1);
-                });
-        }
-
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            document.getElementById('fotoStatus').textContent = '⚠️ Seu navegador não suporta acesso à câmera. Use Chrome ou Firefox atualizado.';
-            return;
-        }
-        tentarCamera(0);
-    }, { once: true });
 }
 
-function capturarFoto() {
-    const video = document.getElementById('videoCamera');
-    const canvas = document.getElementById('canvasFoto');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d').drawImage(video, 0, 0);
-    _fotoBase64 = canvas.toDataURL('image/jpeg', 0.8);
-    // Mostrar preview
-    const preview = document.getElementById('fotoPreview');
-    preview.src = _fotoBase64;
-    preview.style.display = 'block';
-    video.style.display = 'none';
-    document.getElementById('btnCapturar').style.display = 'none';
-    document.getElementById('btnRetirar').style.display = 'inline-block';
-    document.getElementById('btnEnviarFoto').style.display = 'inline-block';
-    document.getElementById('fotoStatus').textContent = '📸 Foto capturada! Confirme ou repita.';
-    // Parar câmera
-    if (_stream) _stream.getTracks().forEach(t => t.stop());
+function fotoSelecionada(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        _fotoBase64 = e.target.result;
+        const preview = document.getElementById('fotoPreview');
+        preview.src = _fotoBase64;
+        preview.style.display = 'block';
+        document.getElementById('areaCaptura').style.display = 'none';
+        document.getElementById('areaConfirma').style.display = 'block';
+        document.getElementById('btnEnviarFoto').style.display = 'inline-block';
+        document.getElementById('fotoStatus').textContent = '📸 Foto selecionada! Confirme ou repita.';
+    };
+    reader.readAsDataURL(file);
 }
 
 function repetirFoto() {
     _fotoBase64 = null;
     document.getElementById('fotoPreview').style.display = 'none';
-    document.getElementById('btnRetirar').style.display = 'none';
+    document.getElementById('areaCaptura').style.display = 'block';
+    document.getElementById('areaConfirma').style.display = 'none';
     document.getElementById('btnEnviarFoto').style.display = 'none';
-    abrirCamera();
+    document.getElementById('fotoStatus').textContent = '';
+    document.getElementById('inputFotoCaptura').value = '';
+    document.getElementById('inputFotoGaleria').value = '';
 }
 
 function enviarFoto() {
@@ -516,7 +492,6 @@ function enviarFoto() {
 }
 
 function pularFoto() {
-    if (_stream) _stream.getTracks().forEach(t => t.stop());
     bootstrap.Modal.getInstance(document.getElementById('modalFoto')).hide();
 }
 

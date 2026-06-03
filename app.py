@@ -650,6 +650,9 @@ def run_migrations():
             safe_exec(conn, "ALTER TABLE historico_ferramenta ADD COLUMN tipo_evento VARCHAR(20) DEFAULT 'uso'")
             safe_exec(conn, "ALTER TABLE historico_ferramenta ADD COLUMN motivo_manutencao VARCHAR(300)")
             safe_exec(conn, "ALTER TABLE historico_ferramenta ADD COLUMN foto_url TEXT")
+            # Converter foto_url de VARCHAR(500) para TEXT (bancos com coluna antiga)
+            if is_pg:
+                safe_exec(conn, "ALTER TABLE historico_ferramenta ALTER COLUMN foto_url TYPE TEXT USING foto_url::TEXT")
             # Preencher tipo_evento nos registros antigos
             safe_exec(conn, "UPDATE historico_ferramenta SET tipo_evento = 'uso' WHERE tipo_evento IS NULL")
             # Garantir que ferramenta aceita status 'manutencao' (sem restrição de CHECK no SQLite)

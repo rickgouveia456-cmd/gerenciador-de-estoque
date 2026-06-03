@@ -348,6 +348,7 @@ class HistoricoFerramenta(db.Model):
     registrado_por = db.Column(db.String(100))
     tipo_evento = db.Column(db.String(20), default='uso')     # uso | manutencao
     motivo_manutencao = db.Column(db.String(300), nullable=True)
+    foto_url = db.Column(db.String(500), nullable=True)       # URL Cloudinary — prova de retirada
 
 class AcessoExtra(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -648,6 +649,7 @@ def run_migrations():
             # ── Colunas novas em historico_ferramenta (bancos existentes) ────
             safe_exec(conn, "ALTER TABLE historico_ferramenta ADD COLUMN tipo_evento VARCHAR(20) DEFAULT 'uso'")
             safe_exec(conn, "ALTER TABLE historico_ferramenta ADD COLUMN motivo_manutencao VARCHAR(300)")
+            safe_exec(conn, "ALTER TABLE historico_ferramenta ADD COLUMN foto_url VARCHAR(500)")
             # Preencher tipo_evento nos registros antigos
             safe_exec(conn, "UPDATE historico_ferramenta SET tipo_evento = 'uso' WHERE tipo_evento IS NULL")
             # Garantir que ferramenta aceita status 'manutencao' (sem restrição de CHECK no SQLite)
@@ -2402,7 +2404,18 @@ def atualizar_status_ferramenta(id):
 
     db.session.commit()
     data_saida_iso = f.data_saida.isoformat() if f.data_saida else None
-    return jsonify({'status': f.status, 'responsavel': f.responsavel_atual or '', 'data_saida': data_saida_iso})
+    # Retorna também o hist_id para o frontend poder fazer upload da foto
+    hist_novo = HistoricoFerramenta.query.filter_by(
+        ferramenta_id=f.id, data_devolucao=None
+    ).order_by(HistoricoFerramenta.data_saida.desc()).first()
+    hist_id = hist_novo.id if hist_novo else None
+    return jsonify({
+        'status': f.status,
+        'responsavel': f.responsavel_atual or '',
+        'data_saida': data_saida_iso,
+        'hist_id': hist_id,
+        'cloudinary_ok': _cloudinary_configurado()
+    })
 
 @app.route('/ferramenta/<int:id>/historico')
 @login_required
@@ -2422,7 +2435,8 @@ def historico_ferramenta(id):
             'data_devolucao': h.data_devolucao.strftime('%d/%m/%Y %H:%M') if h.data_devolucao else None,
             'registrado_por': h.registrado_por or '—',
             'tipo_evento': h.tipo_evento or 'uso',
-            'motivo_manutencao': h.motivo_manutencao or ''
+            'motivo_manutencao': h.motivo_manutencao or '',
+            'foto_url': h.foto_url or ''
         } for h in hist]
     })
 
@@ -2470,6 +2484,56 @@ def api_empresas_ferramentas():
         .distinct().all()
     nomes = [e[0] for e in empresas if e[0] and q.lower() in e[0].lower()]
     return jsonify(sorted(nomes)[:10])
+
+# ── CLOUDINARY — UPLOAD DE FOTO DE RETIRADA ──────────────────────────────────
+def _cloudinary_configurado():
+    """Verifica se as credenciais do Cloudinary estão configuradas."""
+    return bool(
+        os.environ.get('CLOUDINARY_CLOUD_NAME') and
+        os.environ.get('CLOUDINARY_API_KEY') and
+        os.environ.get('CLOUDINARY_API_SECRET')
+    )
+
+@app.route('/ferramenta/historico/<int:hist_id>/foto', methods=['POST'])
+@login_required
+def upload_foto_retirada(hist_id):
+    """Recebe foto em base64 do frontend e faz upload para Cloudinary."""
+    if not _cloudinary_configurado():
+        return jsonify({'error': 'Cloudinary não configurado no servidor.'}), 503
+
+    hist = HistoricoFerramenta.query.get_or_404(hist_id)
+    data = request.get_json()
+    if not data or 'foto' not in data:
+        return jsonify({'error': 'Nenhuma foto recebida.'}), 400
+
+    try:
+        import cloudinary
+        import cloudinary.uploader
+        cloudinary.config(
+            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
+            api_key=os.environ.get('CLOUDINARY_API_KEY'),
+            api_secret=os.environ.get('CLOUDINARY_API_SECRET'),
+            secure=True
+        )
+        # Upload da imagem base64
+        result = cloudinary.uploader.upload(
+            data['foto'],
+            folder='ferramentas',
+            public_id=f'retirada_{hist_id}_{date.today().strftime("%Y%m%d")}',
+            overwrite=True,
+            transformation=[
+                {'width': 800, 'crop': 'limit'},   # reduz se for maior que 800px
+                {'quality': 'auto:good'},           # comprime automaticamente
+                {'fetch_format': 'auto'}            # formato otimizado
+            ]
+        )
+        hist.foto_url = result['secure_url']
+        db.session.commit()
+        logger.info(f'FOTO: upload ok — hist_id={hist_id} url={hist.foto_url}')
+        return jsonify({'url': hist.foto_url, 'ok': True})
+    except Exception as e:
+        logger.error(f'FOTO: erro no upload — {e}')
+        return jsonify({'error': str(e)}), 500
 
 # ── GERENCIAR COLABORADORES ──────────────────────────────────────────────────
 

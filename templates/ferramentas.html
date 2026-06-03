@@ -246,6 +246,42 @@
     </div>
 </div>
 
+<!-- Modal Câmera — Foto de Retirada -->
+<div class="modal fade" id="modalFoto" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#1F3864;color:#fff">
+                <h6 class="modal-title fw-bold"><i class="bi bi-camera-fill me-2"></i>Foto de Retirada — Prova</h6>
+            </div>
+            <div class="modal-body text-center p-3">
+                <p class="small text-muted mb-2">Tire uma foto do colaborador com a ferramenta/máquina.</p>
+                <!-- Preview da câmera -->
+                <video id="videoCamera" class="rounded border w-100 mb-2" autoplay playsinline style="max-height:280px;display:none"></video>
+                <!-- Preview da foto tirada -->
+                <img id="fotoPreview" class="rounded border w-100 mb-2" style="max-height:280px;display:none" alt="Foto capturada">
+                <canvas id="canvasFoto" style="display:none"></canvas>
+                <div id="fotoStatus" class="small text-muted mb-2">Iniciando câmera...</div>
+                <div class="d-flex gap-2 justify-content-center flex-wrap">
+                    <button type="button" class="btn btn-primary btn-sm" id="btnCapturar" style="display:none" onclick="capturarFoto()">
+                        <i class="bi bi-camera me-1"></i> Tirar Foto
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="btnRetirar" style="display:none" onclick="repetirFoto()">
+                        <i class="bi bi-arrow-repeat me-1"></i> Repetir
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="pularFoto()">
+                    <i class="bi bi-skip-forward me-1"></i> Pular (sem foto)
+                </button>
+                <button type="button" class="btn btn-success btn-sm" id="btnEnviarFoto" style="display:none" onclick="enviarFoto()">
+                    <i class="bi bi-check-lg me-1"></i> Confirmar Foto
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Manutenção -->
 <div class="modal fade" id="modalManutencao" tabindex="-1">
     <div class="modal-dialog modal-sm">
@@ -361,7 +397,103 @@ function confirmarSaida() {
             `<button class="btn btn-sm btn-success" onclick="marcarDisponivel(${_ferrId}, this)">
                 <i class="bi bi-arrow-return-left me-1"></i> Devolver</button>`;
         atualizarContadores();
+        // Se Cloudinary configurado, abre câmera para foto de prova
+        if (data.cloudinary_ok && data.hist_id) {
+            _histId = data.hist_id;
+            setTimeout(() => abrirCamera(), 400);
+        }
     });
+}
+
+// ── CÂMERA — FOTO DE RETIRADA ─────────────────────────────────────────────
+let _histId = null;
+let _stream = null;
+let _fotoBase64 = null;
+
+function abrirCamera() {
+    _fotoBase64 = null;
+    document.getElementById('videoCamera').style.display = 'none';
+    document.getElementById('fotoPreview').style.display = 'none';
+    document.getElementById('btnCapturar').style.display = 'none';
+    document.getElementById('btnRetirar').style.display = 'none';
+    document.getElementById('btnEnviarFoto').style.display = 'none';
+    document.getElementById('fotoStatus').textContent = 'Iniciando câmera...';
+    new bootstrap.Modal(document.getElementById('modalFoto')).show();
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+        .then(stream => {
+            _stream = stream;
+            const video = document.getElementById('videoCamera');
+            video.srcObject = stream;
+            video.style.display = 'block';
+            document.getElementById('btnCapturar').style.display = 'inline-block';
+            document.getElementById('fotoStatus').textContent = 'Câmera pronta. Posicione o colaborador com a ferramenta.';
+        })
+        .catch(err => {
+            document.getElementById('fotoStatus').textContent = '⚠️ Câmera não disponível: ' + err.message;
+            document.getElementById('btnCapturar').style.display = 'none';
+        });
+}
+
+function capturarFoto() {
+    const video = document.getElementById('videoCamera');
+    const canvas = document.getElementById('canvasFoto');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    _fotoBase64 = canvas.toDataURL('image/jpeg', 0.8);
+    // Mostrar preview
+    const preview = document.getElementById('fotoPreview');
+    preview.src = _fotoBase64;
+    preview.style.display = 'block';
+    video.style.display = 'none';
+    document.getElementById('btnCapturar').style.display = 'none';
+    document.getElementById('btnRetirar').style.display = 'inline-block';
+    document.getElementById('btnEnviarFoto').style.display = 'inline-block';
+    document.getElementById('fotoStatus').textContent = '📸 Foto capturada! Confirme ou repita.';
+    // Parar câmera
+    if (_stream) _stream.getTracks().forEach(t => t.stop());
+}
+
+function repetirFoto() {
+    _fotoBase64 = null;
+    document.getElementById('fotoPreview').style.display = 'none';
+    document.getElementById('btnRetirar').style.display = 'none';
+    document.getElementById('btnEnviarFoto').style.display = 'none';
+    abrirCamera();
+}
+
+function enviarFoto() {
+    if (!_fotoBase64 || !_histId) return;
+    document.getElementById('fotoStatus').textContent = '⏳ Enviando foto...';
+    document.getElementById('btnEnviarFoto').disabled = true;
+    const csrf = document.querySelector('input[name="csrf_token"]')?.value || '';
+    fetch(`/ferramenta/historico/${_histId}/foto`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf},
+        body: JSON.stringify({ foto: _fotoBase64 })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            document.getElementById('fotoStatus').textContent = '✅ Foto salva com sucesso!';
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('modalFoto')).hide();
+            }, 1200);
+        } else {
+            document.getElementById('fotoStatus').textContent = '❌ Erro: ' + (data.error || 'tente novamente');
+            document.getElementById('btnEnviarFoto').disabled = false;
+        }
+    })
+    .catch(() => {
+        document.getElementById('fotoStatus').textContent = '❌ Erro de conexão.';
+        document.getElementById('btnEnviarFoto').disabled = false;
+    });
+}
+
+function pularFoto() {
+    if (_stream) _stream.getTracks().forEach(t => t.stop());
+    bootstrap.Modal.getInstance(document.getElementById('modalFoto')).hide();
 }
 
 // ── Manutenção ────────────────────────────────────────────────────────────────
@@ -486,6 +618,7 @@ function verHistorico(id) {
                         <th>Entrada</th>
                         <th>Saída / Conclusão</th>
                         <th>Registrado por</th>
+                        <th>📸 Foto</th>
                     </tr>
                 </thead><tbody>`;
             data.historico.forEach(h => {
@@ -498,12 +631,20 @@ function verHistorico(id) {
                 const colaborador = h.tipo_evento === 'manutencao' && h.motivo_manutencao
                     ? `${h.colaborador}<br><small class="text-muted">${h.motivo_manutencao}</small>`
                     : h.colaborador;
+                const fotoHtml = h.foto_url
+                    ? `<a href="${h.foto_url}" target="_blank" rel="noopener">
+                         <img src="${h.foto_url}" alt="Foto retirada"
+                              style="height:48px;width:48px;object-fit:cover;border-radius:6px;border:2px solid #1F3864"
+                              title="Clique para ampliar">
+                       </a>`
+                    : `<span class="text-muted small">—</span>`;
                 html += `<tr>
                     <td>${tipoBadge}</td>
                     <td class="fw-semibold">${colaborador}</td>
                     <td class="small">${h.data_saida}</td>
                     <td>${devol}</td>
                     <td class="small text-muted">${h.registrado_por}</td>
+                    <td class="text-center">${fotoHtml}</td>
                 </tr>`;
             });
             html += '</tbody></table>';

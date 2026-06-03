@@ -420,19 +420,43 @@ function abrirCamera() {
     document.getElementById('fotoStatus').textContent = 'Iniciando câmera...';
     new bootstrap.Modal(document.getElementById('modalFoto')).show();
 
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
-        .then(stream => {
-            _stream = stream;
-            const video = document.getElementById('videoCamera');
-            video.srcObject = stream;
-            video.style.display = 'block';
-            document.getElementById('btnCapturar').style.display = 'inline-block';
-            document.getElementById('fotoStatus').textContent = 'Câmera pronta. Posicione o colaborador com a ferramenta.';
-        })
-        .catch(err => {
-            document.getElementById('fotoStatus').textContent = '⚠️ Câmera não disponível: ' + err.message;
-            document.getElementById('btnCapturar').style.display = 'none';
-        });
+    // Aguarda o modal terminar a animação antes de pedir câmera
+    document.getElementById('modalFoto').addEventListener('shown.bs.modal', function iniciarCam() {
+        document.getElementById('modalFoto').removeEventListener('shown.bs.modal', iniciarCam);
+
+        // Tenta câmera traseira primeiro, depois câmera qualquer
+        const constraints = [
+            { video: { facingMode: { exact: 'environment' } }, audio: false },
+            { video: { facingMode: 'environment' }, audio: false },
+            { video: true, audio: false }
+        ];
+
+        function tentarCamera(idx) {
+            if (idx >= constraints.length) {
+                document.getElementById('fotoStatus').textContent = '⚠️ Câmera não disponível neste dispositivo.';
+                return;
+            }
+            navigator.mediaDevices.getUserMedia(constraints[idx])
+                .then(stream => {
+                    _stream = stream;
+                    const video = document.getElementById('videoCamera');
+                    video.srcObject = stream;
+                    video.style.display = 'block';
+                    document.getElementById('btnCapturar').style.display = 'inline-block';
+                    document.getElementById('fotoStatus').textContent = 'Câmera pronta. Posicione o colaborador com a ferramenta.';
+                })
+                .catch(err => {
+                    console.warn('Tentativa ' + idx + ' falhou:', err.name, err.message);
+                    tentarCamera(idx + 1);
+                });
+        }
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            document.getElementById('fotoStatus').textContent = '⚠️ Seu navegador não suporta acesso à câmera. Use Chrome ou Firefox atualizado.';
+            return;
+        }
+        tentarCamera(0);
+    }, { once: true });
 }
 
 function capturarFoto() {

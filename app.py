@@ -348,7 +348,7 @@ class HistoricoFerramenta(db.Model):
     registrado_por = db.Column(db.String(100))
     tipo_evento = db.Column(db.String(20), default='uso')     # uso | manutencao
     motivo_manutencao = db.Column(db.String(300), nullable=True)
-    foto_url = db.Column(db.String(500), nullable=True)       # URL Cloudinary — prova de retirada
+    foto_url = db.Column(db.Text, nullable=True)       # foto base64 comprimida — prova de retirada
 
 class AcessoExtra(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -649,7 +649,7 @@ def run_migrations():
             # ── Colunas novas em historico_ferramenta (bancos existentes) ────
             safe_exec(conn, "ALTER TABLE historico_ferramenta ADD COLUMN tipo_evento VARCHAR(20) DEFAULT 'uso'")
             safe_exec(conn, "ALTER TABLE historico_ferramenta ADD COLUMN motivo_manutencao VARCHAR(300)")
-            safe_exec(conn, "ALTER TABLE historico_ferramenta ADD COLUMN foto_url VARCHAR(500)")
+            safe_exec(conn, "ALTER TABLE historico_ferramenta ADD COLUMN foto_url TEXT")
             # Preencher tipo_evento nos registros antigos
             safe_exec(conn, "UPDATE historico_ferramenta SET tipo_evento = 'uso' WHERE tipo_evento IS NULL")
             # Garantir que ferramenta aceita status 'manutencao' (sem restrição de CHECK no SQLite)
@@ -2485,54 +2485,31 @@ def api_empresas_ferramentas():
     nomes = [e[0] for e in empresas if e[0] and q.lower() in e[0].lower()]
     return jsonify(sorted(nomes)[:10])
 
-# ── CLOUDINARY — UPLOAD DE FOTO DE RETIRADA ──────────────────────────────────
-def _cloudinary_configurado():
-    """Verifica se as credenciais do Cloudinary estão configuradas."""
-    return bool(
-        os.environ.get('CLOUDINARY_CLOUD_NAME') and
-        os.environ.get('CLOUDINARY_API_KEY') and
-        os.environ.get('CLOUDINARY_API_SECRET')
-    )
-
+# ── FOTO DE RETIRADA — SALVA DIRETO NO BANCO ─────────────────────────────────
 @app.route('/ferramenta/historico/<int:hist_id>/foto', methods=['POST'])
 @login_required
 def upload_foto_retirada(hist_id):
-    """Recebe foto em base64 do frontend e faz upload para Cloudinary."""
-    if not _cloudinary_configurado():
-        return jsonify({'error': 'Cloudinary não configurado no servidor.'}), 503
-
+    """Recebe foto em base64 do frontend e salva direto no PostgreSQL."""
     hist = HistoricoFerramenta.query.get_or_404(hist_id)
     data = request.get_json()
     if not data or 'foto' not in data:
         return jsonify({'error': 'Nenhuma foto recebida.'}), 400
 
+    foto = data['foto']
+    # Aceita apenas imagem base64
+    if not foto.startswith('data:image'):
+        return jsonify({'error': 'Formato inválido.'}), 400
+    # Limite de 5MB por foto
+    if len(foto) > 5 * 1024 * 1024:
+        return jsonify({'error': 'Foto muito grande. Máximo 5MB.'}), 400
+
     try:
-        import cloudinary
-        import cloudinary.uploader
-
-        cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME', '').strip()
-        api_key    = os.environ.get('CLOUDINARY_API_KEY', '').strip()
-        api_secret = os.environ.get('CLOUDINARY_API_SECRET', '').strip()
-
-        logger.info(f'CLOUDINARY config: cloud={cloud_name} key={api_key} secret_len={len(api_secret)}')
-
-        cloudinary.config(
-            cloud_name=cloud_name,
-            api_key=api_key,
-            api_secret=api_secret,
-            secure=True
-        )
-
-        # Upload mínimo — apenas o arquivo, sem parâmetros extras
-        result = cloudinary.uploader.upload(data['foto'])
-
-        hist.foto_url = result['secure_url']
+        hist.foto_url = foto
         db.session.commit()
-        logger.info(f'FOTO: upload ok — hist_id={hist_id} url={hist.foto_url}')
-        return jsonify({'url': hist.foto_url, 'ok': True})
-
+        logger.info(f'FOTO: salva no banco — hist_id={hist_id} tamanho={len(foto)} bytes')
+        return jsonify({'ok': True})
     except Exception as e:
-        logger.error(f'FOTO: erro completo — {type(e).__name__}: {e}')
+        logger.error(f'FOTO: erro ao salvar — {e}')
         return jsonify({'error': str(e)}), 500
 
 # ── GERENCIAR COLABORADORES ──────────────────────────────────────────────────

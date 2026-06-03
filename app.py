@@ -2404,7 +2404,7 @@ def atualizar_status_ferramenta(id):
 
     db.session.commit()
     data_saida_iso = f.data_saida.isoformat() if f.data_saida else None
-    # Retorna também o hist_id para o frontend poder fazer upload da foto
+    # Retorna hist_id para o frontend abrir câmera de foto
     hist_novo = HistoricoFerramenta.query.filter_by(
         ferramenta_id=f.id, data_devolucao=None
     ).order_by(HistoricoFerramenta.data_saida.desc()).first()
@@ -2413,8 +2413,7 @@ def atualizar_status_ferramenta(id):
         'status': f.status,
         'responsavel': f.responsavel_atual or '',
         'data_saida': data_saida_iso,
-        'hist_id': hist_id,
-        'cloudinary_ok': _cloudinary_configurado()
+        'hist_id': hist_id
     })
 
 @app.route('/ferramenta/<int:id>/historico')

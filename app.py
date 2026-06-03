@@ -2515,17 +2515,13 @@ def upload_foto_retirada(hist_id):
             api_secret=os.environ.get('CLOUDINARY_API_SECRET'),
             secure=True
         )
-        # Upload da imagem base64
+        # Upload simples — sem transformation para evitar problemas de assinatura
         result = cloudinary.uploader.upload(
             data['foto'],
             folder='ferramentas',
             public_id=f'retirada_{hist_id}_{date.today().strftime("%Y%m%d")}',
             overwrite=True,
-            transformation=[
-                {'width': 800, 'crop': 'limit'},   # reduz se for maior que 800px
-                {'quality': 'auto:good'},           # comprime automaticamente
-                {'fetch_format': 'auto'}            # formato otimizado
-            ]
+            resource_type='image'
         )
         hist.foto_url = result['secure_url']
         db.session.commit()

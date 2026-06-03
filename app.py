@@ -2509,26 +2509,30 @@ def upload_foto_retirada(hist_id):
     try:
         import cloudinary
         import cloudinary.uploader
+
+        cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME', '').strip()
+        api_key    = os.environ.get('CLOUDINARY_API_KEY', '').strip()
+        api_secret = os.environ.get('CLOUDINARY_API_SECRET', '').strip()
+
+        logger.info(f'CLOUDINARY config: cloud={cloud_name} key={api_key} secret_len={len(api_secret)}')
+
         cloudinary.config(
-            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
-            api_key=os.environ.get('CLOUDINARY_API_KEY'),
-            api_secret=os.environ.get('CLOUDINARY_API_SECRET'),
+            cloud_name=cloud_name,
+            api_key=api_key,
+            api_secret=api_secret,
             secure=True
         )
-        # Upload simples — sem transformation para evitar problemas de assinatura
-        result = cloudinary.uploader.upload(
-            data['foto'],
-            folder='ferramentas',
-            public_id=f'retirada_{hist_id}_{date.today().strftime("%Y%m%d")}',
-            overwrite=True,
-            resource_type='image'
-        )
+
+        # Upload mínimo — apenas o arquivo, sem parâmetros extras
+        result = cloudinary.uploader.upload(data['foto'])
+
         hist.foto_url = result['secure_url']
         db.session.commit()
         logger.info(f'FOTO: upload ok — hist_id={hist_id} url={hist.foto_url}')
         return jsonify({'url': hist.foto_url, 'ok': True})
+
     except Exception as e:
-        logger.error(f'FOTO: erro no upload — {e}')
+        logger.error(f'FOTO: erro completo — {type(e).__name__}: {e}')
         return jsonify({'error': str(e)}), 500
 
 # ── GERENCIAR COLABORADORES ──────────────────────────────────────────────────

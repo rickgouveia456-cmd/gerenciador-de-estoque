@@ -335,6 +335,7 @@ class Ferramenta(db.Model):
     responsavel_atual = db.Column(db.String(100))
     data_saida = db.Column(db.DateTime, nullable=True)        # quando foi retirada
     observacao = db.Column(db.String(200))
+    local = db.Column(db.String(100))                         # localização física
     ativo = db.Column(db.Boolean, default=True)
     data_cadastro = db.Column(db.DateTime, default=agora)
     historico = db.relationship('HistoricoFerramenta', backref='ferramenta', lazy=True, order_by='HistoricoFerramenta.data_saida.desc()')
@@ -350,6 +351,35 @@ class HistoricoFerramenta(db.Model):
     tipo_evento = db.Column(db.String(20), default='uso')     # uso | manutencao
     motivo_manutencao = db.Column(db.String(300), nullable=True)
     foto_url = db.Column(db.Text, nullable=True)       # foto base64 comprimida — prova de retirada
+
+class ItemEPI(db.Model):
+    """Controle de EPIs e uniformes por almoxarifado (espelho de Ferramenta, sem prazo)."""
+    id = db.Column(db.Integer, primary_key=True)
+    identificacao = db.Column(db.String(50), nullable=False)  # CA ou código interno
+    nome = db.Column(db.String(200), nullable=False)
+    tamanho = db.Column(db.String(30))                        # P, M, G, GG, 38, 40...
+    almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=False)
+    almoxarifado = db.relationship('Almoxarifado', backref='epis')
+    status = db.Column(db.String(20), default='disponivel')   # disponivel | em_uso | manutencao
+    responsavel_atual = db.Column(db.String(100))
+    quantidade = db.Column(db.Integer, default=1)             # estoque disponível deste EPI
+    local = db.Column(db.String(100))                         # localização física
+    observacao = db.Column(db.String(200))
+    ativo = db.Column(db.Boolean, default=True)
+    data_cadastro = db.Column(db.DateTime, default=agora)
+    historico = db.relationship('HistoricoEPI', backref='item_epi', lazy=True, order_by='HistoricoEPI.data_saida.desc()')
+
+class HistoricoEPI(db.Model):
+    """Registro de cada entrega/devolução de EPI."""
+    id = db.Column(db.Integer, primary_key=True)
+    item_epi_id = db.Column(db.Integer, db.ForeignKey('item_epi.id'), nullable=False)
+    colaborador = db.Column(db.String(100), nullable=False)
+    data_saida = db.Column(db.DateTime, nullable=False)
+    data_devolucao = db.Column(db.DateTime, nullable=True)
+    registrado_por = db.Column(db.String(100))
+    tipo_evento = db.Column(db.String(20), default='uso')     # uso | manutencao
+    motivo_manutencao = db.Column(db.String(300), nullable=True)
+    foto_url = db.Column(db.Text, nullable=True)              # foto base64 — comprovante de entrega
 
 class AcessoExtra(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -438,12 +468,10 @@ def extrair_colaborador(mov):
 def inject_sidebar():
     u = usuario_atual()
     if not u:
-        return dict(sidebar_alms=[], usuario_atual=None)
+        return dict(sidebar_alms=[], usuario_atual=None, sidebar_contadores={})
     if u.perfil == 'admin':
         alms = Almoxarifado.query.all()
     elif u.perfil in ('mestre', 'tecnico_seguranca'):
-        # Mestre vê só o almoxarifado dele
-        # Técnico de segurança vê o almoxarifado principal + acessos extras
         if u.perfil == 'tecnico_seguranca':
             ids = u.almoxarifados_permitidos()
             alms = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).all() if ids else (
@@ -454,7 +482,16 @@ def inject_sidebar():
     else:
         ids = u.almoxarifados_permitidos()
         alms = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).all() if ids else []
-    return dict(sidebar_alms=alms, usuario_atual=u)
+
+    # Contadores de ferramentas e EPIs por almoxarifado para exibir na sidebar
+    sidebar_contadores = {}
+    for alm in alms:
+        n_ferr  = Ferramenta.query.filter_by(almoxarifado_id=alm.id, ativo=True).count()
+        n_epi   = ItemEPI.query.filter_by(almoxarifado_id=alm.id, ativo=True).count()
+        n_itens = Item.query.filter_by(almoxarifado_id=alm.id, ativo=True).count()
+        sidebar_contadores[alm.id] = {'ferr': n_ferr, 'epi': n_epi, 'itens': n_itens}
+
+    return dict(sidebar_alms=alms, usuario_atual=u, sidebar_contadores=sidebar_contadores)
 
 def run_migrations():
     """Executa migrações de schema de forma segura usando SAVEPOINT no PostgreSQL."""
@@ -579,6 +616,78 @@ def run_migrations():
             safe_exec(conn, "ALTER TABLE movimentacao ADD COLUMN devolvido BOOLEAN")
             # ── Campo foto_url em movimentacao ────────────────────────────────
             safe_exec(conn, "ALTER TABLE movimentacao ADD COLUMN foto_url TEXT")
+
+            # ── Campo local em ferramenta ─────────────────────────────────────
+            safe_exec(conn, "ALTER TABLE ferramenta ADD COLUMN local VARCHAR(100)")
+            # ── Colunas adicionais em item_epi (para bancos criados sem elas) ─
+            safe_exec(conn, "ALTER TABLE item_epi ADD COLUMN quantidade INTEGER DEFAULT 1")
+            safe_exec(conn, "ALTER TABLE item_epi ADD COLUMN local VARCHAR(100)")
+
+            # ── Tabela item_epi ───────────────────────────────────────────────
+            if is_pg:
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS item_epi (
+                        id SERIAL PRIMARY KEY,
+                        identificacao VARCHAR(50) NOT NULL,
+                        nome VARCHAR(200) NOT NULL,
+                        tamanho VARCHAR(30),
+                        almoxarifado_id INTEGER NOT NULL REFERENCES almoxarifado(id),
+                        status VARCHAR(20) DEFAULT 'disponivel',
+                        responsavel_atual VARCHAR(100),
+                        quantidade INTEGER DEFAULT 1,
+                        local VARCHAR(100),
+                        observacao VARCHAR(200),
+                        ativo BOOLEAN DEFAULT TRUE,
+                        data_cadastro TIMESTAMP
+                    )
+                """)
+            else:
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS item_epi (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        identificacao VARCHAR(50) NOT NULL,
+                        nome VARCHAR(200) NOT NULL,
+                        tamanho VARCHAR(30),
+                        almoxarifado_id INTEGER NOT NULL REFERENCES almoxarifado(id),
+                        status VARCHAR(20) DEFAULT 'disponivel',
+                        responsavel_atual VARCHAR(100),
+                        quantidade INTEGER DEFAULT 1,
+                        local VARCHAR(100),
+                        observacao VARCHAR(200),
+                        ativo BOOLEAN DEFAULT TRUE,
+                        data_cadastro DATETIME
+                    )
+                """)
+
+            # ── Tabela historico_epi ──────────────────────────────────────────
+            if is_pg:
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS historico_epi (
+                        id SERIAL PRIMARY KEY,
+                        item_epi_id INTEGER NOT NULL REFERENCES item_epi(id),
+                        colaborador VARCHAR(100) NOT NULL,
+                        data_saida TIMESTAMP NOT NULL,
+                        data_devolucao TIMESTAMP,
+                        registrado_por VARCHAR(100),
+                        tipo_evento VARCHAR(20) DEFAULT 'uso',
+                        motivo_manutencao VARCHAR(300),
+                        foto_url TEXT
+                    )
+                """)
+            else:
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS historico_epi (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        item_epi_id INTEGER NOT NULL REFERENCES item_epi(id),
+                        colaborador VARCHAR(100) NOT NULL,
+                        data_saida DATETIME NOT NULL,
+                        data_devolucao DATETIME,
+                        registrado_por VARCHAR(100),
+                        tipo_evento VARCHAR(20) DEFAULT 'uso',
+                        motivo_manutencao VARCHAR(300),
+                        foto_url TEXT
+                    )
+                """)
 
             # ── Tabela ferramentas ────────────────────────────────────────────
             if is_pg:
@@ -2412,6 +2521,7 @@ def nova_ferramenta(alm_id):
             nome=request.form['nome'].strip(),
             empresa=request.form.get('empresa', '').strip() or None,
             almoxarifado_id=alm_id,
+            local=request.form.get('local', '').strip() or None,
             observacao=request.form.get('observacao', '').strip() or None
         )
         db.session.add(f)
@@ -2604,6 +2714,150 @@ def upload_foto_epi(mov_id):
     except Exception as e:
         logger.error(f'FOTO EPI: erro — {e}')
         return jsonify({'error': str(e)}), 500
+
+# ── FROTA DE EPIs / UNIFORMES ─────────────────────────────────────────────────
+
+@app.route('/almoxarifado/<int:alm_id>/epis')
+@login_required
+def epis(alm_id):
+    u = usuario_atual()
+    alm = Almoxarifado.query.get_or_404(alm_id)
+    if u.perfil not in ('admin', 'almoxarife') and alm_id not in u.almoxarifados_permitidos():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('index'))
+    lista = ItemEPI.query.filter_by(almoxarifado_id=alm_id, ativo=True).order_by(ItemEPI.nome).all()
+    return render_template('epis.html', almoxarifado=alm, epis=lista)
+
+@app.route('/almoxarifado/<int:alm_id>/epis/novo', methods=['GET', 'POST'])
+@login_required
+def novo_epi(alm_id):
+    u = usuario_atual()
+    alm = Almoxarifado.query.get_or_404(alm_id)
+    if u.perfil not in ('admin', 'almoxarife'):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('epis', alm_id=alm_id))
+    if request.method == 'POST':
+        e = ItemEPI(
+            identificacao=request.form['identificacao'].strip(),
+            nome=request.form['nome'].strip(),
+            tamanho=request.form.get('tamanho', '').strip() or None,
+            almoxarifado_id=alm_id,
+            quantidade=int(request.form.get('quantidade', 1) or 1),
+            local=request.form.get('local', '').strip() or None,
+            observacao=request.form.get('observacao', '').strip() or None
+        )
+        db.session.add(e)
+        db.session.commit()
+        flash(f'EPI "{e.nome}" cadastrado!', 'success')
+        return redirect(url_for('epis', alm_id=alm_id))
+    return render_template('epi_form.html', almoxarifado=alm, epi=None, form_data={})
+
+@app.route('/epi/<int:id>/status', methods=['POST'])
+@login_required
+def atualizar_status_epi(id):
+    e = ItemEPI.query.get_or_404(id)
+    u = usuario_atual()
+    if u.perfil not in ('admin', 'almoxarife'):
+        return jsonify({'error': 'Acesso negado'}), 403
+    novo_status = request.form.get('status', 'disponivel')
+    responsavel = request.form.get('responsavel', '').strip()
+    motivo = request.form.get('motivo', '').strip()
+
+    if novo_status == 'em_uso':
+        e.status = 'em_uso'
+        e.responsavel_atual = responsavel
+        db.session.add(HistoricoEPI(
+            item_epi_id=e.id,
+            colaborador=responsavel,
+            data_saida=agora(),
+            registrado_por=u.nome,
+            tipo_evento='uso'
+        ))
+    elif novo_status == 'manutencao':
+        hist_aberto = HistoricoEPI.query.filter_by(
+            item_epi_id=e.id, data_devolucao=None
+        ).order_by(HistoricoEPI.data_saida.desc()).first()
+        if hist_aberto:
+            hist_aberto.data_devolucao = agora()
+        e.status = 'manutencao'
+        e.responsavel_atual = motivo or 'Em manutenção'
+        db.session.add(HistoricoEPI(
+            item_epi_id=e.id,
+            colaborador=u.nome,
+            data_saida=agora(),
+            registrado_por=u.nome,
+            tipo_evento='manutencao',
+            motivo_manutencao=motivo or None
+        ))
+    else:
+        hist = HistoricoEPI.query.filter_by(
+            item_epi_id=e.id, data_devolucao=None
+        ).order_by(HistoricoEPI.data_saida.desc()).first()
+        if hist:
+            hist.data_devolucao = agora()
+        e.status = 'disponivel'
+        e.responsavel_atual = None
+
+    db.session.commit()
+    hist_novo = HistoricoEPI.query.filter_by(
+        item_epi_id=e.id, data_devolucao=None
+    ).order_by(HistoricoEPI.data_saida.desc()).first()
+    hist_id = hist_novo.id if hist_novo else None
+    return jsonify({
+        'status': e.status,
+        'responsavel': e.responsavel_atual or '',
+        'hist_id': hist_id
+    })
+
+@app.route('/epi/<int:id>/historico')
+@login_required
+def historico_epi(id):
+    e = ItemEPI.query.get_or_404(id)
+    hist = HistoricoEPI.query.filter_by(item_epi_id=id).order_by(
+        HistoricoEPI.data_saida.desc()
+    ).limit(20).all()
+    return jsonify({
+        'nome': e.nome,
+        'id': e.identificacao,
+        'historico': [{
+            'colaborador': h.colaborador,
+            'data_saida': h.data_saida.strftime('%d/%m/%Y'),
+            'data_devolucao': h.data_devolucao.strftime('%d/%m/%Y') if h.data_devolucao else None,
+            'registrado_por': h.registrado_por or '—',
+            'tipo_evento': h.tipo_evento or 'uso',
+            'motivo_manutencao': h.motivo_manutencao or '',
+            'foto_url': h.foto_url or ''
+        } for h in hist]
+    })
+
+@app.route('/epi/<int:id>/deletar', methods=['POST'])
+@admin_required
+def deletar_epi(id):
+    e = ItemEPI.query.get_or_404(id)
+    alm_id = e.almoxarifado_id
+    e.ativo = False
+    db.session.commit()
+    flash(f'EPI "{e.nome}" removido.', 'warning')
+    return redirect(url_for('epis', alm_id=alm_id))
+
+@app.route('/epi/historico/<int:hist_id>/foto', methods=['POST'])
+@login_required
+def upload_foto_historico_epi(hist_id):
+    hist = HistoricoEPI.query.get_or_404(hist_id)
+    data = request.get_json()
+    if not data or 'foto' not in data:
+        return jsonify({'error': 'Nenhuma foto recebida.'}), 400
+    foto = data['foto']
+    if not foto.startswith('data:image'):
+        return jsonify({'error': 'Formato inválido.'}), 400
+    if len(foto) > 5 * 1024 * 1024:
+        return jsonify({'error': 'Foto muito grande. Máximo 5MB.'}), 400
+    try:
+        hist.foto_url = foto
+        db.session.commit()
+        return jsonify({'ok': True})
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 500
 
 # ── GERENCIAR COLABORADORES ──────────────────────────────────────────────────
 

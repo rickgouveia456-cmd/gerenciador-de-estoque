@@ -4,14 +4,26 @@
 
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-    <a href="/almoxarifado/{{ almoxarifado.id }}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left me-1"></i> Voltar ao Almoxarifado
-    </a>
-    {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
-    <a href="/almoxarifado/{{ almoxarifado.id }}/ferramentas/nova" class="btn btn-primary btn-sm">
-        <i class="bi bi-plus-lg me-1"></i> Nova Ferramenta
-    </a>
-    {% endif %}
+    <!-- Tabs Ferramentas / EPIs -->
+    <div class="d-flex align-items-center gap-2">
+        <span class="btn btn-sm text-white fw-bold" style="background:var(--accent);pointer-events:none">
+            <i class="bi bi-tools me-1"></i> Ferramentas
+        </span>
+        <a href="/almoxarifado/{{ almoxarifado.id }}/epis"
+           class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-shield-check me-1"></i> EPIs / Uniformes
+        </a>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="/almoxarifado/{{ almoxarifado.id }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i> Voltar ao Almoxarifado
+        </a>
+        {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
+        <a href="/almoxarifado/{{ almoxarifado.id }}/ferramentas/nova" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i> Nova Ferramenta
+        </a>
+        {% endif %}
+    </div>
 </div>
 
 <!-- Resumo -->
@@ -70,6 +82,7 @@
                     <th>Status</th>
                     <th>Com quem / Motivo</th>
                     <th>⏱️ Prazo (24h)</th>
+                    <th>Local</th>
                     <th>Observação</th>
                     {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
                     <th>Ações</th>
@@ -108,6 +121,7 @@
                             <span class="text-muted small">—</span>
                         {% endif %}
                     </td>
+                    <td class="small text-muted">{{ f.local or '—' }}</td>
                     <td class="text-muted small">{{ f.observacao or '—' }}</td>
                     {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
                     <td id="acoes_{{ f.id }}">

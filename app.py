@@ -229,6 +229,7 @@ class Movimentacao(db.Model):
     data = db.Column(db.DateTime, default=agora)
     item_id = db.Column(db.Integer, db.ForeignKey('item.id'), nullable=False)
     devolvido = db.Column(db.Boolean, nullable=True)  # None=não aplicável, True=devolvido, False=não devolvido
+    foto_url = db.Column(db.Text, nullable=True)       # foto base64 — prova de entrega de EPI
 
 class Requisicao(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -576,6 +577,8 @@ def run_migrations():
 
             # ── Campo devolvido em movimentacao ──────────────────────────────
             safe_exec(conn, "ALTER TABLE movimentacao ADD COLUMN devolvido BOOLEAN")
+            # ── Campo foto_url em movimentacao ────────────────────────────────
+            safe_exec(conn, "ALTER TABLE movimentacao ADD COLUMN foto_url TEXT")
 
             # ── Tabela ferramentas ────────────────────────────────────────────
             if is_pg:
@@ -1058,6 +1061,18 @@ def movimentacao_lote():
             db.session.commit()
             tipo_label = '📥 Entrada' if request.form['tipo'] == 'entrada' else '📤 Saída'
             alm = db.session.get(Almoxarifado, alm_id)
+
+            # Se é saída de EPI via AJAX, retorna JSON com IDs para abrir câmera
+            if (request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+                    and request.form.get('tipo') == 'saida'):
+                epi_movs = [m for m in movs if db.session.get(Item, m.item_id).categoria == 'epi']
+                return jsonify({
+                    'ok': True,
+                    'msg': f'{len(movs)} item(ns) registrado(s).',
+                    'epi_mov_ids': [m.id for m in epi_movs],
+                    'redirect': url_for('movimentacao_lote')
+                })
+
             flash_html(
                 f'<strong>{escape(tipo_label)} registrada!</strong> '
                 f'{len(movs)} item(ns) movimentado(s) em <strong>{escape(alm.nome if alm else "")}</strong>. '
@@ -2563,6 +2578,31 @@ def upload_foto_retirada(hist_id):
         return jsonify({'ok': True})
     except Exception as e:
         logger.error(f'FOTO: erro ao salvar — {e}')
+        return jsonify({'error': str(e)}), 500
+
+# ── FOTO DE EPI — SALVA DIRETO NO BANCO ──────────────────────────────────────
+@app.route('/movimentacao/<int:mov_id>/foto', methods=['POST'])
+@login_required
+def upload_foto_epi(mov_id):
+    """Recebe foto em base64 do frontend e salva na movimentação de EPI."""
+    mov = Movimentacao.query.get_or_404(mov_id)
+    data = request.get_json()
+    if not data or 'foto' not in data:
+        return jsonify({'error': 'Nenhuma foto recebida.'}), 400
+
+    foto = data['foto']
+    if not foto.startswith('data:image'):
+        return jsonify({'error': 'Formato inválido.'}), 400
+    if len(foto) > 5 * 1024 * 1024:
+        return jsonify({'error': 'Foto muito grande. Máximo 5MB.'}), 400
+
+    try:
+        mov.foto_url = foto
+        db.session.commit()
+        logger.info(f'FOTO EPI: salva — mov_id={mov_id} tamanho={len(foto)} bytes')
+        return jsonify({'ok': True})
+    except Exception as e:
+        logger.error(f'FOTO EPI: erro — {e}')
         return jsonify({'error': str(e)}), 500
 
 # ── GERENCIAR COLABORADORES ──────────────────────────────────────────────────

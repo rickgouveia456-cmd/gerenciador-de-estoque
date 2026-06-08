@@ -4090,6 +4090,52 @@ def classificar_categorias_itens():
         logger.info(f'Categorias: erro ao classificar — {e}')
 
 
+def migrar_itens_para_epi():
+    """Migra automaticamente itens com categoria='epi' do estoque para ItemEPI.
+    Executa apenas se ItemEPI estiver vazia mas houver itens EPI no estoque.
+    Usa o nome+almoxarifado como chave para evitar duplicatas.
+    """
+    try:
+        total_epi_items = Item.query.filter_by(categoria='epi', ativo=True).count()
+        if total_epi_items == 0:
+            return
+        total_item_epi = ItemEPI.query.count()
+
+        itens_epi = Item.query.filter_by(categoria='epi', ativo=True).order_by(Item.nome).all()
+        migrados = 0
+        for it in itens_epi:
+            # Verifica se já existe um ItemEPI com o mesmo nome e almoxarifado
+            existe = ItemEPI.query.filter_by(
+                nome=it.nome,
+                almoxarifado_id=it.almoxarifado_id,
+                ativo=True
+            ).first()
+            if existe:
+                continue
+            novo = ItemEPI(
+                identificacao=it.ca or it.codigo or f'EPI-{it.id}',
+                nome=it.nome,
+                tamanho=None,
+                almoxarifado_id=it.almoxarifado_id,
+                quantidade=max(1, int(it.quantidade)) if it.quantidade > 0 else 1,
+                status='disponivel',
+                observacao=f'Migrado do estoque (cod: {it.codigo})',
+                ativo=True,
+                data_cadastro=agora()
+            )
+            db.session.add(novo)
+            migrados += 1
+
+        if migrados > 0:
+            db.session.commit()
+            logger.info(f'MIGRAÇÃO EPI: {migrados} item(s) migrados do estoque para ItemEPI.')
+        else:
+            logger.info(f'MIGRAÇÃO EPI: sem itens novos para migrar ({total_item_epi} ItemEPI já existem).')
+    except Exception as e:
+        logger.error(f'MIGRAÇÃO EPI: erro — {e}')
+        db.session.rollback()
+
+
 def inicializar_banco():
     """Roda migrações, cria tabelas e seed — executado uma única vez."""
     try:
@@ -4097,6 +4143,7 @@ def inicializar_banco():
         run_migrations()
         seed_data()
         classificar_categorias_itens()
+        migrar_itens_para_epi()
     except Exception as e:
         logger.error(f'Inicialização do banco: {e}')
 

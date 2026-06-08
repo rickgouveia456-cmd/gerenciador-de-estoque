@@ -1653,11 +1653,20 @@ def relatorio_consumo_pessoa():
         # Se não achou colaborador na obs, usa o responsável
         return mov.responsavel or 'Sem responsável'
 
+    def normalizar_nome(nome):
+        """Remove número de requisição do nome para agrupar corretamente.
+        Ex: 'Thiago | req 0271' → 'Thiago'
+            'Thiago | REQ 4598' → 'Thiago'
+        """
+        # Remove ' | req XXXX' ou ' | REQ XXXX' do final
+        nome_limpo = re.sub(r'\s*[|·]\s*[Rr][Ee][Qq]\.?\s*\d+.*$', '', nome).strip()
+        return nome_limpo if nome_limpo else nome
+
     # Filtrar por nome se informado
     from collections import defaultdict
     por_pessoa = defaultdict(list)
     for mov in movs:
-        colaborador = extrair_colaborador(mov)
+        colaborador = normalizar_nome(extrair_colaborador(mov))
         if responsavel_filtro and responsavel_filtro.lower() not in colaborador.lower():
             continue
         por_pessoa[colaborador].append(mov)
@@ -1667,11 +1676,21 @@ def relatorio_consumo_pessoa():
     for nome, lista in sorted(por_pessoa.items()):
         total_movs = len(lista)
         itens_distintos = len(set(m.item_id for m in lista))
+        # Coletar números de requisição únicos associados a esta pessoa
+        reqs = []
+        for mov in lista:
+            obs = mov.observacao or ''
+            m_req = re.search(r'[Rr]eq\.?\s*(?:[Mm]estre\s*)?#?(\d+)', obs)
+            if m_req:
+                r_num = m_req.group(1)
+                if r_num not in reqs:
+                    reqs.append(r_num)
         resumo.append({
             'nome': nome,
             'movimentacoes': lista,
             'total_movs': total_movs,
             'itens_distintos': itens_distintos,
+            'reqs': reqs,
         })
 
     almoxarifados = Almoxarifado.query.all()
@@ -1721,9 +1740,12 @@ def exportar_consumo_pessoa():
         if m: return m.group(1).strip()
         return mov.responsavel or 'Sem responsável'
 
+    def normalizar_nome(nome):
+        return re.sub(r'\s*[|·]\s*[Rr][Ee][Qq]\.?\s*\d+.*$', '', nome).strip() or nome
+
     por_pessoa = defaultdict(list)
     for mov in movs:
-        colab = extrair_colaborador(mov)
+        colab = normalizar_nome(extrair_colaborador(mov))
         if responsavel_filtro and responsavel_filtro.lower() not in colab.lower():
             continue
         por_pessoa[colab].append(mov)

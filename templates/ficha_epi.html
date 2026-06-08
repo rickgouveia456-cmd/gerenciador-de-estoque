@@ -26,12 +26,22 @@
                             <i class="bi bi-person me-1" style="color:var(--accent)"></i>
                             Qual funcionário?
                         </label>
-                        <select name="funcionario" class="form-select form-select-lg" required>
-                            <option value="">Selecione o funcionário...</option>
-                            {% for f in funcionarios %}
-                            <option value="{{ f }}">{{ f }}</option>
-                            {% endfor %}
-                        </select>
+                        <div class="row g-2 align-items-end">
+                            <div class="col-8">
+                                <select name="funcionario" id="selectFuncionario" class="form-select form-select-lg" required>
+                                    <option value="">Selecione o funcionário...</option>
+                                    {% for f in funcionarios %}
+                                    <option value="{{ f.nome }}" data-req="{{ f.req }}">{{ f.nome }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label small text-muted mb-1">Requisição</label>
+                                <input type="text" id="campoReq" class="form-control form-control-lg"
+                                       placeholder="—" readonly
+                                       style="background:#f8f9fa;color:#6c757d;cursor:default">
+                            </div>
+                        </div>
                     </div>
                     <div class="mb-4">
                         <label class="form-label fw-semibold">
@@ -71,4 +81,15 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('selectFuncionario') && document.getElementById('selectFuncionario').addEventListener('change', function() {
+    const opt = this.options[this.selectedIndex];
+    const req = opt.dataset.req || '';
+    const campo = document.getElementById('campoReq');
+    if (campo) campo.value = req ? 'req ' + req : '—';
+});
+</script>
 {% endblock %}

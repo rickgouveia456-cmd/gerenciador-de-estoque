@@ -1715,19 +1715,33 @@ def ficha_epi():
         Movimentacao.tipo == 'saida', Item.categoria == 'epi')
     if u.perfil != 'admin':
         query = query.filter(Item.almoxarifado_id.in_(u.almoxarifados_permitidos()))
-    funcionarios = set()
-    movs = query.all()
+    movs = query.order_by(Movimentacao.data.desc()).all()
+
+    # Coleta funcionários únicos com sua requisição mais recente
+    visto = {}  # nome_lower -> {nome, req}
     for mov in movs:
         obs = mov.observacao or ''
+        nome = None
+        req_num = None
+
         m = re.search(r'liberado\s+[Pp][/\s]+(.+)', obs, re.IGNORECASE)
         if m:
-            funcionarios.add(m.group(1).strip())
+            nome = m.group(1).strip()
         elif 'Colaborador:' in obs:
-            nome = obs.split('Colaborador:')[-1].split('|')[0].strip()
-            if nome:
-                funcionarios.add(nome)
+            partes = obs.split('Colaborador:', 1)
+            nome = partes[-1].split('|')[0].strip()
+
+        # Tenta extrair número da requisição da observação
+        m_req = re.search(r'[Rr]eq\.?\s*(?:Mestre\s*)?#?(\d+)', obs)
+        if m_req:
+            req_num = m_req.group(1)
+
+        if nome and nome.lower() not in visto:
+            visto[nome.lower()] = {'nome': nome, 'req': req_num or ''}
+
+    funcionarios = sorted(visto.values(), key=lambda x: x['nome'])
     return render_template('ficha_epi.html',
-                           funcionarios=sorted(funcionarios),
+                           funcionarios=funcionarios,
                            data_ini='2020-01-01',
                            data_fim=str(date.today()))
 
@@ -1971,20 +1985,57 @@ def exportar_ficha_epi():
     for c in range(1,9): ws.cell(row,c).border = borda
     row += 2
 
-    # Linha de data e assinatura
-    ws.row_dimensions[row].height = 28
-    ws.merge_cells(f'A{row}:C{row}')
-    ws[f'A{row}'].value = 'Data:        /        /'
+    # ── DATA ─────────────────────────────────────────────────────────────────
+    ws.row_dimensions[row].height = 22
+    ws.merge_cells(f'A{row}:H{row}')
+    ws[f'A{row}'].value = 'Data: _______ / _______ / _____________'
     ws[f'A{row}'].font = Font(size=10)
     ws[f'A{row}'].alignment = esq
-    for c in range(1,4): ws.cell(row,c).border = borda
+    for c in range(1,9): ws.cell(row,c).border = borda
+    row += 2
 
-    ws.merge_cells(f'D{row}:H{row}')
-    ws[f'D{row}'].value = 'EMPREGADO'
-    ws[f'D{row}'].font = Font(bold=True, size=10, color='1F3864')
-    ws[f'D{row}'].alignment = centro
-    ws[f'D{row}'].fill = azul_cla
-    for c in range(4,9): ws.cell(row,c).border = borda
+    # ── CABEÇALHO BLOCO ASSINATURAS ──────────────────────────────────────────
+    ws.row_dimensions[row].height = 16
+    for col_ini, col_fim, label in [('A','B','FUNCIONÁRIO'), ('C','E','RESPONSÁVEL'), ('F','H','TESTEMUNHA')]:
+        ws.merge_cells(f'{col_ini}{row}:{col_fim}{row}')
+        ws[f'{col_ini}{row}'].value = label
+        ws[f'{col_ini}{row}'].font = Font(bold=True, size=9, color='FFFFFF')
+        ws[f'{col_ini}{row}'].fill = azul_esc
+        ws[f'{col_ini}{row}'].alignment = centro
+        for c in range(ord(col_ini)-64, ord(col_fim)-64+1):
+            ws.cell(row, c).border = borda
+    row += 1
+
+    # Linha: Nome por extenso
+    ws.row_dimensions[row].height = 22
+    for col_ini, col_fim, placeholder in [('A','B', funcionario.upper()), ('C','E',''), ('F','H','')]:
+        ws.merge_cells(f'{col_ini}{row}:{col_fim}{row}')
+        ws[f'{col_ini}{row}'].value = placeholder
+        ws[f'{col_ini}{row}'].font = Font(bold=True, size=9)
+        ws[f'{col_ini}{row}'].alignment = centro
+        ws[f'{col_ini}{row}'].fill = cinza
+        for c in range(ord(col_ini)-64, ord(col_fim)-64+1):
+            ws.cell(row, c).border = borda
+    row += 1
+
+    # Linha: Assinatura (espaço em branco para assinar)
+    ws.row_dimensions[row].height = 38
+    for col_ini, col_fim in [('A','B'), ('C','E'), ('F','H')]:
+        ws.merge_cells(f'{col_ini}{row}:{col_fim}{row}')
+        ws[f'{col_ini}{row}'].value = ''
+        for c in range(ord(col_ini)-64, ord(col_fim)-64+1):
+            ws.cell(row, c).border = borda
+    row += 1
+
+    # Linha: rótulo "Assinatura"
+    ws.row_dimensions[row].height = 14
+    for col_ini, col_fim in [('A','B'), ('C','E'), ('F','H')]:
+        ws.merge_cells(f'{col_ini}{row}:{col_fim}{row}')
+        ws[f'{col_ini}{row}'].value = 'Assinatura'
+        ws[f'{col_ini}{row}'].font = Font(size=8, italic=True, color='595959')
+        ws[f'{col_ini}{row}'].alignment = centro
+        for c in range(ord(col_ini)-64, ord(col_fim)-64+1):
+            ws.cell(row, c).border = borda
 
     buf = io.BytesIO()
     wb.save(buf); buf.seek(0)
@@ -3433,6 +3484,84 @@ def seed_colaboradores():
     db.session.commit()
     flash(f'✅ {inseridos} colaboradores cadastrados da estrutura!', 'success')
     return redirect(url_for('colaboradores'))
+
+@app.route('/admin/seed-ferramentas-estrutura', methods=['POST'])
+@admin_required
+def seed_ferramentas_estrutura():
+    """Cadastra as ferramentas da Estrutura Ventura Patamares — ignora duplicatas pelo ID."""
+    # Busca o almoxarifado de Estrutura
+    alm = Almoxarifado.query.filter(Almoxarifado.nome.ilike('%estrutura%')).first()
+    if not alm:
+        flash('Almoxarifado de Estrutura não encontrado.', 'danger')
+        return redirect(url_for('index'))
+
+    ferramentas_lista = [
+        ("INGFH007",  "PISTOLA DE FIXACAO A BATERIA BX 3-L A22MA HILTI GF",   "HILTI"),
+        ("IN450348",  "MARTELO SDS PLUS C/ PUNHO",                              ""),
+        ("INMRM158",  "MARTELO ROMPEDOR MMR1700 45J 12KG MONO 220V 60HZ",      "MENEGOTTI"),
+        ("IN580121",  "MISTURADOR DE ARGAMASSA MAV1600 220V",                   "MENEGOTTI"),
+        ("IN580039",  "MISTURADOR DE ARGAMASSA MAV1600 220V",                   "MENEGOTTI"),
+        ("INGFH003",  "PISTOLA DE FIXACAO A BATERIA BX 3-L A22MA HILTI GF",    "HILTI"),
+        ("INEAG119",  "ESMERILHADEIRA ANGULAR 5\" C/ ACESSORIOS",               "MAKITA"),
+        ("IN270013",  "FURADEIRA 3/4 FUR3/4P",                                  ""),
+        ("IN270028",  "FURADEIRA 3/4 FUR3/4P",                                  ""),
+        ("IN270004",  "FURADEIRA 3/4 FUR3/4P",                                  ""),
+        ("IN270005",  "FURADEIRA 3/4 FUR3/4P",                                  ""),
+        ("INFPB017",  "FURADEIRA E PARAFUSADEIRA A BATERIA MFI-20 127/220V",    "MENEGOTTI"),
+        ("IN340056",  "LAVA JATO HD 585 PROFISSIONAL MODELO 585",               ""),
+        ("INMSV108",  "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                  "VONDER"),
+        ("INHT930012","KIT ASPIRADOR UNIV. HILTI / POLIDORA DE BETAO HILTI",    "HILTI"),
+        ("INMSV261",  "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                  "VONDER"),
+        ("INMSV269",  "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                  "VONDER"),
+        ("IN240093",  "ESMERILHADEIRA ANGULAR 7\" 220V",                         ""),
+        ("INMSV256",  "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                  "VONDER"),
+        ("INMSV257",  "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                  "VONDER"),
+        ("INMSU042",  "MISTURADOR ELETRICO MEL1600 MONO 220V 60HZ 1600W",       "MENEGOTTI"),
+        ("INSER830025","SERRA CIRCULAR 7\"",                                      ""),
+        ("INEAG243",  "ESMERILHADEIRA ANGULAR 5\" C/ ACESSORIOS",               "MAKITA"),
+        ("INEAG233",  "ESMERILHADEIRA ANGULAR 5\" C/ ACESSORIOS",               "MAKITA"),
+        ("INEAG236",  "ESMERILHADEIRA ANGULAR 5\" C/ ACESSORIOS",               "MAKITA"),
+        ("INMRM149",  "MARTELO ROMPEDOR MMR1700 45J 12KG MONO 220V 60HZ",      "MENEGOTTI"),
+        ("INMSV069",  "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                  "VONDER"),
+        ("INMSV156",  "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                  "VONDER"),
+        ("IN620015",  "KIT NIVELADOR A LASER HILTI SKR200",                     "HILTI"),
+        ("INMSV067",  "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                  "VONDER"),
+        ("INMSV001",  "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                  "VONDER"),
+        ("INMSV099",  "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                  "VONDER"),
+        ("INMSV273",  "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                  "VONDER"),
+        ("INHT930015","KIT ASPIRADOR UNIV. HILTI / POLIDORA DE BETAO HILTI",    "HILTI"),
+        ("INMSV024",  "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                  "VONDER"),
+        ("INMSV113",  "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                  "VONDER"),
+        ("INMSV131",  "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                  "VONDER"),
+        ("INMSV278",  "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                  "VONDER"),
+        ("INMSV148",  "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                  "VONDER"),
+        ("INHT930010","KIT ASPIRADOR UNIV. HILTI / POLIDORA DE BETAO HILTI",    "HILTI"),
+        ("INHT930011","KIT ASPIRADOR UNIV. HILTI / POLIDORA DE BETAO HILTI",    "HILTI"),
+        ("INMSV090",  "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                  "VONDER"),
+        ("INMSV281",  "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                  "VONDER"),
+        ("INMSV260",  "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                  "VONDER"),
+        ("IN850474",  "SERRA MARMORE C/ CHAVE",                                  ""),
+    ]
+
+    inseridas = 0
+    ignoradas = 0
+    for idf, nome, empresa in ferramentas_lista:
+        existe = Ferramenta.query.filter_by(identificacao=idf, ativo=True).first()
+        if existe:
+            ignoradas += 1
+            continue
+        db.session.add(Ferramenta(
+            identificacao=idf,
+            nome=nome,
+            empresa=empresa or None,
+            almoxarifado_id=alm.id,
+            status='disponivel'
+        ))
+        inseridas += 1
+
+    db.session.commit()
+    flash(f'✅ {inseridas} ferramentas cadastradas no {alm.nome}! ({ignoradas} já existiam)', 'success')
+    return redirect(url_for('ferramentas', alm_id=alm.id))
 
 @app.route('/admin/classificar-epis', methods=['POST'])
 @admin_required

@@ -2074,14 +2074,17 @@ def exportar_ficha_epi():
 
     # ── LINHAS DE DADOS ──────────────────────────────────────────────────────
     row = 6
+    movs_com_foto = []  # guarda movs que têm foto para aba de comprovantes
     for mov in lista:
         ws.row_dimensions[row].height = 18
         fill_z = PatternFill('solid', fgColor='EBF3FB') if row % 2 == 0 else None
+        tem_foto = bool(mov.foto_url)
         for col, val in zip('ABCDEFGH', [
             f'{mov.quantidade} {mov.item.unidade}',
             mov.item.nome, mov.item.ca or '',
             mov.data.strftime('%d/%m/%Y'), '',
-            '', '', ''
+            '', '',
+            '📸 Ver aba' if tem_foto else ''
         ]):
             c = ws[f'{col}{row}']
             c.value = val
@@ -2089,6 +2092,8 @@ def exportar_ficha_epi():
             c.alignment = esq if col == 'B' else centro
             c.border = borda
             if fill_z: c.fill = fill_z
+        if tem_foto:
+            movs_com_foto.append((row, mov))
         row += 1
 
     # Linhas em branco (mínimo 14 no total conforme formulário)
@@ -2182,6 +2187,53 @@ def exportar_ficha_epi():
         ws[f'{col_ini}{row}'].alignment = centro
         for c in range(ord(col_ini)-64, ord(col_fim)-64+1):
             ws.cell(row, c).border = borda
+
+    # ── ABA DE COMPROVANTES (fotos embutidas) ─────────────────────────────────
+    if movs_com_foto:
+        try:
+            from openpyxl.drawing.image import Image as XLImage
+            ws2 = wb.create_sheet('Comprovantes')
+            ws2.column_dimensions['A'].width = 20
+            ws2.column_dimensions['B'].width = 50
+            ws2.column_dimensions['C'].width = 15
+
+            ws2.merge_cells('A1:C1')
+            ws2['A1'].value = f'Comprovantes de Entrega — {funcionario.upper()}'
+            ws2['A1'].font = Font(bold=True, size=12, color='1F3864')
+            ws2['A1'].alignment = Alignment(horizontal='center', vertical='center')
+            ws2['A1'].fill = PatternFill('solid', fgColor='BDD7EE')
+            ws2.row_dimensions[1].height = 22
+
+            foto_row = 3
+            for _, mov in movs_com_foto:
+                try:
+                    import base64 as b64
+                    # Extrai os bytes da imagem base64
+                    header, data_b64 = mov.foto_url.split(',', 1)
+                    img_bytes = b64.b64decode(data_b64)
+                    img_buf = io.BytesIO(img_bytes)
+                    xl_img = XLImage(img_buf)
+                    # Redimensiona para caber na célula (max 300px largura)
+                    scale = min(1.0, 300 / (xl_img.width or 300))
+                    xl_img.width  = int(xl_img.width  * scale)
+                    xl_img.height = int(xl_img.height * scale)
+
+                    altura_linhas = max(20, int(xl_img.height * 0.75) + 5)
+                    ws2.row_dimensions[foto_row].height = altura_linhas
+
+                    ws2.cell(foto_row, 1, f'{mov.data.strftime("%d/%m/%Y")}').font = Font(size=9, bold=True)
+                    ws2.cell(foto_row, 2, mov.item.nome).font = Font(size=9)
+                    ws2.cell(foto_row, 3, f'{mov.quantidade} {mov.item.unidade}').font = Font(size=9)
+
+                    foto_row += 1
+                    ws2.row_dimensions[foto_row].height = altura_linhas
+                    ws2.add_image(xl_img, f'A{foto_row}')
+                    foto_row += max(2, int(xl_img.height / 15)) + 1
+                except Exception as e_foto:
+                    logger.warning(f'Foto não inserida no Excel: {e_foto}')
+                    foto_row += 1
+        except ImportError:
+            pass  # openpyxl.drawing não disponível — ignora silenciosamente
 
     buf = io.BytesIO()
     wb.save(buf); buf.seek(0)

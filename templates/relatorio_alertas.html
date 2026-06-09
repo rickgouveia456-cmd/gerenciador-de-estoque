@@ -162,14 +162,20 @@ function atualizarStatus(itemId, select) {
 }
 
 function toggleFixar(itemId, btn) {
-    fetch(`/item/${itemId}/fixar`, {method: 'POST'})
+    const csrf = document.querySelector('input[name="csrf_token"]')?.value || '';
+    fetch(`/item/${itemId}/fixar`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: `csrf_token=${csrf}`
+    })
     .then(r => r.json())
     .then(data => {
         btn.innerHTML = data.fixado
             ? '<i class="bi bi-pin-fill text-warning fs-5"></i>'
             : '<i class="bi bi-pin text-muted fs-5"></i>';
         btn.title = data.fixado ? 'Desafixar' : 'Fixar item';
-    });
+    })
+    .catch(e => console.error('Erro ao fixar:', e));
 }
 </script>
 {% endblock %}

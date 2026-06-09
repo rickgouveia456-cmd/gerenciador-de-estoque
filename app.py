@@ -4136,6 +4136,78 @@ def migrar_itens_para_epi():
         db.session.rollback()
 
 
+def seed_ferramentas_estrutura_auto():
+    """Cadastra automaticamente as ferramentas da Estrutura no startup — ignora duplicatas."""
+    try:
+        alm = Almoxarifado.query.filter(Almoxarifado.nome.ilike('%estrutura%')).first()
+        if not alm:
+            return
+        ferramentas_lista = [
+            ("INGFH007",   "PISTOLA DE FIXACAO A BATERIA BX 3-L A22MA HILTI GF",  "HILTI"),
+            ("IN450348",   "MARTELO SDS PLUS C/ PUNHO",                             ""),
+            ("INMRM158",   "MARTELO ROMPEDOR MMR1700 45J 12KG MONO 220V 60HZ",     "MENEGOTTI"),
+            ("IN580121",   "MISTURADOR DE ARGAMASSA MAV1600 220V",                  "MENEGOTTI"),
+            ("IN580039",   "MISTURADOR DE ARGAMASSA MAV1600 220V",                  "MENEGOTTI"),
+            ("INGFH003",   "PISTOLA DE FIXACAO A BATERIA BX 3-L A22MA HILTI GF",   "HILTI"),
+            ("INEAG119",   'ESMERILHADEIRA ANGULAR 5" C/ ACESSORIOS',               "MAKITA"),
+            ("IN270013",   "FURADEIRA 3/4 FUR3/4P",                                 ""),
+            ("IN270028",   "FURADEIRA 3/4 FUR3/4P",                                 ""),
+            ("IN270004",   "FURADEIRA 3/4 FUR3/4P",                                 ""),
+            ("IN270005",   "FURADEIRA 3/4 FUR3/4P",                                 ""),
+            ("INFPB017",   "FURADEIRA E PARAFUSADEIRA A BATERIA MFI-20 127/220V",   "MENEGOTTI"),
+            ("IN340056",   "LAVA JATO HD 585 PROFISSIONAL MODELO 585",              ""),
+            ("INMSV108",   "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                 "VONDER"),
+            ("INHT930012", "KIT ASPIRADOR UNIV. HILTI / POLIDORA DE BETAO HILTI",   "HILTI"),
+            ("INMSV261",   "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                 "VONDER"),
+            ("INMSV269",   "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                 "VONDER"),
+            ("IN240093",   'ESMERILHADEIRA ANGULAR 7" 220V',                         ""),
+            ("INMSV256",   "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                 "VONDER"),
+            ("INMSV257",   "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                 "VONDER"),
+            ("INMSU042",   "MISTURADOR ELETRICO MEL1600 MONO 220V 60HZ 1600W",      "MENEGOTTI"),
+            ("INSER830025",'SERRA CIRCULAR 7"',                                      ""),
+            ("INEAG243",   'ESMERILHADEIRA ANGULAR 5" C/ ACESSORIOS',               "MAKITA"),
+            ("INEAG233",   'ESMERILHADEIRA ANGULAR 5" C/ ACESSORIOS',               "MAKITA"),
+            ("INEAG236",   'ESMERILHADEIRA ANGULAR 5" C/ ACESSORIOS',               "MAKITA"),
+            ("INMRM149",   "MARTELO ROMPEDOR MMR1700 45J 12KG MONO 220V 60HZ",     "MENEGOTTI"),
+            ("INMSV069",   "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                 "VONDER"),
+            ("INMSV156",   "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                 "VONDER"),
+            ("IN620015",   "KIT NIVELADOR A LASER HILTI SKR200",                    "HILTI"),
+            ("INMSV067",   "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                 "VONDER"),
+            ("INMSV001",   "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                 "VONDER"),
+            ("INMSV099",   "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                 "VONDER"),
+            ("INMSV273",   "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                 "VONDER"),
+            ("INHT930015", "KIT ASPIRADOR UNIV. HILTI / POLIDORA DE BETAO HILTI",   "HILTI"),
+            ("INMSV024",   "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                 "VONDER"),
+            ("INMSV113",   "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                 "VONDER"),
+            ("INMSV131",   "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                 "VONDER"),
+            ("INMSV278",   "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                 "VONDER"),
+            ("INMSV148",   "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                 "VONDER"),
+            ("INHT930010", "KIT ASPIRADOR UNIV. HILTI / POLIDORA DE BETAO HILTI",   "HILTI"),
+            ("INHT930011", "KIT ASPIRADOR UNIV. HILTI / POLIDORA DE BETAO HILTI",   "HILTI"),
+            ("INMSV090",   "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                 "VONDER"),
+            ("INMSV281",   "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                 "VONDER"),
+            ("INMSV260",   "MARTELETE PERF/ROMP MPV1500 5,5J 220V",                 "VONDER"),
+            ("IN850474",   "SERRA MARMORE C/ CHAVE",                                 ""),
+        ]
+        inseridas = 0
+        for idf, nome, empresa in ferramentas_lista:
+            if not Ferramenta.query.filter_by(identificacao=idf, ativo=True).first():
+                db.session.add(Ferramenta(
+                    identificacao=idf,
+                    nome=nome,
+                    empresa=empresa or None,
+                    almoxarifado_id=alm.id,
+                    status='disponivel'
+                ))
+                inseridas += 1
+        if inseridas:
+            db.session.commit()
+            logger.info(f'SEED FERRAMENTAS ESTRUTURA: {inseridas} ferramentas cadastradas.')
+    except Exception as e:
+        logger.error(f'SEED FERRAMENTAS ESTRUTURA: erro — {e}')
+        db.session.rollback()
+
+
 def inicializar_banco():
     """Roda migrações, cria tabelas e seed — executado uma única vez."""
     try:
@@ -4144,6 +4216,7 @@ def inicializar_banco():
         seed_data()
         classificar_categorias_itens()
         migrar_itens_para_epi()
+        seed_ferramentas_estrutura_auto()
     except Exception as e:
         logger.error(f'Inicialização do banco: {e}')
 

@@ -1,10 +1,10 @@
 // Logi-Prime Service Worker — cache de assets estáticos
-const CACHE_NAME = 'logiprime-v1';
+const CACHE_NAME = 'logiprime-v3';
 const STATIC_ASSETS = [
-  '/static/css/app.css',
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
   'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css',
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js',
+  // app.css é excluído intencionalmente — sempre busca do servidor para não cachear versões antigas
 ];
 
 // Instala o SW e faz cache dos assets estáticos

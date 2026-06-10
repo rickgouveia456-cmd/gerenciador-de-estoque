@@ -784,6 +784,16 @@ def service_worker():
     response.headers['Cache-Control'] = 'no-cache'
     return response
 
+@app.route('/static/css/app.css')
+def serve_app_css():
+    """Serve o app.css sem cache para garantir versão sempre atualizada."""
+    from flask import send_from_directory
+    response = send_from_directory('static/css', 'app.css', mimetype='text/css')
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':

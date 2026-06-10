@@ -36,27 +36,15 @@ body {
 /* ── Sidebar ── */
 .sidebar {
     width: var(--sidebar-w);
-    height: 100vh;
+    min-height: 100vh;
     background: var(--primary);
     position: fixed; top: 0; left: 0;
     z-index: 200;
     box-shadow: 2px 0 20px rgba(0,0,0,0.1);
     transition: transform 0.3s ease;
-    overflow: hidden;
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-}
-.sidebar nav {
-    flex: 1;
     overflow-y: auto;
-    overflow-x: hidden;
-    padding-bottom: 20px;
+    border-right: 1px solid var(--border);
 }
-.sidebar nav::-webkit-scrollbar { width: 6px; }
-.sidebar nav::-webkit-scrollbar-track { background: var(--primary-light); }
-.sidebar nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-.sidebar nav::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 .sidebar .brand {
     padding: 20px;
     color: var(--accent);
@@ -329,12 +317,8 @@ hr { border-color: var(--border); }
     border-radius: 12px;
 }
 
-/* ── Animações suaves — apenas propriedades específicas, não * ── */
-a, button, .btn, .nav-link, .card-stat {
-    transition: color 0.2s ease, background-color 0.2s ease,
-                border-color 0.2s ease, transform 0.2s ease,
-                box-shadow 0.2s ease, opacity 0.2s ease;
-}
+/* ── Animações suaves ── */
+* { transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease; }
 
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 8px; }
@@ -342,66 +326,11 @@ a, button, .btn, .nav-link, .card-stat {
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
-/* ── Responsivo Mobile ── */
+/* ── Responsivo ── */
 @media (max-width: 767px) {
-    .sidebar {
-        transform: translateX(-100%);
-        width: 280px;
-        z-index: 1050;
-    }
+    .sidebar { transform: translateX(-100%); }
     .sidebar.open { transform: translateX(0); }
-    .main-content { margin-left: 0 !important; }
-    .topbar {
-        padding: 10px 14px;
-        position: sticky;
-        top: 0;
-        z-index: 100;
-    }
-    .page-body { padding: 12px; }
-
-    /* Cards menores no mobile */
-    .card-body { padding: 12px !important; }
-    .card { border-radius: 10px !important; }
-
-    /* Tabelas: scroll horizontal */
-    .table-responsive { -webkit-overflow-scrolling: touch; }
-    .table td, .table th { font-size: 0.8rem; padding: 10px 8px; }
-
-    /* Botões maiores para touch */
-    .btn { min-height: 40px; font-size: 0.9rem; }
-    .btn-sm { min-height: 34px; font-size: 0.82rem; }
-
-    /* Topbar compacta */
-    .topbar-title { font-size: 0.95rem; }
-
-    /* Forms mais legíveis */
-    .form-control, .form-select {
-        font-size: 16px !important; /* evita zoom automático no iOS */
-        min-height: 44px;
-    }
-
-    /* Sidebar overlay */
-    .sidebar-overlay.show { display: block; }
-
-    /* Badges menores */
-    .badge { font-size: 0.7rem; padding: 3px 6px; }
-
-    /* Textos muted menores */
-    .text-muted.small { font-size: 0.75rem !important; }
-
-    /* Esconde texto em botões menores no mobile */
-    .btn .d-none.d-sm-inline { display: none !important; }
-}
-
-/* Evita zoom no iOS ao focar inputs */
-@media (max-width: 576px) {
-    input[type="text"],
-    input[type="number"],
-    input[type="date"],
-    input[type="email"],
-    input[type="password"],
-    select,
-    textarea {
-        font-size: 16px !important;
-    }
+    .main-content { margin-left: 0; }
+    .topbar { padding: 10px 14px; }
+    .page-body { padding: 14px; }
 }

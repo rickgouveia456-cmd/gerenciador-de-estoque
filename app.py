@@ -775,6 +775,15 @@ def run_migrations():
 
 # ── LOGIN / LOGOUT ────────────────────────────────────────────────────────────
 
+@app.route('/static/sw.js')
+def service_worker():
+    """Serve o Service Worker com headers corretos para PWA."""
+    from flask import send_from_directory
+    response = send_from_directory('static', 'sw.js', mimetype='application/javascript')
+    response.headers['Service-Worker-Allowed'] = '/'
+    response.headers['Cache-Control'] = 'no-cache'
+    return response
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':

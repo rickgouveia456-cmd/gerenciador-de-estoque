@@ -1,40 +1,43 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
-  <!-- Fundo circular com gradiente -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 60" fill="none">
   <defs>
-    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#ff6b35;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#ff3d00;stop-opacity:1" />
-    </linearGradient>
-    <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#1a1a2e;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#16213e;stop-opacity:1" />
+    <linearGradient id="gOrange" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ff6b35"/>
+      <stop offset="100%" stop-color="#ff3d00"/>
     </linearGradient>
   </defs>
 
-  <!-- Fundo circular escuro -->
-  <circle cx="100" cy="100" r="96" fill="url(#grad2)" />
+  <!-- Ícone: caixa aberta com seta saindo -->
+  <!-- Corpo da caixa -->
+  <rect x="4" y="22" width="38" height="28" rx="3" fill="#1e293b" stroke="#ff6b35" stroke-width="2"/>
+  <!-- Tampa aberta (lado esquerdo) -->
+  <path d="M4 22 L14 14 L42 14" stroke="#ff6b35" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Tampa direita -->
+  <path d="M42 22 L42 14" stroke="#ff6b35" stroke-width="2" stroke-linecap="round"/>
+  <!-- Seta saindo da caixa (para cima, cor laranja sólida) -->
+  <path d="M23 36 L23 20" stroke="url(#gOrange)" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M17 26 L23 19 L29 26" stroke="url(#gOrange)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
 
-  <!-- Caixa inferior (maior) -->
-  <rect x="35" y="115" width="130" height="45" rx="6" fill="url(#grad)" opacity="0.9"/>
-  <!-- Detalhe superior da caixa inferior -->
-  <rect x="35" y="113" width="130" height="8" rx="3" fill="#ff8a50"/>
-  <!-- Linha central da caixa inferior -->
-  <rect x="96" y="115" width="4" height="45" fill="#ff3d00" opacity="0.4"/>
-  <!-- Alça da caixa inferior -->
-  <rect x="77" y="108" width="20" height="10" rx="3" fill="#ff8a50" stroke="#ff6b35" stroke-width="1"/>
-  <rect x="99" y="108" width="20" height="10" rx="3" fill="#ff8a50" stroke="#ff6b35" stroke-width="1"/>
+  <!-- Texto "Logi" -->
+  <text x="54" y="38"
+        font-family="'Segoe UI',Arial,sans-serif"
+        font-size="22"
+        font-weight="700"
+        fill="#1e293b"
+        letter-spacing="-0.5">Logi</text>
 
-  <!-- Caixa superior (menor, levemente inclinada) -->
-  <rect x="52" y="70" width="96" height="38" rx="6" fill="white" opacity="0.15"/>
-  <rect x="52" y="70" width="96" height="38" rx="6" fill="url(#grad)" opacity="0.7"/>
-  <!-- Detalhe superior da caixa superior -->
-  <rect x="52" y="68" width="96" height="7" rx="3" fill="#ff8a50"/>
-  <!-- Linha central da caixa superior -->
-  <rect x="97" y="70" width="3" height="38" fill="#ff3d00" opacity="0.4"/>
-  <!-- Alça da caixa superior -->
-  <rect x="80" y="62" width="16" height="9" rx="3" fill="#ff8a50" stroke="#ff6b35" stroke-width="1"/>
-  <rect x="100" y="62" width="16" height="9" rx="3" fill="#ff8a50" stroke="#ff6b35" stroke-width="1"/>
+  <!-- Texto "-Prime" em laranja -->
+  <text x="96" y="38"
+        font-family="'Segoe UI',Arial,sans-serif"
+        font-size="22"
+        font-weight="700"
+        fill="url(#gOrange)"
+        letter-spacing="-0.5">-Prime</text>
 
-  <!-- Letra L estilizada em branco -->
-  <text x="68" y="101" font-family="'Segoe UI',Arial,sans-serif" font-size="28" font-weight="800" fill="white" opacity="0.95">LP</text>
+  <!-- Subtítulo pequeno -->
+  <text x="54" y="50"
+        font-family="'Segoe UI',Arial,sans-serif"
+        font-size="8"
+        font-weight="400"
+        fill="#64748b"
+        letter-spacing="1.5">GESTÃO DE OBRA</text>
 </svg>

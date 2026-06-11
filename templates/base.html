@@ -307,7 +307,7 @@
                  role="alert" onclick="window.location='/mestre/requisicoes/${req.id}'">
                 <div class="d-flex">
                     <div class="toast-body">
-                        <div class="fw-bold mb-1">📦 Nova Requisição #${req.id}</div>
+                        <div class="fw-bold mb-1">📦 Nova Requisição ${req.protocolo || '#' + req.id}</div>
                         <div class="small">Solicitante: <strong>${req.mestre}</strong></div>
                         <div class="small">Colaborador: ${req.colaborador}</div>
                         <div class="small">${req.itens} item(ns) · ${req.data}</div>

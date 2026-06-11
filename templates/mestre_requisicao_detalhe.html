@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
-{% block title %}Requisição #{{ req.id }} — Logi-Prime{% endblock %}
-{% block page_title %}Requisição #{{ req.id }}{% endblock %}
+{% block title %}Requisição {{ req.protocolo or ('#' + req.id|string) }} — Logi-Prime{% endblock %}
+{% block page_title %}Requisição {{ req.protocolo or ('#' + req.id|string) }}{% endblock %}
 
 {% block content %}
 <div class="row g-4">
@@ -26,6 +26,15 @@
             </div>
             <div class="card-body">
                 <div class="row g-3 mb-4">
+                    <div class="col-12">
+                        <div class="alert py-2 mb-0" style="background:#fff3cd;border-left:4px solid var(--accent)">
+                            <i class="bi bi-tag-fill me-1" style="color:var(--accent)"></i>
+                            <strong>Protocolo:</strong>
+                            <code style="color:var(--accent);font-size:1rem">
+                                {{ req.protocolo or ('#' + req.id|string) }}
+                            </code>
+                        </div>
+                    </div>
                     <div class="col-6 col-md-3">
                         <div class="small text-muted">Solicitante</div>
                         <span class="badge" style="background:#f0a500;color:#000">

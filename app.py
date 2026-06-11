@@ -254,6 +254,7 @@ class RequisicaoMestre(db.Model):
     Fluxo: pendente → aprovada (almoxarife separa) → entregue (baixa no estoque)
     """
     id = db.Column(db.Integer, primary_key=True)
+    protocolo = db.Column(db.String(30), unique=True, nullable=True)  # ex: REQ-20250611-0042
     mestre_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
     mestre = db.relationship('Usuario', foreign_keys=[mestre_id])
     colaborador = db.Column(db.String(100), nullable=False)
@@ -609,6 +610,8 @@ def run_migrations():
             safe_exec(conn, "ALTER TABLE requisicao_mestre ADD COLUMN notificado BOOLEAN DEFAULT FALSE")
             safe_exec(conn, "ALTER TABLE requisicao_mestre_item ADD COLUMN status_item VARCHAR(20) DEFAULT 'pendente'")
             safe_exec(conn, "ALTER TABLE requisicao_mestre_item ADD COLUMN motivo_recusa VARCHAR(200)")
+            # ── Coluna protocolo em requisicao_mestre ─────────────────────────
+            safe_exec(conn, "ALTER TABLE requisicao_mestre ADD COLUMN protocolo VARCHAR(30)")
 
             # ── Valores padrão para colunas que podem estar NULL ─────────────
             safe_exec(conn, "UPDATE requisicao_mestre_item SET status_item = 'pendente' WHERE status_item IS NULL")
@@ -2504,6 +2507,7 @@ def api_almoxarife_notificacoes():
         ).order_by(RequisicaoMestre.data_criacao.desc()).limit(5).all()
     return jsonify([{
         'id': r.id,
+        'protocolo': r.protocolo or f'#{r.id}',
         'mestre': r.mestre.nome,
         'colaborador': r.colaborador,
         'almoxarifado': r.almoxarifado.nome,
@@ -3222,6 +3226,9 @@ def mestre_requisicao_nova():
         db.session.add(req)
         db.session.flush()  # gera o id
 
+        # Gera número de protocolo único: REQ-AAAAMMDD-XXXX
+        req.protocolo = f"REQ-{req.data_criacao.strftime('%Y%m%d')}-{req.id:04d}"
+
         for i in sorted(indices):
             item_id = request.form.get(f'item_id_{i}')
             qtd_str = request.form.get(f'quantidade_{i}')
@@ -3242,7 +3249,7 @@ def mestre_requisicao_nova():
             ))
 
         db.session.commit()
-        flash_html(f'✅ Requisição <strong>#{escape(req.id)}</strong> enviada ao almoxarifado! Aguarde a separação.', 'success')
+        flash_html(f'✅ Requisição <strong>{escape(req.protocolo or "#" + str(req.id))}</strong> enviada ao almoxarifado! Aguarde a separação.', 'success')
         return redirect(url_for('mestre_requisicoes'))
 
     return render_template('mestre_requisicao_nova.html',

@@ -1,43 +1,54 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 60" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" fill="none">
   <defs>
-    <linearGradient id="gOrange" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="gBox" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ff8a50"/>
+      <stop offset="100%" stop-color="#ff4500"/>
+    </linearGradient>
+    <linearGradient id="gBoxDark" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#ff6b35"/>
-      <stop offset="100%" stop-color="#ff3d00"/>
+      <stop offset="100%" stop-color="#cc3300"/>
     </linearGradient>
   </defs>
 
-  <!-- Ícone: caixa aberta com seta saindo -->
-  <!-- Corpo da caixa -->
-  <rect x="4" y="22" width="38" height="28" rx="3" fill="#1e293b" stroke="#ff6b35" stroke-width="2"/>
-  <!-- Tampa aberta (lado esquerdo) -->
-  <path d="M4 22 L14 14 L42 14" stroke="#ff6b35" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  <!-- Tampa direita -->
-  <path d="M42 22 L42 14" stroke="#ff6b35" stroke-width="2" stroke-linecap="round"/>
-  <!-- Seta saindo da caixa (para cima, cor laranja sólida) -->
-  <path d="M23 36 L23 20" stroke="url(#gOrange)" stroke-width="2.5" stroke-linecap="round"/>
-  <path d="M17 26 L23 19 L29 26" stroke="url(#gOrange)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- ═══ ÍCONE: letra L + pirâmide de caixas ═══ -->
 
-  <!-- Texto "Logi" -->
-  <text x="54" y="38"
-        font-family="'Segoe UI',Arial,sans-serif"
-        font-size="22"
-        font-weight="700"
-        fill="#1e293b"
-        letter-spacing="-0.5">Logi</text>
+  <!-- Letra L (bold, fundo escuro) -->
+  <!-- Haste vertical -->
+  <rect x="4" y="6" width="10" height="48" rx="2" fill="#1e293b"/>
+  <!-- Haste horizontal -->
+  <rect x="4" y="44" width="36" height="10" rx="2" fill="#1e293b"/>
 
-  <!-- Texto "-Prime" em laranja -->
-  <text x="96" y="38"
-        font-family="'Segoe UI',Arial,sans-serif"
-        font-size="22"
-        font-weight="700"
-        fill="url(#gOrange)"
-        letter-spacing="-0.5">-Prime</text>
+  <!-- Pirâmide de caixas no topo do L -->
+  <!-- Nível 3 (base) — 3 caixas pequenas -->
+  <rect x="4"  y="26" width="10" height="10" rx="1.5" fill="url(#gBoxDark)" stroke="#ff8a50" stroke-width="0.5"/>
+  <rect x="16" y="26" width="10" height="10" rx="1.5" fill="url(#gBox)"     stroke="#ff8a50" stroke-width="0.5"/>
+  <rect x="28" y="26" width="10" height="10" rx="1.5" fill="url(#gBoxDark)" stroke="#ff8a50" stroke-width="0.5"/>
 
-  <!-- Subtítulo pequeno -->
-  <text x="54" y="50"
+  <!-- Nível 2 (meio) — 2 caixas -->
+  <rect x="10" y="14" width="10" height="10" rx="1.5" fill="url(#gBox)"     stroke="#ff8a50" stroke-width="0.5"/>
+  <rect x="22" y="14" width="10" height="10" rx="1.5" fill="url(#gBoxDark)" stroke="#ff8a50" stroke-width="0.5"/>
+
+  <!-- Nível 1 (topo) — 1 caixa -->
+  <rect x="16" y="4"  width="10" height="8"  rx="1.5" fill="#ff6b35" stroke="#ff8a50" stroke-width="0.8"/>
+  <!-- Pequena seta/detalhe no topo da caixa do ápice -->
+  <path d="M21 4 L21 1" stroke="#ff6b35" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- ═══ TEXTO ═══ -->
+  <!-- "Logi" bold escuro -->
+  <text x="50" y="36"
+        font-family="'Segoe UI Black','Arial Black',Arial,sans-serif"
+        font-size="20" font-weight="900"
+        fill="#1e293b" letter-spacing="-0.5">Logi</text>
+
+  <!-- "-Prime" laranja bold -->
+  <text x="93" y="36"
+        font-family="'Segoe UI Black','Arial Black',Arial,sans-serif"
+        font-size="20" font-weight="900"
+        fill="#ff6b35" letter-spacing="-0.5">-Prime</text>
+
+  <!-- Subtítulo fino -->
+  <text x="51" y="48"
         font-family="'Segoe UI',Arial,sans-serif"
-        font-size="8"
-        font-weight="400"
-        fill="#64748b"
-        letter-spacing="1.5">GESTÃO DE OBRA</text>
+        font-size="7" font-weight="400"
+        fill="#94a3b8" letter-spacing="2">GESTÃO DE OBRA</text>
 </svg>

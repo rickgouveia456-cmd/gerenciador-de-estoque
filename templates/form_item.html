@@ -65,6 +65,9 @@
                                 <option value="geral" {% if not item or item.categoria == 'geral' %}selected{% endif %}>🏗️ Material Geral</option>
                                 <option value="epi"   {% if item and item.categoria == 'epi' %}selected{% endif %}>🦺 EPI / Uniforme</option>
                                 <option value="maquinario" {% if item and item.categoria == 'maquinario' %}selected{% endif %}>⚙️ Maquinário / Peça</option>
+                                <option value="eletrica" {% if item and item.categoria == 'eletrica' %}selected{% endif %}>⚡ Elétrica</option>
+                                <option value="hidraulica" {% if item and item.categoria == 'hidraulica' %}selected{% endif %}>💧 Hidráulica</option>
+                                <option value="gas" {% if item and item.categoria == 'gas' %}selected{% endif %}>🔥 Gás</option>
                             </select>
                             <div class="form-text">Itens <strong>EPI</strong> aparecem na Ficha de Controle de EPIs.</div>
                         </div>

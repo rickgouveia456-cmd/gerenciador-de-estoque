@@ -28,6 +28,24 @@
 </div>
 
 {% if itens %}
+<!-- Filtro por categoria -->
+<div class="d-flex flex-wrap gap-2 mb-3">
+    <button class="btn btn-sm btn-outline-secondary active" id="cat_btn_" onclick="filtrarCat('')">
+        <i class="bi bi-grid me-1"></i>Todos <span class="badge bg-secondary ms-1">{{ itens|length }}</span>
+    </button>
+    {% set cats = [('epi','🦺','warning','EPI'),('eletrica','⚡','warning','Elétrica'),('hidraulica','💧','info','Hidráulica'),('gas','🔥','danger','Gás'),('maquinario','⚙️','secondary','Maquinário'),('geral','🏗️','secondary','Geral')] %}
+    {% for cat_key, cat_icon, cat_cor, cat_label in cats %}
+    {% set count = itens | selectattr('categoria','equalto',cat_key) | list | length %}
+    {% if count > 0 %}
+    <button class="btn btn-sm btn-outline-{{ cat_cor }}" id="cat_btn_{{ cat_key }}"
+            onclick="filtrarCat('{{ cat_key }}')">
+        {{ cat_icon }} {{ cat_label }}
+        <span class="badge bg-{{ cat_cor }} ms-1 {% if cat_cor == 'warning' %}text-dark{% endif %}">{{ count }}</span>
+    </button>
+    {% endif %}
+    {% endfor %}
+</div>
+
 <!-- Barra de pesquisa -->
 <div class="mb-3">
     <div class="input-group">
@@ -62,6 +80,7 @@
             <tbody id="tbodyItens">
                 {% for item in itens %}
                 <tr data-busca="{{ item.nome | lower }} {{ item.codigo | lower }}"
+                    data-cat="{{ item.categoria or 'geral' }}"
                     {% if not item.ativo %}class="table-secondary text-muted"{% endif %}>
                     <td><code>{{ item.codigo }}</code></td>
                     <td>
@@ -117,7 +136,8 @@
 <div class="d-md-none" id="cardsItens">
     {% for item in itens %}
     <div class="card border-0 shadow-sm mb-3 card-item-mobile {% if not item.ativo %}border-warning{% endif %}"
-         data-busca="{{ item.nome | lower }} {{ item.codigo | lower }}">
+         data-busca="{{ item.nome | lower }} {{ item.codigo | lower }}"
+         data-cat="{{ item.categoria or 'geral' }}">
         <div class="card-body {% if not item.ativo %}bg-light{% endif %}">
             <div class="d-flex justify-content-between align-items-start mb-2">
                 <div>
@@ -186,24 +206,43 @@
 
 {% block scripts %}
 <script>
+let _catAtiva = '';
+
+function filtrarCat(cat) {
+    _catAtiva = cat;
+    // Atualizar botões
+    document.querySelectorAll('[id^="cat_btn_"]').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('cat_btn_' + cat);
+    if (btn) btn.classList.add('active');
+    // Aplicar filtro combinado com busca
+    aplicarFiltros();
+}
+
 function filtrarItens(q) {
-    q = q.toLowerCase().trim();
+    aplicarFiltros(q);
+}
+
+function aplicarFiltros(q) {
+    if (q === undefined) q = document.getElementById('buscaItem')?.value?.toLowerCase().trim() || '';
+    const cat = _catAtiva;
     // Desktop
     const rows = document.querySelectorAll('#tbodyItens tr');
     let visiveis = 0;
     rows.forEach(tr => {
-        const match = tr.dataset.busca.includes(q);
-        tr.style.display = match ? '' : 'none';
-        if (match) visiveis++;
+        const matchBusca = !q || tr.dataset.busca.includes(q);
+        const matchCat = !cat || tr.dataset.cat === cat;
+        tr.style.display = (matchBusca && matchCat) ? '' : 'none';
+        if (matchBusca && matchCat) visiveis++;
     });
     document.getElementById('semResultados').style.display = visiveis === 0 ? '' : 'none';
     // Mobile
     const cards = document.querySelectorAll('.card-item-mobile');
     let visiveisMobile = 0;
     cards.forEach(c => {
-        const match = c.dataset.busca.includes(q);
-        c.style.display = match ? '' : 'none';
-        if (match) visiveisMobile++;
+        const matchBusca = !q || c.dataset.busca.includes(q);
+        const matchCat = !cat || c.dataset.cat === cat;
+        c.style.display = (matchBusca && matchCat) ? '' : 'none';
+        if (matchBusca && matchCat) visiveisMobile++;
     });
     document.getElementById('semResultadosMobile').style.display = visiveisMobile === 0 ? '' : 'none';
 }

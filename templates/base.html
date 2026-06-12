@@ -86,9 +86,14 @@
         <div>
             <div class="nav-link d-flex align-items-center justify-content-between pe-2"
                  style="cursor:pointer" onclick="toggleAlm({{ alm.id }})">
-                <span><i class="bi bi-archive me-2"></i>{{ alm.nome | truncate(16, True) }}</span>
-                <i class="bi bi-chevron-down" id="arr_{{ alm.id }}"
-                   style="font-size:0.7rem;transition:transform 0.2s;{% if alm_open %}transform:rotate(180deg){% endif %}"></i>
+                <span><i class="bi bi-archive me-2"></i>{{ alm.nome | truncate(14, True) }}</span>
+                <div class="d-flex align-items-center gap-1">
+                    {% set pct = sidebar_contadores.get(alm.id, {}).get('pct', 100) %}
+                    <small class="{% if pct < 50 %}text-danger{% elif pct < 80 %}text-warning{% else %}text-success{% endif %}"
+                           style="font-size:0.68rem;font-weight:600" title="Saúde do estoque: {{ pct }}%">{{ pct }}%</small>
+                    <i class="bi bi-chevron-down" id="arr_{{ alm.id }}"
+                       style="font-size:0.7rem;transition:transform 0.2s;{% if alm_open %}transform:rotate(180deg){% endif %}"></i>
+                </div>
             </div>
             <div id="sub_{{ alm.id }}" {% if not alm_open %}style="display:none"{% endif %}>
                 <a href="/almoxarifado/{{ alm.id }}"

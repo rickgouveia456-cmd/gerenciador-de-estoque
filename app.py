@@ -294,6 +294,8 @@ class Usuario(db.Model):
     totp_secret = db.Column(db.String(32), nullable=True)   # 2FA — None = desativado
     almoxarifado = db.relationship('Almoxarifado', backref='usuarios')
     acessos_extras = db.relationship('AcessoExtra', backref='usuario', lazy=True, cascade='all, delete-orphan')
+    pode_requisitar = db.Column(db.Boolean, default=False)
+    pode_ver_alertas = db.Column(db.Boolean, default=False)
 
     def set_senha(self, senha):
         self.senha_hash = generate_password_hash(senha)
@@ -403,6 +405,18 @@ class AcessoExtra(db.Model):
             return False
         return True
 
+class PermissaoExtra(db.Model):
+    """Permissões especiais concedidas a usuários pelo fundador/admin.
+    Ex: dar ao engenheiro a permissão de fazer requisições.
+    permissao: 'fazer_requisicao' | 'ver_relatorios' | 'gerenciar_colaboradores'
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    permissao = db.Column(db.String(50), nullable=False)
+    concedido_por = db.Column(db.String(100))
+    data_concessao = db.Column(db.DateTime, default=agora)
+    usuario = db.relationship('Usuario', backref='permissoes_extras')
+
 # ── DECORATORS DE ACESSO ─────────────────────────────────────────────────────
 
 def login_required(f):
@@ -495,7 +509,12 @@ def inject_sidebar():
         n_ferr  = Ferramenta.query.filter_by(almoxarifado_id=alm.id, ativo=True).count()
         n_epi   = ItemEPI.query.filter_by(almoxarifado_id=alm.id, ativo=True).count()
         n_itens = Item.query.filter_by(almoxarifado_id=alm.id, ativo=True).count()
-        sidebar_contadores[alm.id] = {'ferr': n_ferr, 'epi': n_epi, 'itens': n_itens}
+        # % de saúde: itens com estoque > mínimo / total
+        itens_ok = Item.query.filter_by(almoxarifado_id=alm.id, ativo=True).filter(
+            Item.quantidade > Item.estoque_minimo
+        ).count()
+        pct_saude = round(itens_ok / n_itens * 100) if n_itens > 0 else 100
+        sidebar_contadores[alm.id] = {'ferr': n_ferr, 'epi': n_epi, 'itens': n_itens, 'pct': pct_saude}
 
     return dict(sidebar_alms=alms, usuario_atual=u, sidebar_contadores=sidebar_contadores)
 
@@ -631,6 +650,28 @@ def run_migrations():
             safe_exec(conn, "ALTER TABLE item_epi ADD COLUMN quantidade INTEGER DEFAULT 1")
             safe_exec(conn, "ALTER TABLE item_epi ADD COLUMN local VARCHAR(100)")
 
+            # ── Tabela permissao_extra ────────────────────────────────────────
+            if is_pg:
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS permissao_extra (
+                        id SERIAL PRIMARY KEY,
+                        usuario_id INTEGER NOT NULL REFERENCES usuario(id),
+                        permissao VARCHAR(50) NOT NULL,
+                        concedido_por VARCHAR(100),
+                        data_concessao TIMESTAMP
+                    )
+                """)
+            else:
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS permissao_extra (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        usuario_id INTEGER NOT NULL REFERENCES usuario(id),
+                        permissao VARCHAR(50) NOT NULL,
+                        concedido_por VARCHAR(100),
+                        data_concessao DATETIME
+                    )
+                """)
+
             # ── Tabela item_epi ───────────────────────────────────────────────
             if is_pg:
                 safe_exec(conn, """
@@ -738,6 +779,9 @@ def run_migrations():
 
             # ── Campo 2FA em usuario ──────────────────────────────────────────
             safe_exec(conn, "ALTER TABLE usuario ADD COLUMN totp_secret VARCHAR(32)")
+            # ── Permissões de função em usuario ──────────────────────────────
+            safe_exec(conn, "ALTER TABLE usuario ADD COLUMN pode_requisitar BOOLEAN DEFAULT FALSE")
+            safe_exec(conn, "ALTER TABLE usuario ADD COLUMN pode_ver_alertas BOOLEAN DEFAULT FALSE")
 
             # ── Tabela historico_ferramenta ───────────────────────────────────
             if is_pg:
@@ -2288,6 +2332,12 @@ def excluir_movimentacoes():
 @login_required
 def relatorio_alertas():
     u = usuario_atual()
+    # Engenheiro (colaborador) só vê alertas se tiver permissão 'ver_alertas'
+    if u.perfil == 'colaborador':
+        tem_permissao = any(p.permissao == 'ver_alertas' for p in u.permissoes_extras)
+        if not tem_permissao:
+            flash('Sem permissão para ver alertas de estoque. Solicite ao administrador.', 'warning')
+            return redirect(url_for('index'))
     if u.perfil == 'admin':
         itens = Item.query.filter(Item.quantidade <= Item.estoque_minimo, Item.ativo == True).order_by(
             Item.fixado.desc(), Item.quantidade.asc()
@@ -3017,7 +3067,22 @@ def reativar_colaborador(id):
 @app.route('/usuarios')
 @admin_required
 def usuarios():
-    return render_template('usuarios.html', usuarios=Usuario.query.all())
+    from collections import OrderedDict
+    todos = Usuario.query.order_by(Usuario.nome).all()
+    # Agrupar por perfil
+    grupos = OrderedDict([
+        ('admin',              {'label': '👑 Admin / Fundador',     'cor': '#7c3aed', 'usuarios': []}),
+        ('almoxarife',         {'label': '📦 Almoxarife',           'cor': '#0ea5e9', 'usuarios': []}),
+        ('mestre',             {'label': '🦺 Mestre de Obra',       'cor': '#f0a500', 'usuarios': []}),
+        ('tecnico_seguranca',  {'label': '🔒 Técnico de Segurança', 'cor': '#3b82f6', 'usuarios': []}),
+        ('colaborador',        {'label': '👔 Engenheiro',           'cor': '#64748b', 'usuarios': []}),
+    ])
+    for u in todos:
+        perfil = u.perfil if u.perfil in grupos else 'colaborador'
+        grupos[perfil]['usuarios'].append(u)
+    return render_template('usuarios.html', grupos=grupos,
+                           usuarios=todos,
+                           permissoes_disponiveis=PERMISSOES_DISPONIVEIS)
 
 @app.route('/usuarios/novo', methods=['GET', 'POST'])
 @admin_required
@@ -3069,10 +3134,13 @@ def editar_usuario(id):
             u.ativo = True
         if request.form.get('senha'):
             u.set_senha(request.form['senha'])
+        u.pode_requisitar = 'pode_requisitar' in request.form
+        u.pode_ver_alertas = 'pode_ver_alertas' in request.form
         db.session.commit()
         flash('Usuário atualizado!', 'success')
         return redirect(url_for('usuarios'))
-    return render_template('form_usuario.html', usuario=u, almoxarifados=almoxarifados)
+    return render_template('form_usuario.html', usuario=u, almoxarifados=almoxarifados,
+                           permissoes_disponiveis=PERMISSOES_DISPONIVEIS)
 
 @app.route('/usuarios/<int:id>/deletar', methods=['POST'])
 @admin_required
@@ -3135,6 +3203,49 @@ def revogar_acesso_extra(id):
     flash('Acesso revogado!', 'warning')
     return redirect(url_for('editar_usuario', id=uid))
 
+# ── PERMISSÕES EXTRAS DE FUNÇÃO ───────────────────────────────────────────────
+
+PERMISSOES_DISPONIVEIS = {
+    'fazer_requisicao': 'Fazer Requisições ao Almoxarifado',
+    'ver_relatorios':   'Ver Relatórios (Consumo, Ficha EPI)',
+    'ver_alertas':      'Ver Alertas de Estoque',
+}
+
+@app.route('/usuarios/<int:id>/permissao', methods=['POST'])
+@admin_required
+def conceder_permissao(id):
+    u = Usuario.query.get_or_404(id)
+    admin = usuario_atual()
+    permissao = request.form.get('permissao', '').strip()
+    if permissao not in PERMISSOES_DISPONIVEIS:
+        flash('Permissão inválida.', 'danger')
+        return redirect(url_for('editar_usuario', id=id))
+    # Evita duplicata
+    ja_existe = PermissaoExtra.query.filter_by(usuario_id=id, permissao=permissao).first()
+    if ja_existe:
+        flash(f'Usuário já tem a permissão "{PERMISSOES_DISPONIVEIS[permissao]}".', 'info')
+        return redirect(url_for('editar_usuario', id=id))
+    db.session.add(PermissaoExtra(
+        usuario_id=id,
+        permissao=permissao,
+        concedido_por=admin.nome,
+        data_concessao=agora()
+    ))
+    db.session.commit()
+    flash(f'Permissão "{PERMISSOES_DISPONIVEIS[permissao]}" concedida a {u.nome}!', 'success')
+    return redirect(url_for('editar_usuario', id=id))
+
+@app.route('/permissao_extra/<int:pid>/revogar', methods=['POST'])
+@admin_required
+def revogar_permissao(pid):
+    p = PermissaoExtra.query.get_or_404(pid)
+    uid = p.usuario_id
+    nome_permissao = PERMISSOES_DISPONIVEIS.get(p.permissao, p.permissao)
+    db.session.delete(p)
+    db.session.commit()
+    flash(f'Permissão "{nome_permissao}" revogada!', 'warning')
+    return redirect(url_for('editar_usuario', id=uid))
+
 # ── REQUISIÇÕES DO MESTRE DE OBRA ────────────────────────────────────────────
 
 @app.route('/mestre/requisicoes')
@@ -3143,6 +3254,8 @@ def mestre_requisicoes():
     """Lista de requisições do mestre logado."""
     u = usuario_atual()
     if u.perfil in ('mestre', 'tecnico_seguranca'):
+        reqs = RequisicaoMestre.query.filter_by(mestre_id=u.id).order_by(RequisicaoMestre.data_criacao.desc()).all()
+    elif u.perfil == 'colaborador' and any(p.permissao == 'fazer_requisicao' for p in u.permissoes_extras):
         reqs = RequisicaoMestre.query.filter_by(mestre_id=u.id).order_by(RequisicaoMestre.data_criacao.desc()).all()
     elif u.perfil in ('admin', 'almoxarife'):
         # Almoxarife vê requisições do seu almoxarifado
@@ -3161,8 +3274,12 @@ def mestre_requisicao_nova():
     """Mestre cria nova requisição."""
     u = usuario_atual()
     if u.perfil not in ('mestre', 'tecnico_seguranca', 'admin'):
-        flash('Apenas mestres e técnicos podem criar requisições.', 'danger')
-        return redirect(url_for('index'))
+        # Verifica se o engenheiro tem permissão extra de fazer requisição
+        if u.perfil == 'colaborador' and any(p.permissao == 'fazer_requisicao' for p in u.permissoes_extras):
+            pass  # Permite continuar
+        else:
+            flash('Apenas mestres e técnicos podem criar requisições.', 'danger')
+            return redirect(url_for('index'))
 
     # Almoxarifado do solicitante
     if u.perfil in ('mestre', 'tecnico_seguranca'):
@@ -4132,7 +4249,7 @@ def seed_data():
         logger.info(f'Seed: {len(_colaboradores_estrutura)} colaboradores da estrutura cadastrados.')
 
 def classificar_categorias_itens():
-    """Classifica automaticamente itens como EPI ou Maquinário pelo nome."""
+    """Classifica automaticamente itens pelo nome: EPI, Maquinário, Elétrica, Hidráulica, Gás."""
     palavras_epi = [
         'bota', 'capacete', 'carneira', 'cinto de segurança', 'capa de chuva',
         'calça brim', 'camisa brim', 'macacão', 'mascara', 'máscara',
@@ -4145,17 +4262,43 @@ def classificar_categorias_itens():
         'broca diamantada', 'disco diamantado', 'disco de desbaste',
         'maçarico', 'perfuratriz'
     ]
+    palavras_eletrica = [
+        'fio', 'cabo eletrico', 'cabo pp', 'eletroduto', 'disjuntor', 'tomada',
+        'interruptor', 'condulete', 'luminaria', 'lampada', 'quadro de distribuicao',
+        'wago', 'conector eletrico', 'passe fio eletrico', 'cabo flexivel',
+        'fita isolante', 'eletrica', 'eletrico', 'no-break', 'estabilizador',
+        'rgnh', 'thhn', 'sintenax', 'cabo 1.5', 'cabo 2.5', 'cabo 4mm', 'cabo 6mm',
+        'cabo 10mm', 'cabo 16mm', 'cabo 35mm', 'canaleta', 'dimer', 'sensor de presença'
+    ]
+    palavras_hidraulica = [
+        'tubo pvc', 'joelho pvc', 'te pvc', 'registro', 'torneira', 'chuveiro',
+        'vaso sanitario', 'caixa dagua', 'sifao', 'valvula', 'te soldavel',
+        'te reducao', 'joelho soldavel', 'luva soldavel', 'cap pvc', 'adaptador pvc',
+        'bucha de reducao', 'curva pvc', 'tê reducao', 'cola pvc', 'lixa pvc',
+        'cano pvc', 'tubo soldavel', 'pvc soldavel', 'flange', 'niple',
+        'boia de nivel', 'bomba dagua', 'aquecedor', 'caixa sifonada', 'ralo',
+        'vedacao', 'veda rosca', 'teflon', 'mangueira', 'pressao agua'
+    ]
+    palavras_gas = [
+        'gas', 'tubulacao gas', 'registro gas', 'botijao', 'mangueira gas',
+        'cobre gas', 'tubo cobre', 'solda cobre', 'abracadeira gas',
+        'valvula gas', 'regulador gas', 'flexivel gas', 'conexao gas'
+    ]
     try:
-        itens = Item.query.filter_by(categoria='geral').all()
+        itens = Item.query.filter(Item.categoria.in_(['geral', None])).all()
         atualizados = 0
         for it in itens:
             nome_lower = it.nome.lower()
             if any(p in nome_lower for p in palavras_epi):
-                it.categoria = 'epi'
-                atualizados += 1
+                it.categoria = 'epi'; atualizados += 1
             elif any(p in nome_lower for p in palavras_maq):
-                it.categoria = 'maquinario'
-                atualizados += 1
+                it.categoria = 'maquinario'; atualizados += 1
+            elif any(p in nome_lower for p in palavras_eletrica):
+                it.categoria = 'eletrica'; atualizados += 1
+            elif any(p in nome_lower for p in palavras_hidraulica):
+                it.categoria = 'hidraulica'; atualizados += 1
+            elif any(p in nome_lower for p in palavras_gas):
+                it.categoria = 'gas'; atualizados += 1
         if atualizados:
             db.session.commit()
             logger.info(f'Categorias: {atualizados} itens classificados automaticamente.')

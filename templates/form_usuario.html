@@ -82,6 +82,21 @@
                             </div>
                         </div>
                         {% endif %}
+                        {% if usuario_atual and usuario_atual.perfil == 'admin' %}
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Permissões de Função</label>
+                            <div class="form-check">
+                                <input type="checkbox" name="pode_requisitar" class="form-check-input"
+                                       id="podeRequisitar" {% if usuario and usuario.pode_requisitar %}checked{% endif %}>
+                                <label class="form-check-label" for="podeRequisitar">Pode fazer requisições (mesmo sendo Engenheiro)</label>
+                            </div>
+                            <div class="form-check">
+                                <input type="checkbox" name="pode_ver_alertas" class="form-check-input"
+                                       id="podeAlertas" {% if usuario and usuario.pode_ver_alertas %}checked{% endif %}>
+                                <label class="form-check-label" for="podeAlertas">Pode ver alertas de estoque</label>
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
                     <div class="d-flex gap-2 mt-4">
                         <button type="submit" class="btn btn-primary">
@@ -97,6 +112,78 @@
 </div>
 
 {% if usuario %}
+<!-- ── Permissões de Função ── -->
+<div class="row justify-content-center mt-4">
+    <div class="col-md-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header fw-bold text-white" style="background:#7c3aed">
+                <i class="bi bi-shield-lock me-2"></i>Permissões de Função
+                <span class="small fw-normal opacity-75 ms-2">Funções especiais além do perfil base</span>
+            </div>
+            <div class="card-body">
+                {% if usuario.permissoes_extras %}
+                <table class="table table-sm mb-3">
+                    <thead>
+                        <tr>
+                            <th>Permissão</th>
+                            <th>Concedido por</th>
+                            <th>Data</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in usuario.permissoes_extras %}
+                        <tr>
+                            <td>
+                                <span class="badge bg-info text-dark">
+                                    {{ permissoes_disponiveis.get(p.permissao, p.permissao) }}
+                                </span>
+                            </td>
+                            <td class="small text-muted">{{ p.concedido_por or '—' }}</td>
+                            <td class="small text-muted">
+                                {{ p.data_concessao.strftime('%d/%m/%Y') if p.data_concessao else '—' }}
+                            </td>
+                            <td>
+                                <form action="/permissao_extra/{{ p.id }}/revogar" method="POST"
+                                      onsubmit="return confirm('Revogar esta permissão?')">
+                                    <button class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-x-lg me-1"></i>Revogar
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p class="text-muted small mb-3">Nenhuma permissão extra concedida.</p>
+                {% endif %}
+
+                <hr>
+                <h6 class="fw-bold mb-3">
+                    <i class="bi bi-plus-circle me-1 text-success"></i>
+                    Conceder Permissão
+                </h6>
+                <form action="/usuarios/{{ usuario.id }}/permissao" method="POST"
+                      class="d-flex gap-2 align-items-end flex-wrap">
+                    <div class="flex-fill">
+                        <label class="form-label small fw-semibold">Permissão *</label>
+                        <select name="permissao" class="form-select form-select-sm" required>
+                            <option value="">Selecione...</option>
+                            {% for key, label in permissoes_disponiveis.items() %}
+                            <option value="{{ key }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-success btn-sm">
+                        <i class="bi bi-shield-plus me-1"></i>Conceder
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Acessos Extras -->
 <div class="row justify-content-center mt-4">
     <div class="col-md-8">

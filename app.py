@@ -2530,7 +2530,16 @@ def exportar_almoxarifado(id):
 def api_alertas():
     if _check_api_rate(request.remote_addr or '0.0.0.0'):
         return jsonify({'error': 'Too many requests'}), 429
-    itens = Item.query.filter(Item.quantidade <= Item.estoque_minimo, Item.ativo == True).all()
+    u = usuario_atual()
+    if u.perfil == 'admin':
+        itens = Item.query.filter(Item.quantidade <= Item.estoque_minimo, Item.ativo == True).all()
+    else:
+        ids = u.almoxarifados_permitidos()
+        itens = Item.query.filter(
+            Item.quantidade <= Item.estoque_minimo,
+            Item.almoxarifado_id.in_(ids),
+            Item.ativo == True
+        ).all() if ids else []
     return jsonify([{
         'id': i.id, 'nome': i.nome, 'codigo': i.codigo,
         'quantidade': i.quantidade, 'estoque_minimo': i.estoque_minimo,

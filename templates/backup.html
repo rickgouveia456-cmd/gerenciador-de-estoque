@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+f{% extends 'base.html' %}
 {% block title %}Backup do Sistema{% endblock %}
 {% block page_title %}Backup do Sistema{% endblock %}
 
@@ -26,21 +26,7 @@
                     </button>
                 </form>
 
-                <!-- Enviar por email -->
-                <form method="POST">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <input type="hidden" name="acao" value="email">
-                    <button type="submit" class="btn btn-outline-secondary w-100">
-                        <i class="bi bi-envelope me-2"></i>
-                        Enviar por Email Agora
-                    </button>
-                </form>
 
-                <div class="alert alert-info mt-3 small">
-                    <i class="bi bi-clock me-1"></i>
-                    <strong>Backup automático</strong> configurado para todo dia às <strong>20:00</strong> (horário de Brasília).
-                    O arquivo será enviado para o email cadastrado.
-                </div>
             </div>
         </div>
 

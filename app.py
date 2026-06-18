@@ -4194,42 +4194,6 @@ def backup_manual():
     email_configurado = bool(os.environ.get('BACKUP_EMAIL_FROM', '').strip())
     return render_template('backup.html', email_configurado=email_configurado)
 
-@app.route('/api/backup-automatico', methods=['GET'])
-def api_backup_automatico():
-    """API para backup automático via cron job externo.
-    Protegida por chave secreta via query string: ?key=BACKUP_CRON_KEY
-    """
-    chave = request.args.get('key', '').strip()
-    chave_esperada = os.environ.get('BACKUP_CRON_KEY', '').strip()
-    if not chave_esperada:
-        # Se a variável não está configurada, bloqueia completamente
-        return jsonify({'error': 'Endpoint desabilitado. Configure BACKUP_CRON_KEY no Railway.'}), 503
-    if not chave or chave != chave_esperada:
-        return jsonify({'error': 'Não autorizado'}), 401
-
-    import threading
-
-    def executar_backup_background():
-        with app.app_context():
-            try:
-                ok, erro_msg = enviar_backup_por_almoxarifado()
-                if ok:
-                    logger.info(f'✅ BACKUP API: enviado com sucesso às {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
-                else:
-                    logger.error(f'❌ BACKUP API: erro — {erro_msg}')
-            except Exception as e:
-                logger.error(f'❌ BACKUP API: erro inesperado — {str(e)}')
-
-    thread = threading.Thread(target=executar_backup_background)
-    thread.daemon = True
-    thread.start()
-
-    return jsonify({
-        'success': True,
-        'message': 'Backup iniciado!',
-        'timestamp': datetime.now().strftime('%d/%m/%Y %H:%M:%S')
-    }), 200
-
 def seed_data():
     if Almoxarifado.query.count() == 0:
         db.session.add_all([

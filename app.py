@@ -3408,8 +3408,12 @@ def mestre_requisicao_detalhe(id):
     """Detalhe de uma requisição do mestre."""
     req = RequisicaoMestre.query.get_or_404(id)
     u = usuario_atual()
-    # Mestre só vê as suas
-    if u.perfil == 'mestre' and req.mestre_id != u.id:
+    # Mestre e técnico de segurança só veem as suas próprias
+    if u.perfil in ('mestre', 'tecnico_seguranca') and req.mestre_id != u.id:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('mestre_requisicoes'))
+    # Colaborador com pode_requisitar só vê as suas próprias
+    if u.perfil == 'colaborador' and req.mestre_id != u.id:
         flash('Acesso negado.', 'danger')
         return redirect(url_for('mestre_requisicoes'))
     # Almoxarife só vê do seu almoxarifado
@@ -3570,7 +3574,11 @@ def mestre_requisicao_cancelar(id):
     """Cancela uma requisição pendente ou aprovada."""
     req = RequisicaoMestre.query.get_or_404(id)
     u = usuario_atual()
+    # Mestre, técnico de segurança e colaborador com pode_requisitar só cancelam as suas
     if u.perfil in ('mestre', 'tecnico_seguranca') and req.mestre_id != u.id:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('mestre_requisicoes'))
+    if u.perfil == 'colaborador' and req.mestre_id != u.id:
         flash('Acesso negado.', 'danger')
         return redirect(url_for('mestre_requisicoes'))
     if req.status == 'entregue':
@@ -3790,7 +3798,11 @@ def enviar_backup_email(buf):
     remetente = os.environ.get('BACKUP_EMAIL_FROM')
     senha     = os.environ.get('BACKUP_EMAIL_PASS')
     destinatario = os.environ.get('BACKUP_EMAIL_TO', 'rickgouveia17@gmail.com')
-    senha_zip = os.environ.get('BACKUP_ZIP_PASS', 'LogiPrime@2024#Backup')
+    senha_zip = os.environ.get('BACKUP_ZIP_PASS', '')
+    if not senha_zip:
+        import secrets as _sec
+        senha_zip = _sec.token_urlsafe(24)
+        logger.warning('BACKUP: BACKUP_ZIP_PASS não configurada — usando senha aleatória para este envio.')
 
     if not remetente or not senha:
         logger.info('BACKUP: variáveis BACKUP_EMAIL_FROM e BACKUP_EMAIL_PASS não configuradas.')
@@ -3864,7 +3876,11 @@ def enviar_backup_por_almoxarifado():
 
     remetente = os.environ.get('BACKUP_EMAIL_FROM', 'rickgouveia157@gmail.com')
     senha_app = os.environ.get('BACKUP_EMAIL_PASS', '').replace(' ', '')  # remove espaços da senha de app
-    senha_zip = os.environ.get('BACKUP_ZIP_PASS', 'LogiPrime@2024#Backup')
+    senha_zip = os.environ.get('BACKUP_ZIP_PASS', '')
+    if not senha_zip:
+        import secrets as _sec
+        senha_zip = _sec.token_urlsafe(24)
+        logger.warning('BACKUP: BACKUP_ZIP_PASS não configurada — usando senha aleatória para este envio.')
     hoje      = date.today().strftime('%d/%m/%Y')
 
     if not senha_app:
@@ -4183,9 +4199,12 @@ def api_backup_automatico():
     """API para backup automático via cron job externo.
     Protegida por chave secreta via query string: ?key=BACKUP_CRON_KEY
     """
-    chave = request.args.get('key', '')
-    chave_esperada = os.environ.get('BACKUP_CRON_KEY', 'backup2024').strip()
-    if chave.strip() != chave_esperada:
+    chave = request.args.get('key', '').strip()
+    chave_esperada = os.environ.get('BACKUP_CRON_KEY', '').strip()
+    if not chave_esperada:
+        # Se a variável não está configurada, bloqueia completamente
+        return jsonify({'error': 'Endpoint desabilitado. Configure BACKUP_CRON_KEY no Railway.'}), 503
+    if not chave or chave != chave_esperada:
         return jsonify({'error': 'Não autorizado'}), 401
 
     import threading

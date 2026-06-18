@@ -872,10 +872,13 @@ def login():
             flash(f'Bem-vindo, {u.nome}!', 'success')
             return redirect(url_for('index'))
         _register_attempt(ip)
+        import time as _time
+        _time.sleep(0.3)  # timing uniforme — dificulta enumeration de usuários
         flash('Login ou senha incorretos.', 'danger')
     return render_template('login.html')
 
-@app.route('/logout')
+@app.route('/logout', methods=['POST'])
+@login_required
 def logout():
     session.clear()
     return redirect(url_for('login'))
@@ -2820,6 +2823,11 @@ def api_empresas_ferramentas():
 def upload_foto_retirada(hist_id):
     """Recebe foto em base64 do frontend e salva direto no PostgreSQL."""
     hist = HistoricoFerramenta.query.get_or_404(hist_id)
+    u = usuario_atual()
+    ferr = db.session.get(Ferramenta, hist.ferramenta_id)
+    if u.perfil not in ('admin', 'almoxarife') and (
+            ferr and ferr.almoxarifado_id not in u.almoxarifados_permitidos()):
+        return jsonify({'error': 'Acesso negado.'}), 403
     data = request.get_json()
     if not data or 'foto' not in data:
         return jsonify({'error': 'Nenhuma foto recebida.'}), 400
@@ -2847,6 +2855,11 @@ def upload_foto_retirada(hist_id):
 def upload_foto_epi(mov_id):
     """Recebe foto em base64 do frontend e salva na movimentação de EPI."""
     mov = Movimentacao.query.get_or_404(mov_id)
+    u = usuario_atual()
+    it = db.session.get(Item, mov.item_id)
+    if u.perfil not in ('admin', 'almoxarife') and (
+            it and it.almoxarifado_id not in u.almoxarifados_permitidos()):
+        return jsonify({'error': 'Acesso negado.'}), 403
     data = request.get_json()
     if not data or 'foto' not in data:
         return jsonify({'error': 'Nenhuma foto recebida.'}), 400
@@ -3105,7 +3118,11 @@ def novo_usuario():
             almoxarifado_id=request.form.get('almoxarifado_id') or None,
             email=request.form.get('email', '').strip() or None
         )
-        u.set_senha(request.form['senha'])
+        senha_nova = request.form.get('senha', '')
+        if len(senha_nova) < 8:
+            flash('A senha deve ter pelo menos 8 caracteres.', 'danger')
+            return render_template('form_usuario.html', usuario=None, almoxarifados=almoxarifados)
+        u.set_senha(senha_nova)
         db.session.add(u)
         db.session.commit()
         flash(f'Usuário "{u.nome}" criado!', 'success')
@@ -3142,6 +3159,9 @@ def editar_usuario(id):
         if u.id == atual.id:
             u.ativo = True
         if request.form.get('senha'):
+            if len(request.form['senha']) < 8:
+                flash('A senha deve ter pelo menos 8 caracteres.', 'danger')
+                return redirect(url_for('editar_usuario', id=id))
             u.set_senha(request.form['senha'])
         u.pode_requisitar = 'pode_requisitar' in request.form
         u.pode_ver_alertas = 'pode_ver_alertas' in request.form

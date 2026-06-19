@@ -1,0 +1,724 @@
+{% extends 'base.html' %}
+{% block title %}Frota — {{ almoxarifado.nome }}{% endblock %}
+{% block page_title %}🔧 Frota de Ferramentas — {{ almoxarifado.nome }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <!-- Tabs Ferramentas / EPIs -->
+    <div class="d-flex align-items-center gap-2">
+        <span class="btn btn-sm text-white fw-bold" style="background:var(--accent);pointer-events:none">
+            <i class="bi bi-tools me-1"></i> Ferramentas
+        </span>
+        <a href="/almoxarifado/{{ almoxarifado.id }}/epis"
+           class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-shield-check me-1"></i> EPIs / Uniformes
+        </a>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="/almoxarifado/{{ almoxarifado.id }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i> Voltar ao Almoxarifado
+        </a>
+        {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
+        <a href="/almoxarifado/{{ almoxarifado.id }}/ferramentas/nova" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i> Nova Ferramenta
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Resumo -->
+<div class="row g-3 mb-4">
+    {% set disponiveis = ferramentas | selectattr('status', 'eq', 'disponivel') | list %}
+    {% set em_uso = ferramentas | selectattr('status', 'eq', 'em_uso') | list %}
+    {% set manutencao = ferramentas | selectattr('status', 'eq', 'manutencao') | list %}
+    <div class="col-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-3 fw-bold" style="color:var(--accent)">{{ ferramentas|length }}</div>
+            <div class="small text-muted">Total</div>
+        </div>
+    </div>
+    <div class="col-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-3 fw-bold text-success">{{ disponiveis|length }}</div>
+            <div class="small text-muted">Disponíveis</div>
+        </div>
+    </div>
+    <div class="col-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-3 fw-bold text-warning">{{ em_uso|length }}</div>
+            <div class="small text-muted">Em Uso</div>
+        </div>
+    </div>
+    <div class="col-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-3 fw-bold text-danger">{{ manutencao|length }}</div>
+            <div class="small text-muted">Manutenção</div>
+        </div>
+    </div>
+</div>
+
+{% if ferramentas %}
+<div class="mb-3">
+    <div class="input-group">
+        <span class="input-group-text border-end-0"><i class="bi bi-search text-muted"></i></span>
+        <input type="text" id="buscaFerramenta" class="form-control border-start-0"
+               placeholder="Pesquisar por ID, nome ou empresa..."
+               oninput="filtrar(this.value)">
+        <button class="btn btn-outline-secondary" type="button"
+                onclick="document.getElementById('buscaFerramenta').value=''; filtrar('')">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm d-none d-md-block">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Ferramenta</th>
+                    <th>Empresa</th>
+                    <th>Status</th>
+                    <th>Com quem / Motivo</th>
+                    <th>⏱️ Prazo (24h)</th>
+                    <th>Local</th>
+                    <th>Observação</th>
+                    {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
+                    <th>Ações</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody id="tbodyFerr">
+                {% for f in ferramentas %}
+                <tr data-busca="{{ f.identificacao | lower }} {{ f.nome | lower }} {{ f.empresa | lower if f.empresa else '' }}"
+                    {% if f.status == 'em_uso' and f.data_saida %}
+                    data-saida="{{ f.data_saida.isoformat() }}"
+                    {% endif %}>
+                    <td><code>{{ f.identificacao }}</code></td>
+                    <td><strong>{{ f.nome }}</strong></td>
+                    <td>
+                        {% if f.empresa %}
+                            <span class="badge bg-secondary">{{ f.empresa }}</span>
+                        {% else %}
+                            <span class="badge bg-light text-success border border-success">Própria</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if f.status == 'disponivel' %}
+                            <span class="badge bg-success" id="badge_{{ f.id }}">🟢 Disponível</span>
+                        {% elif f.status == 'manutencao' %}
+                            <span class="badge bg-danger" id="badge_{{ f.id }}">🔧 Manutenção</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark" id="badge_{{ f.id }}">🟡 Em Uso</span>
+                        {% endif %}
+                    </td>
+                    <td id="resp_{{ f.id }}" class="small">{{ f.responsavel_atual or '—' }}</td>
+                    <td id="prazo_{{ f.id }}">
+                        {% if f.status == 'em_uso' and f.data_saida %}
+                            <span class="badge" id="timer_{{ f.id }}">calculando...</span>
+                        {% else %}
+                            <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="small text-muted">{{ f.local or '—' }}</td>
+                    <td class="text-muted small">{{ f.observacao or '—' }}</td>
+                    {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
+                    <td id="acoes_{{ f.id }}">
+                        {% if f.status == 'disponivel' %}
+                        <button class="btn btn-sm btn-warning" onclick="marcarEmUso({{ f.id }}, this)">
+                            <i class="bi bi-person-check me-1"></i> Dar Saída
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="marcarManutencao({{ f.id }})">
+                            <i class="bi bi-tools me-1"></i> Manutenção
+                        </button>
+                        {% elif f.status == 'manutencao' %}
+                        <button class="btn btn-sm btn-success" onclick="marcarDisponivel({{ f.id }}, this)">
+                            <i class="bi bi-check-circle me-1"></i> Concluir
+                        </button>
+                        {% else %}
+                        <button class="btn btn-sm btn-success" onclick="marcarDisponivel({{ f.id }}, this)">
+                            <i class="bi bi-arrow-return-left me-1"></i> Devolver
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="marcarManutencao({{ f.id }})">
+                            <i class="bi bi-tools me-1"></i> Manutenção
+                        </button>
+                        {% endif %}
+                        <button class="btn btn-sm btn-outline-secondary" onclick="verHistorico({{ f.id }})" title="Histórico">
+                            <i class="bi bi-clock-history"></i>
+                        </button>
+                        {% if usuario_atual.perfil == 'admin' %}
+                        <form action="/ferramenta/{{ f.id }}/deletar" method="POST" class="d-inline"
+                              onsubmit="return confirm('Remover ferramenta?')">
+                            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div id="semResultados" class="text-center py-4 text-muted" style="display:none">
+            <i class="bi bi-search fs-2 d-block mb-2"></i>Nenhuma ferramenta encontrada.
+        </div>
+    </div>
+</div>
+
+<!-- Cards Mobile -->
+<div class="d-md-none">
+    {% for f in ferramentas %}
+    <div class="card border-0 shadow-sm mb-3 {% if f.status == 'em_uso' %}border-warning{% elif f.status == 'manutencao' %}border-danger{% endif %}">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                    <div class="fw-bold">{{ f.nome }}</div>
+                    <code class="small text-muted">{{ f.identificacao }}</code>
+                    {% if f.empresa %}
+                    <div class="small mt-1"><span class="badge bg-secondary">{{ f.empresa }}</span></div>
+                    {% else %}
+                    <div class="small mt-1"><span class="badge bg-light text-success border border-success">Própria</span></div>
+                    {% endif %}
+                </div>
+                {% if f.status == 'disponivel' %}
+                    <span class="badge bg-success">🟢 Disponível</span>
+                {% elif f.status == 'manutencao' %}
+                    <span class="badge bg-danger">🔧 Manutenção</span>
+                {% else %}
+                    <span class="badge bg-warning text-dark">🟡 Em Uso</span>
+                {% endif %}
+            </div>
+            {% if f.responsavel_atual %}
+            <div class="small text-muted mb-1"><i class="bi bi-person me-1"></i>{{ f.responsavel_atual }}</div>
+            {% endif %}
+            {% if f.status == 'em_uso' and f.data_saida %}
+            <div class="mb-2" id="prazo_mob_{{ f.id }}" data-saida="{{ f.data_saida.isoformat() }}"></div>
+            {% endif %}
+            {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
+            <div class="d-flex gap-2 mt-2 flex-wrap">
+                {% if f.status == 'disponivel' %}
+                <button class="btn btn-sm btn-warning flex-fill" onclick="marcarEmUso({{ f.id }}, this)">
+                    <i class="bi bi-person-check me-1"></i> Dar Saída
+                </button>
+                <button class="btn btn-sm btn-danger flex-fill" onclick="marcarManutencao({{ f.id }})">
+                    <i class="bi bi-tools me-1"></i> Manutenção
+                </button>
+                {% elif f.status == 'manutencao' %}
+                <button class="btn btn-sm btn-success flex-fill" onclick="marcarDisponivel({{ f.id }}, this)">
+                    <i class="bi bi-check-circle me-1"></i> Concluir Manutenção
+                </button>
+                {% else %}
+                <button class="btn btn-sm btn-success flex-fill" onclick="marcarDisponivel({{ f.id }}, this)">
+                    <i class="bi bi-arrow-return-left me-1"></i> Devolver
+                </button>
+                <button class="btn btn-sm btn-danger flex-fill" onclick="marcarManutencao({{ f.id }})">
+                    <i class="bi bi-tools me-1"></i> Manutenção
+                </button>
+                {% endif %}
+                <button class="btn btn-sm btn-outline-secondary" onclick="verHistorico({{ f.id }})">
+                    <i class="bi bi-clock-history"></i>
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% else %}
+<div class="card border-0 shadow-sm">
+    <div class="text-center py-5 text-muted">
+        <i class="bi bi-tools fs-1 d-block mb-2"></i>
+        Nenhuma ferramenta cadastrada.
+        {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
+        <br><a href="/almoxarifado/{{ almoxarifado.id }}/ferramentas/nova" class="btn btn-primary mt-3">
+            <i class="bi bi-plus-lg me-1"></i> Cadastrar Primeira Ferramenta
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Modal responsável (Dar Saída) -->
+<div class="modal fade" id="modalResponsavel" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header" style="background:var(--accent);color:#fff">
+                <h6 class="modal-title fw-bold"><i class="bi bi-person-check me-2"></i>Quem está retirando?</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="inputResponsavel" class="form-control"
+                       placeholder="Nome do colaborador" autocomplete="off">
+                <div id="sugestoesResp" class="list-group mt-1" style="max-height:150px;overflow-y:auto"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="confirmarSaida()">Confirmar Saída</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Câmera — Foto de Retirada -->
+<div class="modal fade" id="modalFoto" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#1F3864;color:#fff">
+                <h6 class="modal-title fw-bold"><i class="bi bi-camera-fill me-2"></i>Foto de Retirada — Prova</h6>
+            </div>
+            <div class="modal-body text-center p-3">
+                <p class="small text-muted mb-3">Tire uma foto do colaborador com a ferramenta/máquina como comprovante de retirada.</p>
+
+                <!-- Preview da foto -->
+                <img id="fotoPreview" class="rounded border w-100 mb-3"
+                     style="max-height:300px;object-fit:contain;display:none" alt="Foto capturada">
+
+                <!-- Botão que abre câmera diretamente -->
+                <div id="areaCaptura">
+                    <label for="inputFotoCaptura" class="btn btn-primary w-100 mb-2" style="cursor:pointer">
+                        <i class="bi bi-camera-fill me-2"></i> Abrir Câmera
+                    </label>
+                    <input type="file" id="inputFotoCaptura" accept="image/*" capture="environment"
+                           style="display:none" onchange="fotoSelecionada(this)">
+                    <div class="text-muted small">ou</div>
+                    <label for="inputFotoGaleria" class="btn btn-outline-secondary w-100 mt-2" style="cursor:pointer">
+                        <i class="bi bi-image me-2"></i> Escolher da Galeria
+                    </label>
+                    <input type="file" id="inputFotoGaleria" accept="image/*"
+                           style="display:none" onchange="fotoSelecionada(this)">
+                </div>
+
+                <div id="areaConfirma" style="display:none">
+                    <button class="btn btn-outline-secondary btn-sm w-100 mt-2" onclick="repetirFoto()">
+                        <i class="bi bi-arrow-repeat me-1"></i> Repetir foto
+                    </button>
+                </div>
+
+                <div id="fotoStatus" class="small text-muted mt-2"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="pularFoto()">
+                    <i class="bi bi-skip-forward me-1"></i> Pular (sem foto)
+                </button>
+                <button type="button" class="btn btn-success btn-sm" id="btnEnviarFoto"
+                        style="display:none" onclick="enviarFoto()">
+                    <i class="bi bi-check-lg me-1"></i> Confirmar Foto
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Manutenção -->
+<div class="modal fade" id="modalManutencao" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h6 class="modal-title fw-bold"><i class="bi bi-tools me-2"></i>Enviar para Manutenção</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <label class="form-label fw-semibold small">Motivo / Descrição do problema</label>
+                <textarea id="inputMotivo" class="form-control" rows="3"
+                          placeholder="Ex: Correia partida, motor com ruído, revisão preventiva..."></textarea>
+                <div class="form-text">Opcional — descreva o problema ou tipo de manutenção.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger btn-sm" onclick="confirmarManutencao()">
+                    <i class="bi bi-tools me-1"></i> Confirmar Manutenção
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Histórico -->
+<div class="modal fade" id="modalHistorico" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background:var(--accent);color:#fff">
+                <h6 class="modal-title fw-bold"><i class="bi bi-clock-history me-2"></i>Histórico de Movimentação</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0" id="historicoBody">
+                <div class="text-center text-muted py-3">Carregando...</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+<!-- Modal Visualizar Foto Grande -->
+<div class="modal fade" id="modalVerFoto" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content bg-dark">
+            <div class="modal-header border-0 pb-0">
+                <span class="text-white fw-bold"><i class="bi bi-camera-fill me-2"></i>📸 Foto de Retirada — Comprovante</span>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center p-2">
+                <img id="fotoGrandeImg" src="" alt="Foto de retirada"
+                     class="img-fluid rounded" style="max-height:80vh">
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+let _ferrId = null;
+
+// ── Contador regressivo 24h ───────────────────────────────────────────────────
+function atualizarContadores() {
+    document.querySelectorAll('[data-saida]').forEach(el => {
+        const saida = new Date(el.dataset.saida);
+        const limite = new Date(saida.getTime() + 24 * 60 * 60 * 1000);
+        const agora = new Date();
+        const diff = limite - agora;
+        const rowId = el.closest('tr')?.querySelector('[id^="timer_"]')?.id?.replace('timer_', '');
+        const timerEl = rowId ? document.getElementById(`timer_${rowId}`) : null;
+        const badgeEl = el.id?.startsWith('prazo_mob_') ? el : timerEl;
+        if (!badgeEl) return;
+        if (diff <= 0) {
+            const horas = Math.abs(Math.floor(diff / 3600000));
+            const mins = Math.abs(Math.floor((diff % 3600000) / 60000));
+            badgeEl.className = 'badge bg-danger alert-pulse';
+            badgeEl.innerHTML = `⚠️ ATRASADO ${horas}h${mins}m`;
+        } else {
+            const horas = Math.floor(diff / 3600000);
+            const mins = Math.floor((diff % 3600000) / 60000);
+            const secs = Math.floor((diff % 60000) / 1000);
+            badgeEl.className = diff < 3 * 3600000 ? 'badge bg-warning text-dark' : 'badge bg-info text-dark';
+            badgeEl.innerHTML = `⏱️ ${String(horas).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+        }
+    });
+}
+setInterval(atualizarContadores, 1000);
+atualizarContadores();
+
+// ── Filtro ────────────────────────────────────────────────────────────────────
+function filtrar(q) {
+    q = q.toLowerCase().trim();
+    const rows = document.querySelectorAll('#tbodyFerr tr');
+    let vis = 0;
+    rows.forEach(tr => {
+        const ok = tr.dataset.busca.includes(q);
+        tr.style.display = ok ? '' : 'none';
+        if (ok) vis++;
+    });
+    document.getElementById('semResultados').style.display = vis === 0 ? '' : 'none';
+}
+
+// ── Dar Saída ─────────────────────────────────────────────────────────────────
+function marcarEmUso(id, btn) {
+    _ferrId = id;
+    document.getElementById('inputResponsavel').value = '';
+    document.getElementById('sugestoesResp').innerHTML = '';
+    new bootstrap.Modal(document.getElementById('modalResponsavel')).show();
+}
+
+function confirmarSaida() {
+    const resp = document.getElementById('inputResponsavel').value.trim();
+    if (!resp) { alert('Informe o nome do colaborador.'); return; }
+    const csrf = document.querySelector('input[name="csrf_token"]')?.value || '';
+    fetch(`/ferramenta/${_ferrId}/status`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: `status=em_uso&responsavel=${encodeURIComponent(resp)}&csrf_token=${csrf}`
+    }).then(r => r.json()).then(data => {
+        bootstrap.Modal.getInstance(document.getElementById('modalResponsavel')).hide();
+        document.getElementById(`badge_${_ferrId}`).outerHTML =
+            `<span class="badge bg-warning text-dark" id="badge_${_ferrId}">🟡 Em Uso</span>`;
+        document.getElementById(`resp_${_ferrId}`).textContent = data.responsavel;
+        const prazoEl = document.getElementById(`prazo_${_ferrId}`);
+        if (prazoEl && data.data_saida) {
+            prazoEl.innerHTML = `<span class="badge bg-info text-dark" id="timer_${_ferrId}">⏱️ calculando...</span>`;
+            prazoEl.closest('tr').dataset.saida = data.data_saida;
+        }
+        document.getElementById(`acoes_${_ferrId}`).querySelector('button').outerHTML =
+            `<button class="btn btn-sm btn-success" onclick="marcarDisponivel(${_ferrId}, this)">
+                <i class="bi bi-arrow-return-left me-1"></i> Devolver</button>`;
+        atualizarContadores();
+        // Abre câmera para foto de prova (sempre, sem depender do Cloudinary)
+        if (data.hist_id) {
+            _histId = data.hist_id;
+            setTimeout(() => abrirCamera(), 400);
+        }
+    });
+}
+
+// ── CÂMERA — FOTO DE RETIRADA (input file com capture) ───────────────────────
+let _histId = null;
+let _fotoBase64 = null;
+
+function abrirCamera() {
+    _fotoBase64 = null;
+    document.getElementById('fotoPreview').style.display = 'none';
+    document.getElementById('areaCaptura').style.display = 'block';
+    document.getElementById('areaConfirma').style.display = 'none';
+    document.getElementById('btnEnviarFoto').style.display = 'none';
+    document.getElementById('fotoStatus').textContent = '';
+    document.getElementById('inputFotoCaptura').value = '';
+    document.getElementById('inputFotoGaleria').value = '';
+    new bootstrap.Modal(document.getElementById('modalFoto')).show();
+}
+
+function fotoSelecionada(input) {
+    const file = input.files[0];
+    if (!file) return;
+    document.getElementById('fotoStatus').textContent = '⏳ Processando foto...';
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        // Comprime a imagem para máx 800px e qualidade 70% antes de salvar
+        const img = new Image();
+        img.onload = function() {
+            const canvas = document.createElement('canvas');
+            const MAX = 800;
+            let w = img.width, h = img.height;
+            if (w > h && w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+            else if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            _fotoBase64 = canvas.toDataURL('image/jpeg', 0.7);
+
+            const preview = document.getElementById('fotoPreview');
+            preview.src = _fotoBase64;
+            preview.style.display = 'block';
+            document.getElementById('areaCaptura').style.display = 'none';
+            document.getElementById('areaConfirma').style.display = 'block';
+            document.getElementById('btnEnviarFoto').style.display = 'inline-block';
+            const kb = Math.round(_fotoBase64.length * 0.75 / 1024);
+            document.getElementById('fotoStatus').textContent = `📸 Foto pronta (${kb}KB). Confirme ou repita.`;
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function repetirFoto() {
+    _fotoBase64 = null;
+    document.getElementById('fotoPreview').style.display = 'none';
+    document.getElementById('areaCaptura').style.display = 'block';
+    document.getElementById('areaConfirma').style.display = 'none';
+    document.getElementById('btnEnviarFoto').style.display = 'none';
+    document.getElementById('fotoStatus').textContent = '';
+    document.getElementById('inputFotoCaptura').value = '';
+    document.getElementById('inputFotoGaleria').value = '';
+}
+
+function enviarFoto() {
+    if (!_fotoBase64 || !_histId) return;
+    document.getElementById('fotoStatus').textContent = '⏳ Enviando foto...';
+    document.getElementById('btnEnviarFoto').disabled = true;
+    const csrf = document.querySelector('input[name="csrf_token"]')?.value || '';
+    fetch(`/ferramenta/historico/${_histId}/foto`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf},
+        body: JSON.stringify({ foto: _fotoBase64 })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            document.getElementById('fotoStatus').textContent = '✅ Foto salva com sucesso!';
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('modalFoto')).hide();
+            }, 1200);
+        } else {
+            document.getElementById('fotoStatus').textContent = '❌ Erro: ' + (data.error || 'tente novamente');
+            document.getElementById('btnEnviarFoto').disabled = false;
+        }
+    })
+    .catch(() => {
+        document.getElementById('fotoStatus').textContent = '❌ Erro de conexão.';
+        document.getElementById('btnEnviarFoto').disabled = false;
+    });
+}
+
+function pularFoto() {
+    bootstrap.Modal.getInstance(document.getElementById('modalFoto')).hide();
+}
+
+// ── Manutenção ────────────────────────────────────────────────────────────────
+function marcarManutencao(id) {
+    _ferrId = id;
+    document.getElementById('inputMotivo').value = '';
+    new bootstrap.Modal(document.getElementById('modalManutencao')).show();
+}
+
+function confirmarManutencao() {
+    const motivo = document.getElementById('inputMotivo').value.trim();
+    const csrf = document.querySelector('input[name="csrf_token"]')?.value || '';
+    const btn = document.querySelector('#modalManutencao .btn-danger');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Aguarde...'; }
+
+    fetch(`/ferramenta/${_ferrId}/status`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: `status=manutencao&motivo=${encodeURIComponent(motivo)}&csrf_token=${csrf}`
+    })
+    .then(r => {
+        if (!r.ok) throw new Error(`Erro HTTP ${r.status}`);
+        return r.json();
+    })
+    .then(data => {
+        if (data.error) throw new Error(data.error);
+        bootstrap.Modal.getInstance(document.getElementById('modalManutencao')).hide();
+        document.getElementById(`badge_${_ferrId}`).outerHTML =
+            `<span class="badge bg-danger" id="badge_${_ferrId}">🔧 Manutenção</span>`;
+        const respEl = document.getElementById(`resp_${_ferrId}`);
+        if (respEl) respEl.textContent = motivo || 'Em manutenção';
+        const prazoEl = document.getElementById(`prazo_${_ferrId}`);
+        if (prazoEl) prazoEl.innerHTML = '<span class="text-muted small">—</span>';
+        const acoesEl = document.getElementById(`acoes_${_ferrId}`);
+        if (acoesEl) {
+            acoesEl.innerHTML =
+                `<button class="btn btn-sm btn-success" onclick="marcarDisponivel(${_ferrId}, this)">
+                    <i class="bi bi-check-circle me-1"></i> Concluir</button>
+                 <button class="btn btn-sm btn-outline-secondary" onclick="verHistorico(${_ferrId})" title="Histórico">
+                    <i class="bi bi-clock-history"></i></button>`;
+        }
+    })
+    .catch(err => {
+        alert('Erro ao enviar para manutenção: ' + err.message);
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-tools me-1"></i> Confirmar Manutenção'; }
+    });
+}
+
+// ── Devolver / Concluir ───────────────────────────────────────────────────────
+function marcarDisponivel(id, btn) {
+    if (!confirm('Confirmar devolução / conclusão?')) return;
+    const csrf = document.querySelector('input[name="csrf_token"]')?.value || '';
+
+    // Desabilitar botão para evitar duplo clique
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Aguarde...'; }
+
+    fetch(`/ferramenta/${id}/status`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: `status=disponivel&responsavel=&csrf_token=${csrf}`
+    })
+    .then(r => {
+        if (!r.ok) throw new Error(`Erro HTTP ${r.status}`);
+        return r.json();
+    })
+    .then(() => {
+        // Atualizar badge
+        const badgeEl = document.getElementById(`badge_${id}`);
+        if (badgeEl) badgeEl.outerHTML = `<span class="badge bg-success" id="badge_${id}">🟢 Disponível</span>`;
+        // Limpar responsável
+        const respEl = document.getElementById(`resp_${id}`);
+        if (respEl) respEl.textContent = '—';
+        // Limpar prazo
+        const prazoEl = document.getElementById(`prazo_${id}`);
+        if (prazoEl) prazoEl.innerHTML = '<span class="text-muted small">—</span>';
+        // Remover data-saida da linha correta (busca pelo id da célula de ações)
+        const acoesEl = document.getElementById(`acoes_${id}`);
+        if (acoesEl) {
+            const tr = acoesEl.closest('tr');
+            if (tr) delete tr.dataset.saida;
+            // Atualizar botões
+            acoesEl.innerHTML =
+                `<button class="btn btn-sm btn-warning" onclick="marcarEmUso(${id}, this)">
+                    <i class="bi bi-person-check me-1"></i> Dar Saída</button>
+                 <button class="btn btn-sm btn-danger" onclick="marcarManutencao(${id})">
+                    <i class="bi bi-tools me-1"></i> Manutenção</button>
+                 <button class="btn btn-sm btn-outline-secondary" onclick="verHistorico(${id})" title="Histórico">
+                    <i class="bi bi-clock-history"></i></button>`;
+        }
+    })
+    .catch(err => {
+        alert('Erro ao concluir: ' + err.message);
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Concluir'; }
+    });
+}
+
+// ── Histórico ─────────────────────────────────────────────────────────────────
+function verHistorico(id) {
+    const body = document.getElementById('historicoBody');
+    body.innerHTML = '<div class="text-center text-muted py-3"><i class="bi bi-hourglass-split"></i> Carregando...</div>';
+    new bootstrap.Modal(document.getElementById('modalHistorico')).show();
+    fetch(`/ferramenta/${id}/historico`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.historico.length === 0) {
+                body.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-inbox fs-2 d-block mb-2"></i>Nenhum registro de movimentação.</div>';
+                return;
+            }
+            const empresa = data.empresa
+                ? `<span class="badge bg-secondary ms-2">${data.empresa}</span>`
+                : `<span class="badge bg-light text-success border border-success ms-2">Própria</span>`;
+            let html = `<div class="p-3 border-bottom">
+                <span class="fw-bold">${data.ferramenta}</span>
+                <code class="small text-muted ms-2">${data.id}</code>
+                ${empresa}
+            </div>`;
+            html += `<table class="table table-sm table-bordered mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Tipo</th>
+                        <th>Colaborador / Motivo</th>
+                        <th>Entrada</th>
+                        <th>Saída / Conclusão</th>
+                        <th>Registrado por</th>
+                        <th>📸 Foto</th>
+                    </tr>
+                </thead><tbody>`;
+            data.historico.forEach(h => {
+                const devol = h.data_devolucao
+                    ? `<span class="badge bg-success">✅ ${h.data_devolucao}</span>`
+                    : `<span class="badge bg-danger">❌ Pendente</span>`;
+                const tipoBadge = h.tipo_evento === 'manutencao'
+                    ? `<span class="badge bg-danger">🔧 Manutenção</span>`
+                    : `<span class="badge bg-warning text-dark">🟡 Uso</span>`;
+                const colaborador = h.tipo_evento === 'manutencao' && h.motivo_manutencao
+                    ? `${h.colaborador}<br><small class="text-muted">${h.motivo_manutencao}</small>`
+                    : h.colaborador;
+                const fotoHtml = h.foto_url
+                    ? `<img src="${h.foto_url}" alt="Foto retirada"
+                              style="height:48px;width:48px;object-fit:cover;border-radius:6px;border:2px solid #1F3864;cursor:pointer"
+                              title="Clique para ampliar"
+                              onclick="verFotoGrande(this.src)">`
+                    : `<span class="text-muted small">—</span>`;                html += `<tr>
+                    <td>${tipoBadge}</td>
+                    <td class="fw-semibold">${colaborador}</td>
+                    <td class="small">${h.data_saida}</td>
+                    <td>${devol}</td>
+                    <td class="small text-muted">${h.registrado_por}</td>
+                    <td class="text-center">${fotoHtml}</td>
+                </tr>`;
+            });
+            html += '</tbody></table>';
+            body.innerHTML = html;
+        })
+        .catch(() => {
+            body.innerHTML = '<div class="text-center text-danger py-3">Erro ao carregar histórico.</div>';
+        });
+}
+
+// ── Ver foto em modal ────────────────────────────────────────────────────────
+function verFotoGrande(src) {
+    document.getElementById('fotoGrandeImg').src = src;
+    new bootstrap.Modal(document.getElementById('modalVerFoto')).show();
+}
+
+// ── Autocomplete colaboradores ────────────────────────────────────────────────
+document.getElementById('inputResponsavel')?.addEventListener('input', function() {
+    const q = this.value.trim();
+    const lista = document.getElementById('sugestoesResp');
+    if (q.length < 1) { lista.innerHTML = ''; return; }
+    fetch(`/api/colaboradores?q=${encodeURIComponent(q)}`)
+        .then(r => r.json()).then(data => {
+            lista.innerHTML = data.slice(0,5).map(c =>
+                `<button type="button" class="list-group-item list-group-item-action py-1 small"
+                         onclick="document.getElementById('inputResponsavel').value='${c.nome}';
+                                  document.getElementById('sugestoesResp').innerHTML=''">
+                    ${c.nome}${c.funcao ? ' — ' + c.funcao : ''}
+                </button>`
+            ).join('');
+        });
+});
+</script>
+{% endblock %}

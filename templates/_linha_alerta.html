@@ -1,0 +1,47 @@
+<tr class="{% if item.fixado %}table-warning{% elif item.status == 'critico' %}table-danger{% else %}table-warning{% endif %}"
+    data-busca="{{ item.nome | lower }} {{ item.codigo | lower }} {{ item.almoxarifado.nome | lower }}">
+    <td class="text-center">
+        {% if item.fixado %}<i class="bi bi-pin-fill text-warning"></i>{% endif %}
+    </td>
+    <td>
+        <strong>{{ item.nome }}</strong>
+        <br><small class="text-muted"><code>{{ item.codigo }}</code></small>
+    </td>
+    <td class="small">{{ item.almoxarifado.nome }}</td>
+    <td class="fw-bold {% if item.status == 'critico' %}text-danger{% else %}text-warning{% endif %}">
+        {{ item.quantidade }} {{ item.unidade }}
+    </td>
+    <td class="fw-bold text-danger">
+        {{ (item.estoque_minimo - item.quantidade) | round(2) }} {{ item.unidade }}
+    </td>
+    <td style="min-width:220px">
+        <div class="d-flex align-items-center gap-2">
+            <select class="form-select form-select-sm"
+                    onchange="atualizarStatus({{ item.id }}, this)"
+                    style="max-width:200px">
+                <option value="solicitar"        {% if item.status_compra == 'solicitar' or item.status_compra == 'pendente' %}selected{% endif %}>📋 SOLICITAR</option>
+                <option value="em_atraso"        {% if item.status_compra == 'em_atraso' %}selected{% endif %}>🔴 EM ATRASO</option>
+                <option value="programado"       {% if item.status_compra == 'programado' %}selected{% endif %}>📅 PROGRAMADO</option>
+                <option value="sem_saldo"        {% if item.status_compra == 'sem_saldo' %}selected{% endif %}>⚠️ SEM SALDO</option>
+                <option value="pedido"           {% if item.status_compra == 'pedido' or item.status_compra == 'pedido_efetuado' %}selected{% endif %}>🛒 PEDIDO</option>
+                <option value="suplementacao"    {% if item.status_compra == 'suplementacao' or item.status_compra == 'pedido_rota' %}selected{% endif %}>🔄 EM SUPLEMENTAÇÃO</option>
+            </select>
+        </div>
+    </td>
+    <td class="text-center">
+        <button class="btn btn-sm border-0 bg-transparent p-0"
+                onclick="toggleFixar({{ item.id }}, this)"
+                title="{{ 'Desafixar' if item.fixado else 'Fixar item' }}">
+            {% if item.fixado %}
+                <i class="bi bi-pin-fill text-warning fs-5"></i>
+            {% else %}
+                <i class="bi bi-pin text-muted fs-5"></i>
+            {% endif %}
+        </button>
+    </td>
+    <td>
+        <a href="/item/{{ item.id }}" class="btn btn-sm btn-primary">
+            <i class="bi bi-arrow-left-right me-1"></i> Dar Entrada
+        </a>
+    </td>
+</tr>

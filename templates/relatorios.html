@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Relatórios{% endblock %}
+{% block page_title %}Relatórios{% endblock %}
+{% block content %}
+<div class="row g-3">
+    <div class="col-md-4">
+        <a href="/relatorios/consumo" class="card card-stat text-decoration-none h-100">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-graph-down fs-1 text-primary mb-3 d-block"></i>
+                <h5>Relatório de Consumo</h5>
+                <p class="text-muted small">Visualize saídas por período e almoxarifado</p>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-4">
+        <a href="/relatorios/consumo-por-pessoa" class="card card-stat text-decoration-none h-100">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-person-lines-fill fs-1 text-success mb-3 d-block"></i>
+                <h5>EPIs por Funcionário</h5>
+                <p class="text-muted small">Relatório de EPIs retirados por cada colaborador — exporta Excel com 2 abas</p>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-4">
+        <a href="/relatorios/alertas" class="card card-stat text-decoration-none h-100">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-exclamation-triangle fs-1 text-warning mb-3 d-block"></i>
+                <h5>Pedidos de Compra</h5>
+                <p class="text-muted small">Itens abaixo do estoque mínimo</p>
+            </div>
+        </a>
+    </div>
+</div>
+{% endblock %}

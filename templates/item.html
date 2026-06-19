@@ -1,0 +1,246 @@
+{% extends 'base.html' %}
+{% block title %}{{ item.nome }}{% endblock %}
+{% block page_title %}{{ item.nome }}{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Info do Item -->
+    <div class="col-12 col-md-4">
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header fw-bold" style="background:var(--accent);color:#fff">
+                <i class="bi bi-box-seam me-2"></i>Informações
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-borderless mb-0">
+                    <tr><td class="text-muted">Código</td><td><code>{{ item.codigo }}</code></td></tr>
+                    <tr><td class="text-muted">Almoxarifado</td><td>{{ item.almoxarifado.nome }}</td></tr>
+                    <tr><td class="text-muted">Unidade</td><td>{{ item.unidade }}</td></tr>
+                    <tr><td class="text-muted">Estoque Mínimo</td><td>{{ item.estoque_minimo }} {{ item.unidade }}</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Saldo Atual -->
+        <div class="card border-0 shadow-sm mb-3
+            {% if item.status == 'critico' %}border-danger{% elif item.status == 'alerta' %}border-warning{% endif %}">
+            <div class="card-body text-center py-4">
+                <div class="text-muted small mb-1">Saldo Atual</div>
+                <div class="display-4 fw-bold
+                    {% if item.status == 'critico' %}text-danger
+                    {% elif item.status == 'alerta' %}text-warning
+                    {% else %}text-success{% endif %}">
+                    {{ item.quantidade|fmt_qtd }}
+                </div>
+                <div class="text-muted">{{ item.unidade }}</div>
+                {% if item.status == 'critico' %}
+                    <span class="badge bg-danger mt-2 alert-pulse">🔴 ESTOQUE ZERADO — COMPRA URGENTE</span>
+                {% elif item.status == 'alerta' %}
+                    <span class="badge bg-warning text-dark mt-2 alert-pulse">🟡 ABAIXO DO MÍNIMO — REALIZAR PEDIDO</span>
+                {% else %}
+                    <span class="badge bg-success mt-2">🟢 Estoque OK</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Ações rápidas -->
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="/item/{{ item.id }}/editar" class="btn btn-outline-secondary btn-sm flex-fill">
+                <i class="bi bi-pencil me-1"></i> Editar
+            </a>
+            {% if item.ativo %}
+            <form action="/item/{{ item.id }}/desativar" method="POST"
+                  onsubmit="return confirm('Desativar este item? O saldo restante será registrado como saída no consumo e o item ficará oculto na listagem.')">
+                <button class="btn btn-warning btn-sm">
+                    <i class="bi bi-slash-circle me-1"></i> Desativar
+                </button>
+            </form>
+            {% else %}
+            <form action="/item/{{ item.id }}/reativar" method="POST">
+                <button class="btn btn-success btn-sm">
+                    <i class="bi bi-check-circle me-1"></i> Reativar
+                </button>
+            </form>
+            {% endif %}
+            <form action="/item/{{ item.id }}/deletar" method="POST"
+                  onsubmit="return confirm('Deletar este item permanentemente?')" class="flex-fill">
+                <button class="btn btn-outline-danger btn-sm w-100">
+                    <i class="bi bi-trash me-1"></i> Deletar
+                </button>
+            </form>
+        </div>
+
+        {% if not item.ativo %}
+        <div class="alert alert-warning mt-3 mb-0 py-2 small">
+            <i class="bi bi-slash-circle me-1"></i> <strong>Item desativado</strong> — não aparece na listagem do almoxarifado.
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Movimentação + Histórico -->
+    <div class="col-12 col-md-8">
+        <!-- Formulário de Movimentação -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header fw-bold" style="background:var(--accent);color:#fff">
+                <i class="bi bi-arrow-left-right me-2"></i>Registrar Movimentação
+            </div>
+            <div class="card-body">
+                <form action="/item/{{ item.id }}/movimentar" method="POST" id="formMov">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Tipo</label>
+                            <select name="tipo" id="tipoMov" class="form-select" required onchange="toggleColaborador(this.value)">
+                                <option value="entrada">📥 Entrada</option>
+                                <option value="saida">📤 Saída</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold">Quantidade</label>
+                            <input type="number" name="quantidade" class="form-control"
+                                   step="0.01" min="0.01" max="99999" required
+                                   oninput="this.value = this.value.replace(',','.')">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Liberado por <span class="text-danger">*</span></label>
+                            <input type="text" name="responsavel" id="responsavelMov" class="form-control"
+                                   placeholder="Nome do almoxarife" required>
+                        </div>
+                        <div class="col-md-2" id="divColaborador">
+                            <label class="form-label fw-semibold">
+                                Colaborador <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" name="colaborador_nome" id="colaboradorMov" class="form-control"
+                                   placeholder="Nome do colaborador">
+                        </div>
+                        <div class="col-md-2" id="divRequisicao">
+                            <label class="form-label fw-semibold">Requisição</label>
+                            <input type="text" name="requisicao_num" id="requisicaoMov" class="form-control"
+                                   placeholder="Nº da requisição">
+                        </div>
+                        <div class="col-md-2" id="divObservacao" style="display:none">
+                            <label class="form-label fw-semibold">Observação</label>
+                            <input type="text" name="observacao" class="form-control"
+                                   placeholder="Opcional">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary mt-3">
+                        <i class="bi bi-check-lg me-1"></i> Registrar
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Histórico -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header fw-bold" style="background:var(--accent);color:#fff">
+                <i class="bi bi-clock-history me-2"></i>Histórico de Movimentações
+            </div>
+            <div class="card-body p-0">
+                {% if movimentacoes %}
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Tipo</th>
+                            <th>Quantidade</th>
+                            <th>Colaborador (retirou)</th>
+                            <th>Liberado por</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for mov in movimentacoes %}
+                        <tr>
+                            <td class="text-muted small">{{ mov.data.strftime('%d/%m/%Y %H:%M') }}</td>
+                            <td>
+                                {% if mov.tipo == 'entrada' %}
+                                    <span class="badge bg-success">📥 Entrada</span>
+                                {% else %}
+                                    <span class="badge bg-danger">📤 Saída</span>
+                                {% endif %}
+                            </td>
+                            <td class="fw-bold">{{ mov.quantidade }} {{ item.unidade }}</td>
+                            <td>
+                                {% if mov.tipo == 'saida' %}
+                                    {% set obs = mov.observacao or '' %}
+                                    {% if 'liberado P/' in obs or 'liberado p/' in obs %}
+                                        {% set colab = obs.split('liberado P/')[-1].split('liberado p/')[-1].split(' | ')[0].strip() %}
+                                        <strong>{{ colab }}</strong>
+                                    {% elif 'Colaborador:' in obs %}
+                                        <strong>{{ obs.split('Colaborador:')[-1].split('|')[0].strip() }}</strong>
+                                    {% else %}
+                                        <span class="text-muted">—</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ mov.responsavel or '—' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="text-center py-4 text-muted">
+                    <i class="bi bi-clock-history fs-2 d-block mb-2"></i>
+                    Nenhuma movimentação registrada.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleColaborador(tipo) {
+    const divColab = document.getElementById('divColaborador');
+    const divReq = document.getElementById('divRequisicao');
+    const divObs = document.getElementById('divObservacao');
+    const colaboradorInput = document.getElementById('colaboradorMov');
+    const responsavelInput = document.getElementById('responsavelMov');
+
+    if (tipo === 'saida') {
+        divColab.style.display = '';
+        divReq.style.display = '';
+        divObs.style.display = 'none';
+        colaboradorInput.required = true;
+        responsavelInput.required = true;
+        responsavelInput.placeholder = 'Nome do almoxarife *';
+    } else {
+        divColab.style.display = 'none';
+        divReq.style.display = 'none';
+        divObs.style.display = '';
+        colaboradorInput.required = false;
+        colaboradorInput.value = '';
+        responsavelInput.required = true;
+        responsavelInput.placeholder = 'Nome do almoxarife *';
+    }
+}
+
+document.getElementById('formMov').addEventListener('submit', function(e) {
+    const tipo = document.getElementById('tipoMov').value;
+    const colaborador = document.getElementById('colaboradorMov').value.trim();
+    if (tipo === 'saida' && !colaborador) {
+        e.preventDefault();
+        alert('Informe o nome do colaborador que está retirando o material.');
+        document.getElementById('colaboradorMov').focus();
+        return;
+    }
+    // Montar observação combinando colaborador + requisição
+    if (tipo === 'saida') {
+        const req = document.getElementById('requisicaoMov').value.trim();
+        let obs = 'liberado P/ ' + colaborador;
+        if (req) obs += ' | req ' + req;
+        // Remover qualquer campo observacao existente e criar novo com valor correto
+        this.querySelectorAll('input[name="observacao"]').forEach(el => el.remove());
+        const hidden = document.createElement('input');
+        hidden.type = 'hidden';
+        hidden.name = 'observacao';
+        hidden.value = obs;
+        this.appendChild(hidden);
+    }
+});
+
+toggleColaborador(document.getElementById('tipoMov').value);
+</script>
+{% endblock %}

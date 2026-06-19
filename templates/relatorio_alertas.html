@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+{% block title %}Pedidos de Compra{% endblock %}
+{% block page_title %}Pedidos de Compra — Estoque Mínimo Atingido{% endblock %}
+
+{% block content %}
+
+{% set status_labels = {
+    'pendente':           ('🔴', 'URGENTE',                  'danger'),
+    'verificando':        ('🔍', 'Verificando Inventário',   'secondary'),
+    'pedido_efetuado':    ('📋', 'Pedido Efetuado',          'primary'),
+    'pedido_rota':        ('🚚', 'Pedido em Rota',           'info'),
+    'recebido':           ('✅', 'Recebido',                  'success')
+} %}
+
+{% if itens %}
+<div class="alert alert-warning d-flex align-items-center gap-2 mb-4">
+    <i class="bi bi-bell-fill fs-4 alert-pulse"></i>
+    <div>
+        <strong>{{ itens|length }} item(ns) precisam de pedido de compra!</strong>
+        Atualize o status de cada item para acompanhar o processo.
+    </div>
+</div>
+
+<!-- Pesquisa -->
+<div class="mb-3">
+    <div class="input-group">
+        <span class="input-group-text bg-white border-end-0">
+            <i class="bi bi-search text-muted"></i>
+        </span>
+        <input type="text" id="buscaAlerta" class="form-control border-start-0"
+               placeholder="Pesquisar item ou almoxarifado..."
+               oninput="filtrarAlertas(this.value)">
+        <button class="btn btn-outline-secondary" type="button"
+                onclick="document.getElementById('buscaAlerta').value=''; filtrarAlertas('')">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
+</div>
+
+<!-- Itens Fixados -->
+{% set fixados = itens | selectattr('fixado') | list %}
+{% if fixados %}
+<div class="mb-2 d-flex align-items-center gap-2">
+    <i class="bi bi-pin-fill text-warning"></i>
+    <strong class="text-warning">Itens Fixados ({{ fixados|length }})</strong>
+</div>
+<div class="card border-warning border-2 shadow-sm mb-4">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0 d-none d-md-table">
+            <thead>
+                <tr>
+                    <th style="width:40px"></th>
+                    <th>Item</th>
+                    <th>Almoxarifado</th>
+                    <th>Qtd. Atual</th>
+                    <th>Déficit</th>
+                    <th>Status Compra</th>
+                    <th>Fixar</th>
+                    <th>Ação</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in fixados %}
+                {% include '_linha_alerta.html' %}
+                {% endfor %}
+            </tbody>
+        </table>
+        <div class="d-md-none">
+            {% for item in fixados %}
+            {% include '_card_alerta_mobile.html' %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Todos os itens -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header fw-bold" style="background:var(--accent);color:#fff">
+        <i class="bi bi-list-ul me-2"></i>Todos os Itens em Alerta
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0 d-none d-md-table">
+            <thead>
+                <tr>
+                    <th style="width:40px"></th>
+                    <th>Item</th>
+                    <th>Almoxarifado</th>
+                    <th>Qtd. Atual</th>
+                    <th>Déficit</th>
+                    <th>Status Compra</th>
+                    <th>Fixar</th>
+                    <th>Ação</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in itens %}
+                {% include '_linha_alerta.html' %}
+                {% endfor %}
+            </tbody>
+        </table>
+        <div class="d-md-none">
+            {% for item in itens %}
+            {% include '_card_alerta_mobile.html' %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="text-center py-5">
+    <i class="bi bi-check-circle fs-1 text-success d-block mb-3"></i>
+    <h4 class="text-success">Tudo em ordem!</h4>
+    <p class="text-muted">Nenhum item está abaixo do estoque mínimo.</p>
+</div>
+{% endif %}
+
+{% block scripts %}
+<script>
+function filtrarAlertas(q) {
+    q = q.toLowerCase().trim();
+    // Desktop
+    const rows = document.querySelectorAll('tr[data-busca]');
+    rows.forEach(tr => {
+        tr.style.display = tr.dataset.busca.includes(q) ? '' : 'none';
+    });
+    // Mobile
+    const cards = document.querySelectorAll('.card-alerta-mobile');
+    cards.forEach(c => {
+        c.style.display = c.dataset.busca.includes(q) ? '' : 'none';
+    });
+}
+
+function atualizarStatus(itemId, select) {
+    const val = select.value;
+    fetch(`/item/${itemId}/status_compra`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: `status_compra=${val}`
+    }).then(() => {
+        // Atualizar badge ao lado
+        const badge = document.getElementById(`badge_status_${itemId}`);
+        const cores = {
+            'solicitar':      ['warning',   '📋 SOLICITAR'],
+            'em_atraso':      ['danger',    '🔴 EM ATRASO'],
+            'programado':     ['primary',   '📅 PROGRAMADO'],
+            'sem_saldo':      ['secondary', '⚠️ SEM SALDO'],
+            'pedido':         ['info',      '🛒 PEDIDO'],
+            'suplementacao':  ['success',   '🔄 EM SUPLEMENTAÇÃO'],
+            // compatibilidade com valores antigos
+            'pendente':        ['warning',  '📋 SOLICITAR'],
+            'verificando':     ['secondary','⚠️ SEM SALDO'],
+            'pedido_efetuado': ['info',     '🛒 PEDIDO'],
+            'pedido_rota':     ['success',  '🔄 EM SUPLEMENTAÇÃO'],
+            'recebido':        ['success',  '🔄 EM SUPLEMENTAÇÃO'],
+        };
+        if (badge && cores[val]) {
+            badge.className = `badge bg-${cores[val][0]}`;
+            badge.textContent = cores[val][1];
+        }
+    });
+}
+
+function toggleFixar(itemId, btn) {
+    const csrf = document.querySelector('input[name="csrf_token"]')?.value || '';
+    fetch(`/item/${itemId}/fixar`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: `csrf_token=${csrf}`
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.innerHTML = data.fixado
+            ? '<i class="bi bi-pin-fill text-warning fs-5"></i>'
+            : '<i class="bi bi-pin text-muted fs-5"></i>';
+        btn.title = data.fixado ? 'Desafixar' : 'Fixar item';
+    })
+    .catch(e => console.error('Erro ao fixar:', e));
+}
+</script>
+{% endblock %}
+{% endblock %}

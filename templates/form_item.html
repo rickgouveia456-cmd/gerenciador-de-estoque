@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% block title %}{% if item %}Editar{% else %}Novo{% endif %} Item{% endblock %}
+{% block page_title %}{% if item %}Editar Item{% else %}Novo Item{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-7">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Nome do Item *</label>
+                            <input type="text" name="nome" class="form-control" required
+                                   value="{{ item.nome if item else '' }}"
+                                   placeholder="Ex: Cimento CP-II">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Código *</label>
+                            <input type="text" name="codigo" class="form-control" required
+                                   value="{{ item.codigo if item else '' }}"
+                                   placeholder="Ex: CIM-001">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Unidade *</label>
+                            <select name="unidade" class="form-select" required>
+                                {% set unidades = ['un', 'kg', 'g', 'L', 'mL', 'm', 'm²', 'm³', 'sc', 'cx', 'pc', 'rolo', 'par', 'jg'] %}
+                                {% for u in unidades %}
+                                <option value="{{ u }}" {% if item and item.unidade == u %}selected{% endif %}>{{ u }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Quantidade Inicial</label>
+                            <input type="number" name="quantidade" class="form-control"
+                                   step="0.01" min="0"
+                                   value="{{ item.quantidade if item else 0 }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Estoque Mínimo *</label>
+                            <input type="number" name="estoque_minimo" class="form-control"
+                                   step="0.01" min="0" required
+                                   value="{{ item.estoque_minimo if item else '' }}"
+                                   placeholder="Qtd. mínima">
+                            <div class="form-text">Alerta gerado abaixo deste valor</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Almoxarifado *</label>
+                            <select name="almoxarifado_id" class="form-select" required>
+                                {% for alm in almoxarifados %}
+                                <option value="{{ alm.id }}"
+                                    {% if item and item.almoxarifado_id == alm.id %}selected
+                                    {% elif request.args.get('alm') == alm.id|string %}selected
+                                    {% endif %}>
+                                    {{ alm.nome }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Categoria *</label>
+                            <select name="categoria" class="form-select" required id="selectCategoria"
+                                    onchange="toggleCA(this.value)">
+                                <option value="geral" {% if not item or item.categoria == 'geral' %}selected{% endif %}>🏗️ Material Geral</option>
+                                <option value="epi"   {% if item and item.categoria == 'epi' %}selected{% endif %}>🦺 EPI / Uniforme</option>
+                                <option value="maquinario" {% if item and item.categoria == 'maquinario' %}selected{% endif %}>⚙️ Maquinário / Peça</option>
+                                <option value="eletrica" {% if item and item.categoria == 'eletrica' %}selected{% endif %}>⚡ Elétrica</option>
+                                <option value="hidraulica" {% if item and item.categoria == 'hidraulica' %}selected{% endif %}>💧 Hidráulica</option>
+                                <option value="gas" {% if item and item.categoria == 'gas' %}selected{% endif %}>🔥 Gás</option>
+                            </select>
+                            <div class="form-text">Itens <strong>EPI</strong> aparecem na Ficha de Controle de EPIs.</div>
+                        </div>
+                        <div class="col-md-4" id="divCA" style="{% if not item or item.categoria != 'epi' %}display:none{% endif %}">
+                            <label class="form-label fw-semibold">C.A.</label>
+                            <input type="text" name="ca" class="form-control"
+                                   value="{{ item.ca if item and item.ca else '' }}"
+                                   placeholder="Ex: 12345">
+                            <div class="form-text">Certificado de Aprovação (MTE)</div>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>
+                            {% if item %}Salvar{% else %}Cadastrar{% endif %}
+                        </button>
+                        <a href="javascript:history.back()" class="btn btn-outline-secondary">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleCA(val) {
+    document.getElementById('divCA').style.display = val === 'epi' ? '' : 'none';
+}
+</script>
+{% endblock %}

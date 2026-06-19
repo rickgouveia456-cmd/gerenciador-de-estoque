@@ -1,0 +1,297 @@
+{% extends 'base.html' %}
+{% block title %}Requisição {{ req.protocolo or ('#' + req.id|string) }} — Logi-Prime{% endblock %}
+{% block page_title %}Requisição {{ req.protocolo or ('#' + req.id|string) }}{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+    <div class="col-12 col-lg-8">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header fw-bold d-flex justify-content-between align-items-center"
+                 style="background:var(--accent);color:#fff">
+                <span><i class="bi bi-clipboard-data me-2"></i>Detalhes</span>
+                {% if req.status == 'pendente' %}
+                    <span class="badge bg-warning text-dark">⏳ Pendente</span>
+                {% elif req.status == 'aprovada' %}
+                    <span class="badge bg-success">✅ Aprovada</span>
+                {% elif req.status == 'parcial' %}
+                    <span class="badge bg-warning text-dark">⚠️ Parcial</span>
+                {% elif req.status == 'recusada' %}
+                    <span class="badge bg-danger">❌ Recusada</span>
+                {% elif req.status == 'entregue' %}
+                    <span class="badge bg-success">📦 Entregue</span>
+                {% elif req.status == 'cancelada' %}
+                    <span class="badge bg-secondary">🚫 Cancelada</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <div class="row g-3 mb-4">
+                    <div class="col-12">
+                        <div class="alert py-2 mb-0" style="background:#fff3cd;border-left:4px solid var(--accent)">
+                            <i class="bi bi-tag-fill me-1" style="color:var(--accent)"></i>
+                            <strong>Protocolo:</strong>
+                            <code style="color:var(--accent);font-size:1rem">
+                                {{ req.protocolo or ('#' + req.id|string) }}
+                            </code>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="small text-muted">Solicitante</div>
+                        <span class="badge" style="background:#f0a500;color:#000">
+                            <i class="bi bi-person-badge me-1"></i>{{ req.mestre.nome }}
+                        </span>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="small text-muted">Colaborador</div>
+                        <strong>{{ req.colaborador }}</strong>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="small text-muted">Almoxarifado</div>
+                        <strong>{{ req.almoxarifado.nome }}</strong>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="small text-muted">Data</div>
+                        <strong>{{ req.data_criacao.strftime('%d/%m/%Y %H:%M') }}</strong>
+                    </div>
+                    {% if req.observacao %}
+                    <div class="col-12">
+                        <div class="small text-muted">Observação</div>
+                        <span>{{ req.observacao }}</span>
+                    </div>
+                    {% endif %}
+                    {% if req.status == 'entregue' and req.entregue_por %}
+                    <div class="col-6 col-md-3">
+                        <div class="small text-muted">Entregue por</div>
+                        <strong>{{ req.entregue_por.nome }}</strong>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="small text-muted">Data entrega</div>
+                        <strong>{{ req.data_entrega.strftime('%d/%m/%Y %H:%M') }}</strong>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Itens -->
+                <h6 class="fw-bold mb-3"><i class="bi bi-box-seam me-2"></i>Materiais</h6>
+
+                {% if usuario_atual.perfil in ('admin', 'almoxarife') and req.status == 'pendente' %}
+                <!-- Formulário de aprovação com suporte a aprovação parcial -->
+                <form method="POST" action="/mestre/requisicoes/{{ req.id }}/aprovar" id="formAprovacao">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="table-responsive mb-3">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Material</th>
+                                    <th class="text-center">Qtd Pedida</th>
+                                    <th class="text-center">Estoque Atual</th>
+                                    <th class="text-center" id="colDecisao" style="display:none">Decisão</th>
+                                    <th id="colMotivo" style="display:none">Motivo (se recusar)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ri in req.itens %}
+                                <tr>
+                                    <td>{{ ri.item.nome }}</td>
+                                    <td class="text-center fw-bold">{{ ri.quantidade }} {{ ri.item.unidade }}</td>
+                                    <td class="text-center">
+                                        {% if ri.item.quantidade <= 0 %}
+                                            <span class="badge bg-danger">Zerado</span>
+                                        {% elif ri.item.quantidade < ri.quantidade %}
+                                            <span class="badge bg-warning text-dark">{{ ri.item.quantidade|fmt_qtd }} (insuficiente)</span>
+                                        {% else %}
+                                            <span class="badge bg-success">{{ ri.item.quantidade|fmt_qtd }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center parcial-col" style="display:none">
+                                        <select name="item_status_{{ ri.id }}" class="form-select form-select-sm item-decisao">
+                                            <option value="aprovado" selected>✅ Aprovar</option>
+                                            <option value="recusado">❌ Recusar</option>
+                                        </select>
+                                    </td>
+                                    <td class="parcial-col" style="display:none">
+                                        <input type="text" name="item_motivo_{{ ri.id }}"
+                                               class="form-control form-control-sm"
+                                               placeholder="Motivo da recusa (opcional)">
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Motivo geral para recusa total -->
+                    <div id="motivoGeralDiv" style="display:none" class="mb-3">
+                        <label class="form-label small fw-semibold">Motivo da recusa (opcional)</label>
+                        <input type="text" name="motivo_geral" class="form-control form-control-sm"
+                               placeholder="Ex: material em falta, aguardar reposição...">
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="submit" name="decisao" value="aprovada" class="btn btn-success btn-sm" id="btnAprovarTudo">
+                            <i class="bi bi-check-all me-1"></i> Aprovar Tudo
+                        </button>
+                        <button type="button" class="btn btn-warning btn-sm text-dark" id="btnParcial">
+                            <i class="bi bi-sliders me-1"></i> Aprovação Parcial
+                        </button>
+                        <button type="submit" name="decisao" value="parcial" class="btn btn-warning btn-sm text-dark d-none" id="btnConfirmarParcial">
+                            <i class="bi bi-check me-1"></i> Confirmar Parcial
+                        </button>
+                        <button type="submit" name="decisao" value="recusada" class="btn btn-danger btn-sm"
+                                id="btnRecusar"
+                                onclick="document.getElementById('motivoGeralDiv').style.display='block'; return true;">
+                            <i class="bi bi-x-circle me-1"></i> Recusar Tudo
+                        </button>
+                    </div>
+                </form>
+
+                <script>
+                document.getElementById('btnParcial').addEventListener('click', function() {
+                    // Mostrar colunas de decisão por item
+                    document.querySelectorAll('.parcial-col').forEach(el => el.style.display = '');
+                    document.getElementById('colDecisao').style.display = '';
+                    document.getElementById('colMotivo').style.display = '';
+                    // Trocar botões
+                    this.classList.add('d-none');
+                    document.getElementById('btnAprovarTudo').classList.add('d-none');
+                    document.getElementById('btnRecusar').classList.add('d-none');
+                    document.getElementById('btnConfirmarParcial').classList.remove('d-none');
+                });
+                </script>
+
+                {% else %}
+                <!-- Visualização normal com status por item -->
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Material</th>
+                                <th class="text-center">Qtd</th>
+                                <th class="text-center">Estoque</th>
+                                {% if req.status in ('aprovada', 'parcial', 'entregue', 'recusada') %}
+                                <th class="text-center">Status</th>
+                                {% endif %}
+                                <th>Obs.</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ri in req.itens %}
+                            <tr class="{% if ri.status_item == 'recusado' %}table-danger{% elif ri.status_item == 'aprovado' %}table-success{% endif %}">
+                                <td>{{ ri.item.nome }}</td>
+                                <td class="text-center fw-bold">{{ ri.quantidade|fmt_qtd }} {{ ri.item.unidade }}</td>
+                                <td class="text-center">
+                                    {% if ri.item.quantidade <= 0 %}
+                                        <span class="badge bg-danger">Zerado</span>
+                                    {% elif ri.item.quantidade < ri.quantidade %}
+                                        <span class="badge bg-warning text-dark">{{ ri.item.quantidade|fmt_qtd }}</span>
+                                    {% else %}
+                                        <span class="badge bg-success">{{ ri.item.quantidade|fmt_qtd }}</span>
+                                    {% endif %}
+                                </td>
+                                {% if req.status in ('aprovada', 'parcial', 'entregue', 'recusada') %}
+                                <td class="text-center">
+                                    {% if ri.status_item == 'aprovado' %}
+                                        <span class="badge bg-success">✅ Aprovado</span>
+                                    {% elif ri.status_item == 'recusado' %}
+                                        <span class="badge bg-danger" title="{{ ri.motivo_recusa or '' }}">❌ Recusado</span>
+                                        {% if ri.motivo_recusa %}
+                                        <div class="small text-muted">{{ ri.motivo_recusa }}</div>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-secondary">—</span>
+                                    {% endif %}
+                                </td>
+                                {% endif %}
+                                <td><small class="text-muted">{{ ri.observacao or '—' }}</small></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Ações -->
+    <div class="col-12 col-lg-4">
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header fw-bold" style="background:var(--accent);color:#fff">
+                <i class="bi bi-gear me-2"></i>Ações
+            </div>
+            <div class="card-body d-grid gap-2">
+
+                {% if usuario_atual.perfil in ('admin', 'almoxarife') and req.status in ('aprovada', 'parcial') %}
+                <form method="POST" action="/mestre/requisicoes/{{ req.id }}/entregar"
+                      onsubmit="return confirm('Confirmar entrega? O estoque será baixado agora.')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-success w-100 fw-semibold">
+                        <i class="bi bi-bag-check me-1"></i> Confirmar Entrega
+                    </button>
+                </form>
+                <a href="/mestre/requisicoes/{{ req.id }}/editar" class="btn btn-outline-secondary w-100">
+                    <i class="bi bi-pencil me-1"></i> Editar
+                </a>
+                {% endif %}
+
+                {% if req.status not in ('entregue', 'cancelada', 'recusada') %}
+                    {% if usuario_atual.perfil in ('admin', 'almoxarife') or (usuario_atual.perfil in ('mestre', 'tecnico_seguranca') and req.mestre_id == usuario_atual.id) %}
+                    <form method="POST" action="/mestre/requisicoes/{{ req.id }}/cancelar"
+                          onsubmit="return confirm('Cancelar esta requisição?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn btn-outline-danger w-100">
+                            <i class="bi bi-x-circle me-1"></i> Cancelar
+                        </button>
+                    </form>
+                    {% endif %}
+                {% endif %}
+
+                <a href="/mestre/requisicoes" class="btn btn-outline-secondary w-100">
+                    <i class="bi bi-arrow-left me-1"></i> Voltar
+                </a>
+            </div>
+        </div>
+
+        <!-- Linha do tempo -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h6 class="fw-bold mb-3"><i class="bi bi-clock-history me-2"></i>Histórico</h6>
+                <div class="d-flex flex-column gap-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-primary rounded-circle p-2">1</span>
+                        <div>
+                            <div class="small fw-semibold">Criada</div>
+                            <div class="small text-muted">{{ req.data_criacao.strftime('%d/%m/%Y %H:%M') }}</div>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 {% if req.status == 'pendente' %}opacity-50{% endif %}">
+                        <span class="badge {% if req.status not in ('pendente','cancelada') %}bg-info{% else %}bg-secondary{% endif %} rounded-circle p-2">2</span>
+                        <div>
+                            <div class="small fw-semibold">Avaliada</div>
+                            <div class="small text-muted">
+                                {% if req.status == 'aprovada' %}✅ Aprovada
+                                {% elif req.status == 'parcial' %}⚠️ Aprovada parcialmente
+                                {% elif req.status == 'recusada' %}❌ Recusada
+                                {% elif req.status == 'entregue' %}✅ Aprovada
+                                {% else %}Aguardando{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 {% if req.status != 'entregue' %}opacity-50{% endif %}">
+                        <span class="badge {% if req.status == 'entregue' %}bg-success{% else %}bg-secondary{% endif %} rounded-circle p-2">3</span>
+                        <div>
+                            <div class="small fw-semibold">Entregue</div>
+                            <div class="small text-muted">
+                                {% if req.status == 'entregue' %}
+                                    {{ req.data_entrega.strftime('%d/%m/%Y %H:%M') }}
+                                    {% if req.entregue_por %}— {{ req.entregue_por.nome }}{% endif %}
+                                {% else %}Aguardando{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

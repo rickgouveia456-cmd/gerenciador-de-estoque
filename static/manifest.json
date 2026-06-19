@@ -1,0 +1,39 @@
+{
+  "name": "Logi-Prime — Gestão de Obra",
+  "short_name": "Logi-Prime",
+  "description": "Sistema de gestão de estoque, EPIs e ferramentas de obra",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1a2e",
+  "theme_color": "#ff6b35",
+  "orientation": "any",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Registro de Movimentação",
+      "short_name": "Movimentação",
+      "url": "/movimentacao/lote",
+      "icons": [{"src": "/static/icons/icon-192.png", "sizes": "192x192"}]
+    },
+    {
+      "name": "Alertas de Estoque",
+      "short_name": "Alertas",
+      "url": "/relatorios/alertas",
+      "icons": [{"src": "/static/icons/icon-192.png", "sizes": "192x192"}]
+    }
+  ]
+}

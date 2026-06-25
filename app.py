@@ -1042,9 +1042,29 @@ def editar_almoxarifado(id):
 @admin_required
 def deletar_almoxarifado(id):
     alm = Almoxarifado.query.get_or_404(id)
-    db.session.delete(alm)
-    db.session.commit()
-    flash('Almoxarifado removido!', 'warning')
+    try:
+        # Desvincular usuários que têm este almoxarifado como principal
+        Usuario.query.filter_by(almoxarifado_id=id).update({'almoxarifado_id': None})
+
+        # Desvincular acessos extras para este almoxarifado
+        AcessoExtra.query.filter_by(almoxarifado_id=id).delete()
+
+        # Deletar requisições do mestre vinculadas a este almoxarifado
+        # (RequisicaoMestreItem é deletado via cascade no relacionamento)
+        for req in RequisicaoMestre.query.filter_by(almoxarifado_id=id).all():
+            db.session.delete(req)
+
+        # O cascade 'all, delete-orphan' já cuida de itens (Item model)
+        # Ferramentas e EPIs também têm relationship com backref, deletar explicitamente
+        Ferramenta.query.filter_by(almoxarifado_id=id).delete()
+        ItemEPI.query.filter_by(almoxarifado_id=id).delete()
+
+        db.session.delete(alm)
+        db.session.commit()
+        flash('Almoxarifado removido com sucesso!', 'warning')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao remover almoxarifado: {str(e)}', 'danger')
     return redirect(url_for('index'))
 
 # ── CRUD ITEM ────────────────────────────────────────────────────────────────

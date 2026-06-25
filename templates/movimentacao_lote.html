@@ -181,7 +181,39 @@ function buildSelect(idx) {
     itens.forEach(it => {
         opts += `<option value="${it.id}" data-qtd="${it.quantidade}" data-un="${it.unidade}" data-cat="${it.categoria}" data-ca="${it.ca}">${it.nome} (${it.quantidade} ${it.unidade})</option>`;
     });
-    return `<select name="item_id_${idx}" class="form-select form-select-sm" required onchange="atualizarBadge(this,${idx})">${opts}</select>`;
+    return `
+        <div class="position-relative">
+            <input type="text" class="form-control form-control-sm mb-1 item-search-input"
+                   placeholder="🔍 Buscar item..." autocomplete="off"
+                   oninput="filtrarSelect(this, ${idx})">
+            <select name="item_id_${idx}" id="select_item_${idx}" class="form-select form-select-sm" required onchange="atualizarBadge(this,${idx})">${opts}</select>
+        </div>`;
+}
+
+function filtrarSelect(input, idx) {
+    const termo = input.value.toLowerCase().trim();
+    const sel = document.getElementById(`select_item_${idx}`);
+    if (!sel) return;
+    const itens = getItens();
+    // Reconstruir options com filtro
+    sel.innerHTML = '<option value="">Selecione o insumo...</option>';
+    itens.forEach(it => {
+        if (!termo || it.nome.toLowerCase().includes(termo)) {
+            const opt = document.createElement('option');
+            opt.value = it.id;
+            opt.dataset.qtd = it.quantidade;
+            opt.dataset.un = it.unidade;
+            opt.dataset.cat = it.categoria;
+            opt.dataset.ca = it.ca;
+            opt.textContent = `${it.nome} (${it.quantidade} ${it.unidade})`;
+            sel.appendChild(opt);
+        }
+    });
+    // Se só sobrou 1 resultado (além do placeholder), seleciona automaticamente
+    if (sel.options.length === 2) {
+        sel.selectedIndex = 1;
+        atualizarBadge(sel, idx);
+    }
 }
 
 function atualizarBadge(sel, idx) {

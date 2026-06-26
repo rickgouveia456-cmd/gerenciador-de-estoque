@@ -44,25 +44,11 @@ Sistema web desenvolvido para gerenciar múltiplos almoxarifados em obras de con
 ![Requisições](https://via.placeholder.com/800x400/FF9800/FFFFFF?text=Requisições+de+Material)
 
 ---
+ Direitos Autorais
 
-## 🚀 Instalação Rápida
+© 2026 Henrique Silva Gouveia Carvalho Todos os direitos reservados.
 
-### Opção 1: Instalação Local (Windows)
-
-```cmd
-# 1. Clone o repositório
-git clone https://github.com/rickgouveia456-cmd/estoqueobrapatamares.git
-cd estoqueobrapatamares
-
-# 2. Crie ambiente virtual
-python -m venv venv
-venv\Scripts\activate
-
-# 3. Instale dependências
-pip install -r requirements.txt
-
-# 4. Inicie o sistema
-python app.py
+Este software é proprietário. O uso, cópia, modificação ou distribuição não autorizada é estritamente proibido.
 ```
 
 Acesse: **http://localhost:5000**
@@ -296,17 +282,6 @@ Este software é proprietário. O uso, cópia, modificação ou distribuição n
 - 📦 **Itens Gerenciados:** 10.000+
 
 ---
-
-## 🎯 Casos de Sucesso
-
-> "Reduziu nosso tempo de controle de estoque em 80%. Excelente sistema!"  
-> — **João Silva**, Engenheiro Civil, Construtora ABC
-
-> "Interface simples e intuitiva. Nossa equipe aprendeu em 1 dia."  
-> — **Maria Santos**, Gerente de Obras, Empresa XYZ
-
-> "O backup automático nos salvou quando o servidor teve problemas."  
-> — **Pedro Costa**, TI, Construtora 123
 
 ---
 

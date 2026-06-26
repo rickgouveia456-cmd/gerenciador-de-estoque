@@ -1645,11 +1645,16 @@ def exportar_consumo():
     ws['A2'] = f'Período: {data_ini} a {data_fim}   |   Gerado em: {agora().strftime("%d/%m/%Y %H:%M")}'
     ws['A2'].font = Font(italic=True, size=10, color='666666')
 
-    headers = ['Data', 'Código', 'Item', 'Almoxarifado', 'Quantidade', 'Responsável', 'Colaborador', 'Observação']
+    headers = ['Data', 'Código', 'Item', 'Categoria', 'Almoxarifado', 'Quantidade', 'Responsável', 'Colaborador', 'Observação']
     for col, h in enumerate(headers, 1):
         c = ws.cell(row=4, column=col, value=h)
         c.font = h_font; c.fill = h_fill
         c.alignment = Alignment(horizontal='center'); c.border = borda
+
+    cat_label = {
+        'epi': 'EPI', 'maquinario': 'Maquinário', 'eletrica': 'Elétrica',
+        'hidraulica': 'Hidráulica', 'gas': 'Gás', 'geral': 'Geral'
+    }
 
     for row_num, mov in enumerate(movs, 5):
         # Separar colaborador da observação
@@ -1667,9 +1672,11 @@ def exportar_consumo():
             colab_nome = ''
             obs_limpa = obs
 
+        cat = cat_label.get(mov.item.categoria or 'geral', mov.item.categoria or 'Geral')
         dados = [
             mov.data.strftime('%d/%m/%Y %H:%M'),
             mov.item.codigo, mov.item.nome,
+            cat,
             mov.item.almoxarifado.nome,
             f'{mov.quantidade} {mov.item.unidade}',
             mov.responsavel or '',
@@ -1682,7 +1689,7 @@ def exportar_consumo():
             if row_num % 2 == 0:
                 c.fill = PatternFill('solid', fgColor='F0F4F8')
 
-    for i, w in enumerate([18, 14, 45, 35, 14, 20, 30, 30], 1):
+    for i, w in enumerate([18, 14, 45, 14, 35, 14, 20, 30, 30], 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
     buf = io.BytesIO()
@@ -2488,20 +2495,26 @@ def exportar_almoxarifado(id):
             c.font = h_font; c.fill = h_fill
             c.alignment = Alignment(horizontal='center'); c.border = borda
 
+    categoria_label = {
+        'epi': 'EPI', 'maquinario': 'Maquinário', 'eletrica': 'Elétrica',
+        'hidraulica': 'Hidráulica', 'gas': 'Gás', 'geral': 'Geral'
+    }
+
     # Aba 1 — Estoque Atual
     ws1 = wb.active
     ws1.title = 'Estoque Atual'
-    titulo(ws1, f'Estoque Atual — {alm.nome}', 7)
-    cabecalho(ws1, 4, ['Codigo', 'Item', 'Unidade', 'Qtd. Atual', 'Est. Minimo', 'Deficit', 'Status'])
+    titulo(ws1, f'Estoque Atual — {alm.nome}', 8)
+    cabecalho(ws1, 4, ['Codigo', 'Item', 'Categoria', 'Unidade', 'Qtd. Atual', 'Est. Minimo', 'Deficit', 'Status'])
     for r, it in enumerate(itens, 5):
         deficit = max(0, it.estoque_minimo - it.quantidade)
         status = 'ZERADO' if it.status == 'critico' else ('ABAIXO DO MINIMO' if it.status == 'alerta' else 'OK')
         fill = cr_fill if it.status == 'critico' else (al_fill if it.status == 'alerta' else ok_fill)
-        for c, v in enumerate([it.codigo, it.nome, it.unidade, it.quantidade, it.estoque_minimo, deficit, status], 1):
+        cat = categoria_label.get(it.categoria or 'geral', it.categoria or 'Geral')
+        for c, v in enumerate([it.codigo, it.nome, cat, it.unidade, it.quantidade, it.estoque_minimo, deficit, status], 1):
             cell = ws1.cell(row=r, column=c, value=v)
             cell.fill = fill; cell.border = borda
             cell.alignment = Alignment(horizontal='left' if c == 2 else 'center')
-    for i, w in enumerate([14, 35, 10, 12, 14, 12, 20], 1):
+    for i, w in enumerate([14, 35, 14, 10, 12, 14, 12, 20], 1):
         ws1.column_dimensions[get_column_letter(i)].width = w
 
     # Aba 2 — Movimentações

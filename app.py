@@ -267,6 +267,7 @@ class RequisicaoMestre(db.Model):
     data_entrega = db.Column(db.DateTime, nullable=True)
     entregue_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
     entregue_por = db.relationship('Usuario', foreign_keys=[entregue_por_id])
+    foto_url = db.Column(db.Text, nullable=True)  # foto base64 — comprovante de entrega
     # Itens da requisição
     itens = db.relationship('RequisicaoMestreItem', backref='requisicao', lazy=True, cascade='all, delete-orphan')
 
@@ -3561,9 +3562,13 @@ def mestre_requisicao_entregar(id):
     req = RequisicaoMestre.query.get_or_404(id)
     u = usuario_atual()
     if u.perfil not in ('admin', 'almoxarife'):
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'ok': False, 'msg': 'Acesso negado.'}), 403
         flash('Acesso negado.', 'danger')
         return redirect(url_for('mestre_requisicoes'))
     if req.status not in ('pendente', 'aprovada', 'parcial'):
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'ok': False, 'msg': 'Requisição já processada.'})
         flash('Requisição já foi entregue, recusada ou cancelada.', 'warning')
         return redirect(url_for('mestre_requisicao_detalhe', id=id))
 
@@ -3579,6 +3584,8 @@ def mestre_requisicao_entregar(id):
             erros.append(f'"{ri.item.nome}": apenas {ri.item.quantidade} {ri.item.unidade} disponível')
 
     if erros:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'ok': False, 'msg': ' | '.join(erros)})
         for e in erros:
             flash(f'⚠️ {e}', 'danger')
         return redirect(url_for('mestre_requisicao_detalhe', id=id))
@@ -3598,8 +3605,29 @@ def mestre_requisicao_entregar(id):
     req.data_entrega = agora()
     req.entregue_por_id = u.id
     db.session.commit()
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'ok': True, 'req_id': req.id})
+
     flash(f'✅ Entrega confirmada! Estoque atualizado para {len(itens_a_entregar)} item(ns).', 'success')
     return redirect(url_for('mestre_requisicao_detalhe', id=id))
+
+
+@app.route('/mestre/requisicoes/<int:id>/foto', methods=['POST'])
+@login_required
+def mestre_requisicao_foto(id):
+    """Salva foto de comprovante de entrega na requisição."""
+    req = RequisicaoMestre.query.get_or_404(id)
+    u = usuario_atual()
+    if u.perfil not in ('admin', 'almoxarife'):
+        return jsonify({'ok': False, 'error': 'Acesso negado.'}), 403
+    data = request.get_json(silent=True) or {}
+    foto = data.get('foto', '')
+    if not foto or not foto.startswith('data:image'):
+        return jsonify({'ok': False, 'error': 'Foto inválida.'})
+    req.foto_url = foto
+    db.session.commit()
+    return jsonify({'ok': True})
 
 @app.route('/mestre/requisicoes/<int:id>/cancelar', methods=['POST'])
 @login_required

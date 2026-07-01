@@ -645,6 +645,9 @@ def run_migrations():
             # ── Campo foto_url em movimentacao ────────────────────────────────
             safe_exec(conn, "ALTER TABLE movimentacao ADD COLUMN foto_url TEXT")
 
+            # ── Campo foto_url em requisicao_mestre ───────────────────────────
+            safe_exec(conn, "ALTER TABLE requisicao_mestre ADD COLUMN foto_url TEXT")
+
             # ── Campo local em ferramenta ─────────────────────────────────────
             safe_exec(conn, "ALTER TABLE ferramenta ADD COLUMN local VARCHAR(100)")
             # ── Colunas adicionais em item_epi (para bancos criados sem elas) ─

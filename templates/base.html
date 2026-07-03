@@ -90,6 +90,10 @@
         <a href="/relatorios/consumo-por-pessoa" class="nav-link {% if request.endpoint == 'relatorio_consumo_pessoa' %}active{% endif %}">
             <i class="bi bi-people me-2"></i> Consumo por Pessoa
         </a>
+        <span class="nav-section">Equipe</span>
+        <a href="/colaboradores" class="nav-link {% if request.endpoint == 'colaboradores' %}active{% endif %}">
+            <i class="bi bi-person-badge me-2"></i> Colaboradores
+        </a>
 
         {% elif usuario_atual and usuario_atual.perfil in ('mestre', 'tecnico_seguranca') %}
         <!-- SIDEBAR PARA MESTRE / TÉCNICO DE SEGURANÇA -->

@@ -3111,7 +3111,7 @@ def upload_foto_historico_epi(hist_id):
 @login_required
 def colaboradores():
     u = usuario_atual()
-    if u.perfil not in ('admin', 'almoxarife'):
+    if u.perfil not in ('admin', 'almoxarife', 'analista'):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('index'))
     cols = Colaborador.query.order_by(Colaborador.ativo.desc(), Colaborador.nome).all()
@@ -3134,7 +3134,7 @@ def colaboradores():
 @login_required
 def novo_colaborador():
     u = usuario_atual()
-    if u.perfil not in ('admin', 'almoxarife'):
+    if u.perfil not in ('admin', 'almoxarife', 'analista'):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('index'))
     nome = request.form.get('nome', '').strip()
@@ -3157,7 +3157,7 @@ def novo_colaborador():
 @login_required
 def desativar_colaborador(id):
     u = usuario_atual()
-    if u.perfil not in ('admin', 'almoxarife'):
+    if u.perfil not in ('admin', 'almoxarife', 'analista'):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('index'))
     c = Colaborador.query.get_or_404(id)
@@ -3170,7 +3170,7 @@ def desativar_colaborador(id):
 @login_required
 def reativar_colaborador(id):
     u = usuario_atual()
-    if u.perfil not in ('admin', 'almoxarife'):
+    if u.perfil not in ('admin', 'almoxarife', 'analista'):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('index'))
     c = Colaborador.query.get_or_404(id)

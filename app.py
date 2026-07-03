@@ -1156,6 +1156,10 @@ def deletar_item(id):
 @login_required
 def movimentacao_lote():
     u = usuario_atual()
+    # Analista só pode visualizar — sem movimentação
+    if u.perfil == 'analista':
+        flash('Analistas não têm permissão para registrar movimentações.', 'danger')
+        return redirect(url_for('index'))
     almoxarifados = Almoxarifado.query.all() if u.perfil == 'admin' else \
         Almoxarifado.query.filter(Almoxarifado.id.in_(u.almoxarifados_permitidos())).all()
 
@@ -4276,6 +4280,32 @@ def debug_env():
     status = {v: '✅ Definida' if os.environ.get(v) else '❌ Não definida' for v in variaveis}
     linhas = '\n'.join(f'  {k} = {v}' for k, v in status.items())
     return f'<pre style="font-family:monospace;padding:20px">\nVariáveis de ambiente:\n\n{linhas}\n</pre>'
+
+@app.route('/admin/limpar-movs-luana', methods=['POST'])
+@admin_required
+def limpar_movs_luana():
+    """Rota temporária — remove movimentações feitas pela usuária Luana e reverte estoque."""
+    # Buscar usuária Luana
+    luana = Usuario.query.filter(Usuario.nome.ilike('%luana%')).first()
+    if not luana:
+        flash('Usuária Luana não encontrada.', 'warning')
+        return redirect(url_for('index'))
+    # Buscar movimentações onde o responsável é Luana
+    movs = Movimentacao.query.filter(
+        Movimentacao.responsavel.ilike('%luana%')
+    ).all()
+    excluidas = 0
+    for mov in movs:
+        if mov.tipo == 'saida':
+            mov.item.quantidade = round(mov.item.quantidade + mov.quantidade, 4)
+        elif mov.tipo == 'entrada':
+            mov.item.quantidade = round(mov.item.quantidade - mov.quantidade, 4)
+        db.session.delete(mov)
+        excluidas += 1
+    db.session.commit()
+    flash(f'{excluidas} movimentação(ões) da Luana removidas e estoque revertido.', 'success')
+    return redirect(url_for('index'))
+
 
 @app.route('/admin/backup', methods=['GET', 'POST'])
 @admin_required

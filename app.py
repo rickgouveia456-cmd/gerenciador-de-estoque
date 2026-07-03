@@ -288,7 +288,7 @@ class Usuario(db.Model):
     nome = db.Column(db.String(100), nullable=False)
     login = db.Column(db.String(50), unique=True, nullable=False)
     senha_hash = db.Column(db.String(256), nullable=False)
-    perfil = db.Column(db.String(20), default='colaborador')  # admin | colaborador | mestre | almoxarife | tecnico_seguranca
+    perfil = db.Column(db.String(20), default='colaborador')  # admin | colaborador | mestre | almoxarife | tecnico_seguranca | analista
     almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=True)
     email = db.Column(db.String(120), nullable=True)
     ativo = db.Column(db.Boolean, default=True)
@@ -966,7 +966,7 @@ def index():
     # Mestre e técnico de segurança só acessam a tela de requisições
     if u.perfil in ('mestre', 'tecnico_seguranca'):
         return redirect(url_for('mestre_requisicoes'))
-    if u.perfil == 'admin':
+    if u.perfil in ('admin', 'analista'):
         almoxarifados = Almoxarifado.query.all()
         alertas = Item.query.filter(Item.quantidade <= Item.estoque_minimo, Item.ativo == True).all()
     else:
@@ -994,7 +994,7 @@ def almoxarifado(id):
         flash('Acesso restrito. Use a tela de requisições.', 'warning')
         return redirect(url_for('mestre_requisicoes'))
     alm = Almoxarifado.query.get_or_404(id)
-    if u.perfil != 'admin' and id not in u.almoxarifados_permitidos():
+    if u.perfil not in ('admin', 'analista') and id not in u.almoxarifados_permitidos():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('index'))
     # Mostrar todos os itens (ativos e desativados) para permitir reativação
@@ -1594,7 +1594,7 @@ def relatorio_consumo():
     alm_id = request.args.get('almoxarifado_id', type=int)
     data_ini = request.args.get('data_ini', str(date.today().replace(day=1)))
     data_fim = request.args.get('data_fim', str(date.today()))
-    if alm_id and u.perfil != 'admin' and alm_id not in u.almoxarifados_permitidos():
+    if alm_id and u.perfil not in ('admin', 'analista') and alm_id not in u.almoxarifados_permitidos():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('index'))
     query = Movimentacao.query.filter(
@@ -1604,7 +1604,7 @@ def relatorio_consumo():
     )
     if alm_id:
         query = query.join(Item).filter(Item.almoxarifado_id == alm_id)
-    elif u.perfil != 'admin':
+    elif u.perfil not in ('admin', 'analista'):
         query = query.join(Item).filter(Item.almoxarifado_id.in_(u.almoxarifados_permitidos()))
     movs = query.order_by(Movimentacao.data.desc()).all()
     almoxarifados = Almoxarifado.query.all()
@@ -1712,12 +1712,12 @@ def relatorio_consumo_pessoa():
     data_fim = request.args.get('data_fim', str(date.today()))
     responsavel_filtro = request.args.get('responsavel', '').strip()
 
-    # Técnico de segurança com permissão ver_relatorios vê todos os almoxarifados
-    tem_perm_relatorio = u.perfil == 'tecnico_seguranca' or any(
+    # Técnico de segurança e analista com permissão ver_relatorios vêem todos os almoxarifados
+    tem_perm_relatorio = u.perfil in ('tecnico_seguranca', 'analista') or any(
         p.permissao == 'ver_relatorios' and p.ativo for p in u.permissoes_extras
     )
 
-    if alm_id and u.perfil != 'admin' and not tem_perm_relatorio and alm_id not in u.almoxarifados_permitidos():
+    if alm_id and u.perfil not in ('admin', 'analista') and not tem_perm_relatorio and alm_id not in u.almoxarifados_permitidos():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('index'))
 
@@ -1981,13 +1981,13 @@ def ficha_epi():
     """Página para gerar ficha de EPI individual por funcionário."""
     import re
     u = usuario_atual()
-    # Técnico de segurança com permissão ver_relatorios vê todos os almoxarifados
-    tem_perm_relatorio = u.perfil == 'tecnico_seguranca' or any(
+    # Técnico de segurança e analista vêem todos os almoxarifados
+    tem_perm_relatorio = u.perfil in ('tecnico_seguranca', 'analista') or any(
         p.permissao == 'ver_relatorios' and p.ativo for p in u.permissoes_extras
     )
     query = Movimentacao.query.join(Item).filter(
         Movimentacao.tipo == 'saida', Item.categoria == 'epi')
-    if u.perfil != 'admin' and not tem_perm_relatorio:
+    if u.perfil not in ('admin', 'analista') and not tem_perm_relatorio:
         query = query.filter(Item.almoxarifado_id.in_(u.almoxarifados_permitidos()))
     movs = query.order_by(Movimentacao.data.desc()).all()
 
@@ -2039,8 +2039,8 @@ def exportar_ficha_epi():
                           Item.categoria == 'epi',
                           Movimentacao.data >= data_ini,
                           Movimentacao.data <= data_fim + ' 23:59:59'))
-    if u.perfil != 'admin':
-        tem_perm_relatorio = u.perfil == 'tecnico_seguranca' or any(
+    if u.perfil not in ('admin', 'analista'):
+        tem_perm_relatorio = u.perfil in ('tecnico_seguranca', 'analista') or any(
             p.permissao == 'ver_relatorios' and p.ativo for p in u.permissoes_extras
         )
         if not tem_perm_relatorio:
@@ -2409,7 +2409,7 @@ def relatorio_alertas():
         if not tem_permissao:
             flash('Sem permissão para ver alertas de estoque. Solicite ao administrador.', 'warning')
             return redirect(url_for('index'))
-    if u.perfil == 'admin':
+    if u.perfil in ('admin', 'analista'):
         itens = Item.query.filter(Item.quantidade <= Item.estoque_minimo, Item.ativo == True).order_by(
             Item.fixado.desc(), Item.quantidade.asc()
         ).all()
@@ -3184,6 +3184,7 @@ def usuarios():
         ('almoxarife',         {'label': '📦 Almoxarife',           'cor': '#0ea5e9', 'usuarios': []}),
         ('mestre',             {'label': '🦺 Mestre de Obra',       'cor': '#f0a500', 'usuarios': []}),
         ('tecnico_seguranca',  {'label': '🔒 Técnico de Segurança', 'cor': '#3b82f6', 'usuarios': []}),
+        ('analista',           {'label': '📊 Analista',             'cor': '#10b981', 'usuarios': []}),
         ('colaborador',        {'label': '👔 Engenheiro',           'cor': '#64748b', 'usuarios': []}),
     ])
     for u in todos:

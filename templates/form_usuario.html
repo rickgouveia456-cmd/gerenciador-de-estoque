@@ -51,6 +51,9 @@
                                 <option value="tecnico_seguranca" {% if usuario and usuario.perfil == 'tecnico_seguranca' %}selected{% endif %}>
                                     🔒 Técnico de Segurança
                                 </option>
+                                <option value="analista" {% if usuario and usuario.perfil == 'analista' %}selected{% endif %}>
+                                    📊 Analista
+                                </option>
                                 <option value="admin" {% if usuario and usuario.perfil == 'admin' %}selected{% endif %}>
                                     👑 Administrador
                                 </option>

@@ -1735,38 +1735,62 @@ def relatorio_consumo_pessoa():
 
     import re
 
+    # Nomes de usuários do sistema (mestres, técnicos, almoxarifes) para excluir
+    usuarios_sistema = {u.nome.strip().lower() for u in Usuario.query.filter(
+        Usuario.perfil.in_(['admin', 'almoxarife', 'mestre', 'tecnico_seguranca'])
+    ).all()}
+
     def extrair_colaborador(mov):
-        """Extrai o nome do colaborador da observação ou usa o responsável."""
+        """Extrai o nome do colaborador da observação."""
         obs = mov.observacao or ''
-        # Formato: "liberado P/ Nome" ou "liberado para Nome"
-        m = re.search(r'liberado\s+[Pp][/\s]+(.+)', obs, re.IGNORECASE)
-        if m:
-            return m.group(1).strip()
-        # Formato: "req XXXX | Colaborador: Nome"
+        # Formato requisição mestre: "Req. Mestre #X — Colaborador: Nome"
         m = re.search(r'[Cc]olaborador[:\s]+([^|]+)', obs)
         if m:
-            return m.group(1).strip()
-        # Formato: "Req. Mestre #X — Colaborador: Nome"
-        m = re.search(r'Colaborador[:\s]+(.+)', obs)
+            nome = m.group(1).strip()
+            if nome:
+                return nome
+        # Formato movimentação avulsa: "liberado P/ Nome | ..."
+        m = re.search(r'liberado\s+[Pp][/\s]+([^|]+)', obs, re.IGNORECASE)
         if m:
-            return m.group(1).strip()
-        # Se não achou colaborador na obs, usa o responsável
-        return mov.responsavel or 'Sem responsável'
+            nome = m.group(1).strip()
+            if nome:
+                return nome
+        return None  # sem colaborador identificável
 
     def normalizar_nome(nome):
-        """Remove número de requisição do nome para agrupar corretamente.
-        Ex: 'Thiago | req 0271' → 'Thiago'
-            'Thiago | REQ 4598' → 'Thiago'
-        """
-        # Remove ' | req XXXX' ou ' | REQ XXXX' do final
-        nome_limpo = re.sub(r'\s*[|·]\s*[Rr][Ee][Qq]\.?\s*\d+.*$', '', nome).strip()
-        return nome_limpo if nome_limpo else nome
+        """Remove sufixos de requisição do nome."""
+        if not nome:
+            return None
+        # Remove ' | req XXXX' ou ' | REQ XXXX' ou ' | ajuste ...' do final
+        nome_limpo = re.sub(r'\s*[|·]\s*.+$', '', nome).strip()
+        return nome_limpo if nome_limpo else None
+
+    def e_nome_valido(nome):
+        """Filtra nomes inválidos: ajustes, vazios, nomes do sistema."""
+        if not nome or len(nome) < 2:
+            return False
+        nome_lower = nome.lower().strip()
+        # Excluir termos de ajuste sistêmico
+        termos_invalidos = [
+            'ajuste', 'sistemico', 'sistêmico', 'reajuste',
+            'req -', 'req-', '- req', 'sem responsável',
+            'sem responsavel', 'ajuste de estoque'
+        ]
+        if any(t in nome_lower for t in termos_invalidos):
+            return False
+        # Excluir nomes de usuários do sistema (mestres, admins, etc.)
+        if nome_lower in usuarios_sistema:
+            return False
+        return True
 
     # Filtrar por nome se informado
     from collections import defaultdict
     por_pessoa = defaultdict(list)
     for mov in movs:
-        colaborador = normalizar_nome(extrair_colaborador(mov))
+        colab_raw = extrair_colaborador(mov)
+        colaborador = normalizar_nome(colab_raw)
+        if not e_nome_valido(colaborador):
+            continue
         if responsavel_filtro and responsavel_filtro.lower() not in colaborador.lower():
             continue
         por_pessoa[colaborador].append(mov)

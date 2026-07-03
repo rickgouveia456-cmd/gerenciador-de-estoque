@@ -3107,7 +3107,20 @@ def colaboradores():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('index'))
     cols = Colaborador.query.order_by(Colaborador.ativo.desc(), Colaborador.nome).all()
-    return render_template('colaboradores.html', colaboradores=cols)
+    from collections import OrderedDict
+    grupos = OrderedDict([
+        ('estrutura',      {'label': '🏗️ Estrutura',      'cor': '#f0a500', 'colaboradores': []}),
+        ('infraestrutura', {'label': '🔧 Infraestrutura',  'cor': '#0ea5e9', 'colaboradores': []}),
+        ('acabamento',     {'label': '🏕️ Acabamento',      'cor': '#22c55e', 'colaboradores': []}),
+        ('sem_escopo',     {'label': '📋 Sem Escopo',       'cor': '#94a3b8', 'colaboradores': []}),
+    ])
+    for c in cols:
+        escopo = (c.escopo or '').lower().strip()
+        if escopo in grupos:
+            grupos[escopo]['colaboradores'].append(c)
+        else:
+            grupos['sem_escopo']['colaboradores'].append(c)
+    return render_template('colaboradores.html', colaboradores=cols, grupos=grupos)
 
 @app.route('/colaboradores/novo', methods=['POST'])
 @login_required

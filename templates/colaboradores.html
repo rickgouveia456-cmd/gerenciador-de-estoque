@@ -55,63 +55,81 @@
         </div>
     </div>
 
-    <!-- Lista de colaboradores -->
+    <!-- Lista agrupada por escopo -->
     <div class="col-12 col-md-8">
-        <div class="card border-0 shadow-sm">
-            <div class="card-header fw-bold text-white d-flex justify-content-between align-items-center"
-                 style="background:var(--accent)">
-                <span><i class="bi bi-people me-2"></i>Colaboradores Cadastrados</span>
-                <div class="d-flex align-items-center gap-2">
-                    <span class="badge bg-white text-dark">{{ colaboradores|selectattr('ativo')|list|length }} ativos</span>
-                    {% if usuario_atual and usuario_atual.perfil == 'admin' %}
-                    <form action="/admin/seed-colaboradores" method="POST" class="mb-0">
-                        <button type="submit" class="btn btn-sm btn-light fw-semibold"
-                                onclick="return confirm('Cadastrar os 69 colaboradores da estrutura? Duplicatas serão ignoradas.')">
-                            <i class="bi bi-cloud-download me-1"></i> Importar Estrutura
-                        </button>
-                    </form>
-                    {% endif %}
+
+        <!-- Barra de busca + filtros -->
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div class="d-flex gap-2 flex-wrap align-items-center">
+                <div class="input-group" style="max-width:260px">
+                    <span class="input-group-text"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" id="buscaColab" class="form-control"
+                           placeholder="Buscar por nome...">
+                    <button class="btn btn-outline-secondary" onclick="document.getElementById('buscaColab').value='';buscarColab('')" type="button">
+                        <i class="bi bi-x"></i>
+                    </button>
                 </div>
+                <select id="filtroTipo" class="form-select form-select-sm" style="max-width:160px">
+                    <option value="">Todos os tipos</option>
+                    <option value="funcionario">👷 Funcionário</option>
+                    <option value="mestre">🦺 Mestre</option>
+                    <option value="tecnico_seguranca">🛡️ Téc. Seg.</option>
+                    <option value="engenheiro">👔 Engenheiro</option>
+                </select>
             </div>
-            <div class="card-body p-0">
-                {% if colaboradores %}
-                <!-- Busca rápida + filtro por tipo -->
-                <div class="p-3 border-bottom d-flex gap-2 flex-wrap">
-                    <input type="text" id="buscaLocal" class="form-control form-control-sm"
-                           style="max-width:220px" placeholder="🔍 Filtrar por nome...">
-                    <select id="filtroTipo" class="form-select form-select-sm" style="max-width:180px">
-                        <option value="">Todos os tipos</option>
-                        <option value="funcionario">👷 Funcionário</option>
-                        <option value="mestre">🦺 Mestre</option>
-                        <option value="tecnico_seguranca">🛡️ Téc. Segurança</option>
-                        <option value="engenheiro">👔 Engenheiro</option>
-                    </select>
-                    <select id="filtroEscopo" class="form-select form-select-sm" style="max-width:160px">
-                        <option value="">Todos os escopos</option>
-                        <option value="estrutura">🏗️ Estrutura</option>
-                        <option value="infraestrutura">🔧 Infraestrutura</option>
-                        <option value="acabamento">🏕️ Acabamento</option>
-                    </select>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-secondary">{{ colaboradores|selectattr('ativo')|list|length }} ativos</span>
+                {% if usuario_atual and usuario_atual.perfil == 'admin' %}
+                <form action="/admin/seed-colaboradores" method="POST" class="mb-0">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary fw-semibold"
+                            onclick="return confirm('Cadastrar os colaboradores da estrutura? Duplicatas serão ignoradas.')">
+                        <i class="bi bi-cloud-download me-1"></i> Importar Estrutura
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+
+        {% for escopo_key, grupo in grupos.items() %}
+        {% if grupo.colaboradores %}
+        <div class="card border-0 shadow-sm mb-3 grupo-card">
+
+            <!-- Header colapsável -->
+            <div class="card-header d-flex align-items-center justify-content-between"
+                 style="background:{{ grupo.cor }}20;border-left:4px solid {{ grupo.cor }};cursor:pointer"
+                 onclick="toggleGrupo('{{ escopo_key }}')">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="fw-bold" style="color:{{ grupo.cor }}">{{ grupo.label }}</span>
+                    <span class="badge rounded-pill text-white" style="background:{{ grupo.cor }}">
+                        {{ grupo.colaboradores | length }}
+                    </span>
+                    <span class="text-muted small">
+                        ({{ grupo.colaboradores | selectattr('ativo') | list | length }} ativo(s))
+                    </span>
                 </div>
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0" id="tabelaColabs">
+                <i class="bi bi-chevron-down" id="arrow_{{ escopo_key }}"
+                   style="color:{{ grupo.cor }};transition:transform 0.2s"></i>
+            </div>
+
+            <!-- Tabela desktop -->
+            <div id="grupo_{{ escopo_key }}" class="collapse show">
+                <div class="card-body p-0 d-none d-md-block">
+                    <table class="table table-hover mb-0 tabela-colabs">
                         <thead class="table-light">
                             <tr>
                                 <th>Nome</th>
                                 <th>Tipo</th>
                                 <th>Função</th>
-                                <th>Escopo</th>
                                 <th>Status</th>
                                 <th class="text-end">Ações</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for c in colaboradores %}
-                            {% set tipo_val = c.tipo or 'peao' %}
+                            {% for c in grupo.colaboradores %}
+                            {% set tipo_val = c.tipo or 'funcionario' %}
                             <tr class="linha-colab {% if not c.ativo %}text-muted{% endif %}"
                                 data-nome="{{ c.nome | lower }}"
-                                data-tipo="{{ tipo_val }}"
-                                data-escopo="{{ c.escopo or '' | lower }}">
+                                data-tipo="{{ tipo_val }}">
                                 <td class="fw-semibold">
                                     <i class="bi bi-person me-1 {% if c.ativo %}text-success{% else %}text-muted{% endif %}"></i>
                                     {{ c.nome }}
@@ -128,13 +146,6 @@
                                     {% endif %}
                                 </td>
                                 <td class="text-muted small">{{ c.funcao or '—' }}</td>
-                                <td>
-                                    {% if c.escopo %}
-                                    <span class="badge bg-secondary">{{ c.escopo | capitalize }}</span>
-                                    {% else %}
-                                    <span class="text-muted small">—</span>
-                                    {% endif %}
-                                </td>
                                 <td>
                                     {% if c.ativo %}
                                     <span class="badge bg-success">Ativo</span>
@@ -164,50 +175,120 @@
                         </tbody>
                     </table>
                 </div>
-                {% else %}
-                <div class="text-center py-5 text-muted">
-                    <i class="bi bi-people fs-1 d-block mb-2"></i>
-                    Nenhum colaborador cadastrado ainda.<br>
-                    <small>Cadastre os peões, mestres, técnicos e engenheiros da obra.</small>
+
+                <!-- Cards mobile -->
+                <div class="d-md-none px-2 py-2">
+                    {% for c in grupo.colaboradores %}
+                    {% set tipo_val = c.tipo or 'funcionario' %}
+                    <div class="card border-0 shadow-sm mb-2 linha-colab {% if not c.ativo %}opacity-50{% endif %}"
+                         data-nome="{{ c.nome | lower }}"
+                         data-tipo="{{ tipo_val }}">
+                        <div class="card-body py-2 px-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <div class="fw-semibold">
+                                        <i class="bi bi-person me-1 {% if c.ativo %}text-success{% else %}text-muted{% endif %}"></i>
+                                        {{ c.nome }}
+                                    </div>
+                                    <div class="small text-muted mt-1">{{ c.funcao or '—' }}</div>
+                                    <div class="mt-1">
+                                        {% if tipo_val == 'mestre' %}
+                                            <span class="badge bg-warning text-dark">🦺 Mestre</span>
+                                        {% elif tipo_val == 'tecnico_seguranca' %}
+                                            <span class="badge bg-info text-dark">🛡️ Téc. Seg.</span>
+                                        {% elif tipo_val == 'engenheiro' %}
+                                            <span class="badge bg-primary">👔 Engenheiro</span>
+                                        {% else %}
+                                            <span class="badge bg-light text-dark border">👷 Funcionário</span>
+                                        {% endif %}
+                                        {% if c.ativo %}
+                                        <span class="badge bg-success ms-1">Ativo</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary ms-1">Inativo</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div>
+                                    {% if c.ativo %}
+                                    <form action="/colaboradores/{{ c.id }}/desativar" method="POST">
+                                        <button class="btn btn-sm btn-outline-warning"
+                                                onclick="return confirm('Desativar {{ c.nome }}?')"
+                                                title="Desativar">
+                                            <i class="bi bi-slash-circle"></i>
+                                        </button>
+                                    </form>
+                                    {% else %}
+                                    <form action="/colaboradores/{{ c.id }}/reativar" method="POST">
+                                        <button class="btn btn-sm btn-outline-success" title="Reativar">
+                                            <i class="bi bi-check-circle"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
-                {% endif %}
             </div>
         </div>
+        {% endif %}
+        {% endfor %}
+
+        {% if not colaboradores %}
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-people fs-1 d-block mb-2"></i>
+            Nenhum colaborador cadastrado ainda.<br>
+            <small>Cadastre os funcionários, mestres, técnicos e engenheiros da obra.</small>
+        </div>
+        {% endif %}
     </div>
 </div>
 
+{% block scripts %}
 <script>
-// Preenche função automaticamente conforme o tipo selecionado
-function atualizarFuncao() {
-    const tipo = document.getElementById('selTipo').value;
-    const input = document.getElementById('inputFuncao');
-    const sugestoes = {
-        'mestre': 'Mestre de Obra',
-        'tecnico_seguranca': 'Técnico de Segurança do Trabalho',
-        'engenheiro': 'Engenheiro Civil',
-        'funcionario': '',
-    };
-    if (sugestoes[tipo] !== undefined && !input.value) {
-        input.value = sugestoes[tipo];
-    }
+function toggleGrupo(escopo) {
+    const el = document.getElementById('grupo_' + escopo);
+    const arr = document.getElementById('arrow_' + escopo);
+    const aberto = el.classList.contains('show');
+    el.classList.toggle('show', !aberto);
+    el.style.display = aberto ? 'none' : '';
+    if (arr) arr.style.transform = aberto ? 'rotate(-90deg)' : 'rotate(0deg)';
 }
 
-// Filtro combinado: nome + tipo + escopo
-function aplicarFiltros() {
-    const nome = document.getElementById('buscaLocal').value.toLowerCase();
-    const tipo = document.getElementById('filtroTipo').value.toLowerCase();
-    const escopo = document.getElementById('filtroEscopo').value.toLowerCase();
+// Inicializa visibilidade
+document.querySelectorAll('[id^="grupo_"]').forEach(el => { el.style.display = ''; });
 
-    document.querySelectorAll('.linha-colab').forEach(tr => {
-        const nomeOk = !nome || tr.dataset.nome.includes(nome);
-        const tipoOk = !tipo || tr.dataset.tipo === tipo;
-        const escopoOk = !escopo || tr.dataset.escopo === escopo;
-        tr.style.display = (nomeOk && tipoOk && escopoOk) ? '' : 'none';
+function buscarColab(q) {
+    q = q.toLowerCase();
+    const tipo = document.getElementById('filtroTipo').value;
+    let totalVisiveis = 0;
+
+    document.querySelectorAll('.grupo-card').forEach(card => {
+        const rows = card.querySelectorAll('.linha-colab');
+        let visiveis = 0;
+        rows.forEach(row => {
+            const nomeOk = !q || row.dataset.nome.includes(q);
+            const tipoOk = !tipo || row.dataset.tipo === tipo;
+            const ok = nomeOk && tipoOk;
+            row.style.display = ok ? '' : 'none';
+            if (ok) visiveis++;
+        });
+        card.style.display = visiveis === 0 && (q || tipo) ? 'none' : '';
+        if ((q || tipo) && visiveis > 0) {
+            const body = card.querySelector('[id^="grupo_"]');
+            if (body) body.style.display = '';
+        }
+        totalVisiveis += visiveis;
     });
 }
 
-document.getElementById('buscaLocal')?.addEventListener('input', aplicarFiltros);
-document.getElementById('filtroTipo')?.addEventListener('change', aplicarFiltros);
-document.getElementById('filtroEscopo')?.addEventListener('change', aplicarFiltros);
+document.getElementById('buscaColab')?.addEventListener('input', function() {
+    buscarColab(this.value);
+});
+document.getElementById('filtroTipo')?.addEventListener('change', function() {
+    buscarColab(document.getElementById('buscaColab').value);
+});
 </script>
+{% endblock %}
 {% endblock %}

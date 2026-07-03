@@ -1099,7 +1099,7 @@ def novo_item():
 def editar_item(id):
     it = Item.query.get_or_404(id)
     u = usuario_atual()
-    if u.perfil in ('mestre', 'tecnico_seguranca') or (u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos()):
+    if u.perfil in ('mestre', 'tecnico_seguranca', 'analista') or (u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos()):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('item', id=id))
     almoxarifados = Almoxarifado.query.all()

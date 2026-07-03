@@ -6,12 +6,15 @@
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <p class="text-muted mb-0">{{ almoxarifado.descricao }}</p>
     <div class="d-flex flex-wrap gap-2">
+        {% if usuario_atual.perfil != 'analista' %}
         <a href="/item/novo?alm={{ almoxarifado.id }}" class="btn btn-primary btn-sm">
             <i class="bi bi-plus-lg me-1"></i> Novo Item
         </a>
+        {% endif %}
         <a href="/almoxarifado/{{ almoxarifado.id }}/exportar" class="btn btn-success btn-sm">
             <i class="bi bi-file-earmark-excel me-1"></i> Exportar Excel
         </a>
+        {% if usuario_atual.perfil != 'analista' %}
         <a href="/almoxarifado/{{ almoxarifado.id }}/importar" class="btn btn-warning btn-sm">
             <i class="bi bi-file-earmark-arrow-up me-1"></i> Importar Excel
         </a>
@@ -24,6 +27,7 @@
                 <i class="bi bi-trash"></i>
             </button>
         </form>
+        {% endif %}
     </div>
 </div>
 
@@ -116,7 +120,7 @@
                         <a href="/item/{{ item.id }}" class="btn btn-sm btn-outline-primary">
                             <i class="bi bi-eye"></i>
                         </a>
-                        {% if item.ativo %}
+                        {% if item.ativo and usuario_atual.perfil != 'analista' %}
                         <a href="/item/{{ item.id }}/editar" class="btn btn-sm btn-outline-secondary">
                             <i class="bi bi-pencil"></i>
                         </a>
@@ -185,11 +189,13 @@
 
             <div class="d-flex gap-2">
                 <a href="/item/{{ item.id }}" class="btn btn-sm btn-primary flex-fill">
-                    <i class="bi bi-arrow-left-right me-1"></i> Movimentar
+                    <i class="bi bi-arrow-left-right me-1"></i> Ver Item
                 </a>
+                {% if usuario_atual.perfil != 'analista' %}
                 <a href="/item/{{ item.id }}/editar" class="btn btn-sm btn-outline-secondary">
                     <i class="bi bi-pencil"></i>
                 </a>
+                {% endif %}
             </div>
             {% else %}
             <a href="/item/{{ item.id }}" class="btn btn-sm btn-outline-secondary w-100">

@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, send_file, session
- from flask_sqlalchemy import SQLAlchemy
+from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect, CSRFError
 from werkzeug.security import generate_password_hash, check_password_hash
 from markupsafe import Markup, escape

@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, send_file, session
-from flask_sqlalchemy import SQLAlchemy
+ from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect, CSRFError
 from werkzeug.security import generate_password_hash, check_password_hash
 from markupsafe import Markup, escape
@@ -1304,6 +1304,10 @@ def movimentacao_lote():
 def movimentar(id):
     it = Item.query.get_or_404(id)
     u = usuario_atual()
+    # Analista não pode fazer movimentação de forma alguma
+    if u.perfil == 'analista':
+        flash('Analistas não têm permissão para registrar movimentações.', 'danger')
+        return redirect(url_for('item', id=id))
     if u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('item', id=id))

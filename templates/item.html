@@ -43,6 +43,7 @@
         </div>
 
         <!-- Ações rápidas -->
+        {% if usuario_atual.perfil != 'analista' %}
         <div class="d-flex gap-2 flex-wrap">
             <a href="/item/{{ item.id }}/editar" class="btn btn-outline-secondary btn-sm flex-fill">
                 <i class="bi bi-pencil me-1"></i> Editar
@@ -68,6 +69,7 @@
                 </button>
             </form>
         </div>
+        {% endif %}{# fim bloco analista - sem ações #}
 
         {% if not item.ativo %}
         <div class="alert alert-warning mt-3 mb-0 py-2 small">
@@ -78,7 +80,8 @@
 
     <!-- Movimentação + Histórico -->
     <div class="col-12 col-md-8">
-        <!-- Formulário de Movimentação -->
+        <!-- Formulário de Movimentação — oculto para analista -->
+        {% if usuario_atual.perfil != 'analista' %}
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-header fw-bold" style="background:var(--accent);color:#fff">
                 <i class="bi bi-arrow-left-right me-2"></i>Registrar Movimentação
@@ -128,6 +131,7 @@
                 </form>
             </div>
         </div>
+        {% endif %}{# fim bloco analista - sem movimentação #}
 
         <!-- Histórico -->
         <div class="card border-0 shadow-sm">

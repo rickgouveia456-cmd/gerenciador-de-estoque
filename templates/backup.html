@@ -30,6 +30,26 @@ f{% extends 'base.html' %}
             </div>
         </div>
 
+        <!-- Ferramentas de Manutenção Admin -->
+        <div class="card border-0 shadow-sm mb-4 border-danger">
+            <div class="card-header fw-bold text-white bg-danger">
+                <i class="bi bi-tools me-2"></i>Manutenção do Sistema
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">
+                    ⚠️ Ações irreversíveis. Use com cuidado.
+                </p>
+                <form method="POST" action="/admin/limpar-movs-luana"
+                      onsubmit="return confirm('Isso vai excluir TODAS as movimentações registradas pela Luana e reverter o estoque. Confirmar?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger w-100">
+                        <i class="bi bi-trash me-2"></i>
+                        Remover movimentações da Luana (analista)
+                    </button>
+                </form>
+            </div>
+        </div>
+
         <div class="card border-0 shadow-sm">
             <div class="card-header fw-bold" style="background:#f8f9fa">
                 <i class="bi bi-shield-check me-2 text-success"></i>Boas Práticas

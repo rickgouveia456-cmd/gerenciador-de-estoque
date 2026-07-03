@@ -50,6 +50,17 @@
             <span id="badge-notif-mestre" class="badge ms-1" style="background:var(--accent);color:#fff;display:none"></span>
         </a>
 
+        {% set tem_relatorio = usuario_atual.permissoes_extras | selectattr('permissao', 'equalto', 'ver_relatorios') | selectattr('ativo', 'equalto', true) | list %}
+        {% if tem_relatorio or usuario_atual.perfil == 'tecnico_seguranca' %}
+        <span class="nav-section">Relatórios</span>
+        <a href="/relatorios/consumo-por-pessoa" class="nav-link {% if request.endpoint == 'relatorio_consumo_pessoa' %}active{% endif %}">
+            <i class="bi bi-people me-2"></i> Consumo por Pessoa
+        </a>
+        <a href="/relatorios/ficha-epi" class="nav-link {% if request.endpoint == 'ficha_epi' %}active{% endif %}">
+            <i class="bi bi-file-earmark-person me-2"></i> Ficha de EPI
+        </a>
+        {% endif %}
+
         {% else %}
         <!-- SIDEBAR PARA ADMIN / ALMOXARIFE / COLABORADOR -->
         <span class="nav-section">Principal</span>

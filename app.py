@@ -1712,7 +1712,12 @@ def relatorio_consumo_pessoa():
     data_fim = request.args.get('data_fim', str(date.today()))
     responsavel_filtro = request.args.get('responsavel', '').strip()
 
-    if alm_id and u.perfil != 'admin' and alm_id not in u.almoxarifados_permitidos():
+    # Técnico de segurança com permissão ver_relatorios vê todos os almoxarifados
+    tem_perm_relatorio = u.perfil == 'tecnico_seguranca' or any(
+        p.permissao == 'ver_relatorios' and p.ativo for p in u.permissoes_extras
+    )
+
+    if alm_id and u.perfil != 'admin' and not tem_perm_relatorio and alm_id not in u.almoxarifados_permitidos():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('index'))
 
@@ -1723,7 +1728,7 @@ def relatorio_consumo_pessoa():
     )
     if alm_id:
         query = query.join(Item).filter(Item.almoxarifado_id == alm_id)
-    elif u.perfil != 'admin':
+    elif u.perfil != 'admin' and not tem_perm_relatorio:
         query = query.join(Item).filter(Item.almoxarifado_id.in_(u.almoxarifados_permitidos()))
 
     movs = query.order_by(Movimentacao.data.desc()).all()
@@ -1952,9 +1957,13 @@ def ficha_epi():
     """Página para gerar ficha de EPI individual por funcionário."""
     import re
     u = usuario_atual()
+    # Técnico de segurança com permissão ver_relatorios vê todos os almoxarifados
+    tem_perm_relatorio = u.perfil == 'tecnico_seguranca' or any(
+        p.permissao == 'ver_relatorios' and p.ativo for p in u.permissoes_extras
+    )
     query = Movimentacao.query.join(Item).filter(
         Movimentacao.tipo == 'saida', Item.categoria == 'epi')
-    if u.perfil != 'admin':
+    if u.perfil != 'admin' and not tem_perm_relatorio:
         query = query.filter(Item.almoxarifado_id.in_(u.almoxarifados_permitidos()))
     movs = query.order_by(Movimentacao.data.desc()).all()
 
@@ -2007,7 +2016,11 @@ def exportar_ficha_epi():
                           Movimentacao.data >= data_ini,
                           Movimentacao.data <= data_fim + ' 23:59:59'))
     if u.perfil != 'admin':
-        query = query.filter(Item.almoxarifado_id.in_(u.almoxarifados_permitidos()))
+        tem_perm_relatorio = u.perfil == 'tecnico_seguranca' or any(
+            p.permissao == 'ver_relatorios' and p.ativo for p in u.permissoes_extras
+        )
+        if not tem_perm_relatorio:
+            query = query.filter(Item.almoxarifado_id.in_(u.almoxarifados_permitidos()))
     movs_todas = query.order_by(Movimentacao.data.asc()).all()
 
     def extrair_colab(mov):

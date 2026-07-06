@@ -4131,6 +4131,49 @@ def enviar_backup_por_almoxarifado():
 
     return erros == 0, None
 
+@app.route('/admin/seed-colaboradores-infra', methods=['POST'])
+@admin_required
+def seed_colaboradores_infra():
+    """Cadastra os colaboradores de infraestrutura da QLP — ignora duplicatas."""
+    _lista = [
+        ("ADAILTON JOSE DOS SANTOS", "Ajudante"),
+        ("ALAN SOUZA DE OLIVEIRA", "Ajudante"),
+        ("ANDRE DE JESUS MENDES", "Ajudante"),
+        ("ANTONIO LUCAS NASCIMENTO BISPO", "Assistente de Produção"),
+        ("ARODOALDO PEREIRA DA ROCHA", "Encanador"),
+        ("CARLOS ALBERTO LOPES SILVA", "Ajudante"),
+        ("CLAUDEMIRO GALVÃO DOS SANTOS", "Auxiliar de Serviços Gerais"),
+        ("DEYVID DE SANTANA LOPES", "Almoxarife"),
+        ("EDINEILSON DOS SANTOS DE OLIVEIRA", "Eletricista"),
+        ("EDNILSON ASSIS DOS SANTOS", "Ajudante"),
+        ("EDSON ANTONIO SANTOS DE OLIVEIRA", "Ajudante"),
+        ("GERSON SILVA", "Mestre de Obras"),
+        ("HEBERT DA SILVA MEDRADO", "Ajudante"),
+        ("JACKSON DA SILVA MENEZES DOS SANTOS", "Ajudante"),
+        ("JEFFERSON SANTOS RIBEIRO", "Ajudante"),
+        ("JOSE SEVERINO MENDES DA SILVA", "Carpinteiro"),
+        ("LAURA DOS SANTOS ARAÚJO", "Coordenadora"),
+        ("LEONARDO VIDAL DOS SANTOS SENA", "Técnico de Segurança"),
+        ("MARCOS VINICIUS SAMPAIO ROSA", "Ajudante"),
+        ("MATEUS DE JESUS SANTANA SANTOS", "Ajudante"),
+        ("RAILAN NASCIMENTO SANTOS", "Ajudante"),
+        ("RODRIGO NASCIMENTO SANTANA", "Ajudante"),
+        ("TIAGO DA SILVA FERREIRA", "Auxiliar de Serviços Gerais"),
+        ("JOÃO FRANCISCO C DE JESUS RODRIGUES", "Ajudante Prático de Elétrica"),
+        ("JADSON DIAS DE OLIVEIRA SOUSA", "Ajudante Comum"),
+        ("JOSÉ AUGUSTO DOS SANTOS BISPO", "Ajudante Comum"),
+        ("WALTER BATISTA DOS SANTOS FILHO", "Carpinteiro"),
+    ]
+    inseridos = 0
+    for nome, funcao in _lista:
+        if not Colaborador.query.filter(Colaborador.nome.ilike(nome)).first():
+            db.session.add(Colaborador(nome=nome, funcao=funcao, escopo='infraestrutura', ativo=True))
+            inseridos += 1
+    db.session.commit()
+    flash(f'✅ {inseridos} colaboradores de infraestrutura cadastrados!', 'success')
+    return redirect(url_for('colaboradores'))
+
+
 @app.route('/admin/seed-colaboradores', methods=['POST'])
 @admin_required
 def seed_colaboradores():

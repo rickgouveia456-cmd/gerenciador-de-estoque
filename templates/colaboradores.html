@@ -86,6 +86,12 @@
                         <i class="bi bi-cloud-download me-1"></i> Importar Estrutura
                     </button>
                 </form>
+                <form action="/admin/seed-colaboradores-infra" method="POST" class="mb-0">
+                    <button type="submit" class="btn btn-sm btn-outline-info fw-semibold"
+                            onclick="return confirm('Cadastrar 27 colaboradores de Infraestrutura QLP? Duplicatas serão ignoradas.')">
+                        <i class="bi bi-cloud-download me-1"></i> Importar Infra QLP
+                    </button>
+                </form>
                 {% endif %}
             </div>
         </div>

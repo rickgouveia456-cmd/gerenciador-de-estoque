@@ -290,6 +290,7 @@ class Usuario(db.Model):
     senha_hash = db.Column(db.String(256), nullable=False)
     perfil = db.Column(db.String(20), default='colaborador')  # admin | colaborador | mestre | almoxarife | tecnico_seguranca | analista
     almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=True)
+    escopo = db.Column(db.String(50), nullable=True)  # estrutura | infraestrutura | acabamento — usado pelo analista
     email = db.Column(db.String(120), nullable=True)
     ativo = db.Column(db.Boolean, default=True)
     totp_secret = db.Column(db.String(32), nullable=True)   # 2FA — None = desativado
@@ -647,6 +648,9 @@ def run_migrations():
 
             # ── Campo foto_url em requisicao_mestre ───────────────────────────
             safe_exec(conn, "ALTER TABLE requisicao_mestre ADD COLUMN foto_url TEXT")
+
+            # ── Campo escopo em usuario (para analista) ───────────────────────
+            safe_exec(conn, "ALTER TABLE usuario ADD COLUMN escopo VARCHAR(50)")
 
             # ── Campo local em ferramenta ─────────────────────────────────────
             safe_exec(conn, "ALTER TABLE ferramenta ADD COLUMN local VARCHAR(100)")
@@ -1076,7 +1080,13 @@ def deletar_almoxarifado(id):
 @app.route('/item/novo', methods=['GET', 'POST'])
 @almoxarife_required
 def novo_item():
-    almoxarifados = Almoxarifado.query.all()
+    u = usuario_atual()
+    # Almoxarife só vê seus próprios almoxarifados no select
+    if u.perfil == 'admin':
+        almoxarifados = Almoxarifado.query.all()
+    else:
+        ids = u.almoxarifados_permitidos()
+        almoxarifados = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).all() if ids else []
     if request.method == 'POST':
         it = Item(
             nome=request.form['nome'],
@@ -1102,7 +1112,12 @@ def editar_item(id):
     if u.perfil in ('mestre', 'tecnico_seguranca', 'analista') or (u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos()):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('item', id=id))
-    almoxarifados = Almoxarifado.query.all()
+    # Almoxarife só vê seus próprios almoxarifados no select
+    if u.perfil == 'admin':
+        almoxarifados = Almoxarifado.query.all()
+    else:
+        ids = u.almoxarifados_permitidos()
+        almoxarifados = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).all() if ids else []
     if request.method == 'POST':
         it.nome = request.form['nome']
         it.codigo = request.form['codigo']
@@ -1140,9 +1155,13 @@ def editar_item(id):
 def deletar_item(id):
     it = Item.query.get_or_404(id)
     u = usuario_atual()
-    # Apenas admin pode deletar itens
-    if u.perfil != 'admin':
-        flash('Apenas administradores podem deletar itens.', 'danger')
+    # Admin pode deletar qualquer item; almoxarife pode deletar itens do próprio almoxarifado
+    if u.perfil == 'admin':
+        pass  # permitido
+    elif u.perfil == 'almoxarife' and it.almoxarifado_id in u.almoxarifados_permitidos():
+        pass  # almoxarife do almoxarifado pode deletar
+    else:
+        flash('Sem permissão para deletar este item.', 'danger')
         return redirect(url_for('item', id=id))
     alm_id = it.almoxarifado_id
     db.session.delete(it)
@@ -3115,6 +3134,9 @@ def colaboradores():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('index'))
     cols = Colaborador.query.order_by(Colaborador.ativo.desc(), Colaborador.nome).all()
+    # Analista vê apenas colaboradores do seu próprio escopo
+    if u.perfil == 'analista' and u.escopo:
+        cols = [c for c in cols if (c.escopo or '').lower() == u.escopo.lower()]
     from collections import OrderedDict
     grupos = OrderedDict([
         ('estrutura',      {'label': '🏗️ Estrutura',      'cor': '#f0a500', 'colaboradores': []}),

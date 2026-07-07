@@ -664,6 +664,8 @@ def run_migrations():
 
             # ── Campo obra em almoxarifado ────────────────────────────────────
             safe_exec(conn, "ALTER TABLE almoxarifado ADD COLUMN obra VARCHAR(100)")
+            # Setar obra padrão para almoxarifados existentes sem obra definida
+            safe_exec(conn, "UPDATE almoxarifado SET obra = 'Salvador' WHERE obra IS NULL OR obra = ''")
 
             # ── Tabela permissao_extra ────────────────────────────────────────
             if is_pg:

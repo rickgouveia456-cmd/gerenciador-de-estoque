@@ -156,7 +156,7 @@
         <span class="nav-section">Almoxarifados</span>
         {% set obras_vistas = [] %}
         {% for alm in sidebar_alms %}
-        {% set obra_nome = alm.obra or 'Geral' %}
+        {% set obra_nome = alm.obra or 'Salvador' %}
         {% if obra_nome not in obras_vistas %}
             {% if obras_vistas.append(obra_nome) %}{% endif %}
             <div class="px-2 py-1 mt-1">

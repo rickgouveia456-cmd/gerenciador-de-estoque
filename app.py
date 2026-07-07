@@ -200,6 +200,7 @@ class Almoxarifado(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
     descricao = db.Column(db.String(200))
+    obra = db.Column(db.String(100), nullable=True)  # ex: "Salvador — Ventura", "Aracaju — Porto"
     itens = db.relationship('Item', backref='almoxarifado', lazy=True, cascade='all, delete-orphan')
 
 class Item(db.Model):
@@ -505,6 +506,9 @@ def inject_sidebar():
         ids = u.almoxarifados_permitidos()
         alms = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).all() if ids else []
 
+    # Ordenar por obra para que o agrupamento na sidebar fique consistente
+    alms = sorted(alms, key=lambda a: (a.obra or 'zzz', a.nome))
+
     # Contadores de ferramentas e EPIs por almoxarifado para exibir na sidebar
     sidebar_contadores = {}
     for alm in alms:
@@ -657,6 +661,9 @@ def run_migrations():
             # ── Colunas adicionais em item_epi (para bancos criados sem elas) ─
             safe_exec(conn, "ALTER TABLE item_epi ADD COLUMN quantidade INTEGER DEFAULT 1")
             safe_exec(conn, "ALTER TABLE item_epi ADD COLUMN local VARCHAR(100)")
+
+            # ── Campo obra em almoxarifado ────────────────────────────────────
+            safe_exec(conn, "ALTER TABLE almoxarifado ADD COLUMN obra VARCHAR(100)")
 
             # ── Tabela permissao_extra ────────────────────────────────────────
             if is_pg:
@@ -1023,6 +1030,7 @@ def item(id):
 def novo_almoxarifado():
     if request.method == 'POST':
         alm = Almoxarifado(nome=request.form['nome'], descricao=request.form.get('descricao', ''))
+        alm.obra = request.form.get('obra', '').strip() or None
         db.session.add(alm)
         db.session.commit()
         flash(f'Almoxarifado "{alm.nome}" criado!', 'success')
@@ -1041,6 +1049,7 @@ def editar_almoxarifado(id):
     if request.method == 'POST':
         alm.nome = request.form['nome']
         alm.descricao = request.form.get('descricao', '')
+        alm.obra = request.form.get('obra', '').strip() or None
         db.session.commit()
         flash('Almoxarifado atualizado!', 'success')
         return redirect(url_for('index'))

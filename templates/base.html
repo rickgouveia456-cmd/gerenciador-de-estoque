@@ -154,7 +154,17 @@
         {% endif %}
 
         <span class="nav-section">Almoxarifados</span>
+        {% set obras_vistas = [] %}
         {% for alm in sidebar_alms %}
+        {% set obra_nome = alm.obra or 'Geral' %}
+        {% if obra_nome not in obras_vistas %}
+            {% if obras_vistas.append(obra_nome) %}{% endif %}
+            <div class="px-2 py-1 mt-1">
+                <small class="text-muted fw-semibold" style="font-size:0.7rem;letter-spacing:0.05em;text-transform:uppercase">
+                    📍 {{ obra_nome }}
+                </small>
+            </div>
+        {% endif %}
         {% set c = sidebar_contadores.get(alm.id, {}) %}
         {% set alm_open = request.view_args is not none and (request.view_args.get('id') == alm.id or request.view_args.get('alm_id') == alm.id) %}
         <div>

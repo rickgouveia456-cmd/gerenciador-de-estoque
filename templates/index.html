@@ -118,6 +118,13 @@
                 <div class="fw-bold mb-2" style="color:var(--accent);font-size:1rem">
                     <i class="bi bi-archive me-2"></i>{{ alm.nome }}
                 </div>
+                {% if alm.obra %}
+                <div class="mb-2">
+                    <span class="badge bg-secondary" style="font-size:0.7rem;font-weight:500">
+                        📍 {{ alm.obra }}
+                    </span>
+                </div>
+                {% endif %}
                 <p class="text-muted small">{{ alm.descricao }}</p>
                 <div class="d-flex justify-content-between mb-2">
                     <span class="text-muted">Total de itens:</span>

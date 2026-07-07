@@ -20,6 +20,13 @@
                         <textarea name="descricao" class="form-control" rows="3"
                                   placeholder="Descrição opcional">{{ almoxarifado.descricao if almoxarifado else '' }}</textarea>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Obra / Empreendimento</label>
+                        <input type="text" name="obra" class="form-control"
+                               value="{{ almoxarifado.obra or '' if almoxarifado else '' }}"
+                               placeholder="Ex: Salvador — Ventura, Aracaju — Porto">
+                        <div class="form-text">Agrupa este almoxarifado por obra na sidebar</div>
+                    </div>
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-primary">
                             <i class="bi bi-check-lg me-1"></i>

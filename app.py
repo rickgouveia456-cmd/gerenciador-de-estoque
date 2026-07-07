@@ -1785,11 +1785,15 @@ def relatorio_consumo_pessoa():
         return None  # sem colaborador identificável
 
     def normalizar_nome(nome):
-        """Remove sufixos de requisição do nome."""
+        """Remove sufixos de requisição do nome e normaliza capitalização."""
         if not nome:
             return None
         # Remove ' | req XXXX' ou ' | REQ XXXX' ou ' | ajuste ...' do final
         nome_limpo = re.sub(r'\s*[|·]\s*.+$', '', nome).strip()
+        if not nome_limpo:
+            return None
+        # Normaliza: remove espaços duplos, converte para título (João Silva)
+        nome_limpo = re.sub(r'\s+', ' ', nome_limpo).strip().upper()
         return nome_limpo if nome_limpo else None
 
     def e_nome_valido(nome):
@@ -2440,6 +2444,7 @@ def relatorio_alertas():
         itens = Item.query.filter(Item.quantidade <= Item.estoque_minimo, Item.ativo == True).order_by(
             Item.fixado.desc(), Item.quantidade.asc()
         ).all()
+        todos_ativos = Item.query.filter(Item.ativo == True).all()
     else:
         ids = u.almoxarifados_permitidos()
         itens = Item.query.filter(
@@ -2447,7 +2452,38 @@ def relatorio_alertas():
             Item.almoxarifado_id.in_(ids),
             Item.ativo == True
         ).order_by(Item.fixado.desc(), Item.quantidade.asc()).all() if ids else []
-    return render_template('relatorio_alertas.html', itens=itens)
+        todos_ativos = Item.query.filter(
+            Item.ativo == True, Item.almoxarifado_id.in_(ids)
+        ).all() if ids else []
+
+    # ── Previsão de Ruptura ───────────────────────────────────────────────────
+    from datetime import timedelta
+    limite_dias = 10  # alertar itens que vão acabar em até 10 dias
+    corte = datetime.utcnow() - timedelta(days=30)
+    ruptura = []
+    for it in todos_ativos:
+        if it.quantidade <= 0:
+            continue  # já zerado, aparece nos alertas normais
+        if it.quantidade <= it.estoque_minimo:
+            continue  # já aparece nos alertas normais
+        # Consumo dos últimos 30 dias
+        total_saidas = sum(
+            m.quantidade for m in it.movimentacoes
+            if m.tipo == 'saida' and m.data >= corte
+        )
+        if total_saidas <= 0:
+            continue  # item sem consumo recente — sem previsão
+        consumo_diario = total_saidas / 30
+        dias_restantes = it.quantidade / consumo_diario
+        if dias_restantes <= limite_dias:
+            ruptura.append({
+                'item': it,
+                'dias': round(dias_restantes, 1),
+                'consumo_diario': round(consumo_diario, 2),
+            })
+    ruptura.sort(key=lambda x: x['dias'])
+
+    return render_template('relatorio_alertas.html', itens=itens, ruptura=ruptura)
 
 @app.route('/item/<int:id>/status_compra', methods=['POST'])
 @login_required

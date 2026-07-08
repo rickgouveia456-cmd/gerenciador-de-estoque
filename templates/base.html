@@ -154,23 +154,40 @@
         {% endif %}
 
         <span class="nav-section">Almoxarifados</span>
+        {% set cidades_vistas = [] %}
         {% set obras_vistas = [] %}
         {% for alm in sidebar_alms %}
-        {% set obra_nome = alm.obra or 'Salvador' %}
-        {% if obra_nome not in obras_vistas %}
-            {% if obras_vistas.append(obra_nome) %}{% endif %}
-            <div class="px-2 py-1 mt-1">
-                <small class="text-muted fw-semibold" style="font-size:0.7rem;letter-spacing:0.05em;text-transform:uppercase">
-                    📍 {{ obra_nome }}
+        {% set cidade_nome = alm.cidade or 'Salvador' %}
+        {% set obra_nome = alm.obra or '—' %}
+        {% set obra_key = cidade_nome ~ '||' ~ obra_nome %}
+
+        {% if cidade_nome not in cidades_vistas %}
+            {% if cidades_vistas.append(cidade_nome) %}{% endif %}
+            {% if obras_vistas.append('__reset__') %}{% endif %}
+            <div class="px-2 pt-2 pb-0">
+                <small class="fw-bold d-flex align-items-center gap-1"
+                       style="font-size:0.72rem;letter-spacing:0.06em;text-transform:uppercase;color:var(--accent)">
+                    📍 {{ cidade_nome }}
                 </small>
             </div>
         {% endif %}
+
+        {% if obra_key not in obras_vistas %}
+            {% if obras_vistas.append(obra_key) %}{% endif %}
+            <div class="px-3 py-1">
+                <small class="text-muted fw-semibold"
+                       style="font-size:0.7rem;letter-spacing:0.04em">
+                    🏘️ {{ obra_nome }}
+                </small>
+            </div>
+        {% endif %}
+
         {% set c = sidebar_contadores.get(alm.id, {}) %}
         {% set alm_open = request.view_args is not none and (request.view_args.get('id') == alm.id or request.view_args.get('alm_id') == alm.id) %}
         <div>
-            <div class="nav-link d-flex align-items-center justify-content-between pe-2"
+            <div class="nav-link d-flex align-items-center justify-content-between pe-2 ps-4"
                  style="cursor:pointer" onclick="toggleAlm({{ alm.id }})">
-                <span><i class="bi bi-archive me-2"></i>{{ alm.nome | truncate(14, True) }}</span>
+                <span style="font-size:0.85rem"><i class="bi bi-archive me-1"></i>{{ alm.nome | truncate(16, True) }}</span>
                 <div class="d-flex align-items-center gap-1">
                     {% set pct = sidebar_contadores.get(alm.id, {}).get('pct', 100) %}
                     <small class="{% if pct < 50 %}text-danger{% elif pct < 80 %}text-warning{% else %}text-success{% endif %}"
@@ -181,20 +198,20 @@
             </div>
             <div id="sub_{{ alm.id }}" {% if not alm_open %}style="display:none"{% endif %}>
                 <a href="/almoxarifado/{{ alm.id }}"
-                   class="nav-link ps-4 py-1 d-flex justify-content-between align-items-center {% if request.endpoint == 'almoxarifado' and request.view_args.get('id') == alm.id %}active{% endif %}"
-                   style="font-size:0.82rem">
+                   class="nav-link ps-5 py-1 d-flex justify-content-between align-items-center {% if request.endpoint == 'almoxarifado' and request.view_args.get('id') == alm.id %}active{% endif %}"
+                   style="font-size:0.8rem">
                     <span><i class="bi bi-boxes me-1"></i>Insumos</span>
                     <span class="badge rounded-pill bg-secondary" style="font-size:0.65rem">{{ c.get('itens', 0) }}</span>
                 </a>
                 <a href="/almoxarifado/{{ alm.id }}/ferramentas"
-                   class="nav-link ps-4 py-1 d-flex justify-content-between align-items-center {% if request.endpoint == 'ferramentas' and request.view_args.get('alm_id') == alm.id %}active{% endif %}"
-                   style="font-size:0.82rem">
+                   class="nav-link ps-5 py-1 d-flex justify-content-between align-items-center {% if request.endpoint == 'ferramentas' and request.view_args.get('alm_id') == alm.id %}active{% endif %}"
+                   style="font-size:0.8rem">
                     <span><i class="bi bi-tools me-1"></i>Ferramentas</span>
                     <span class="badge rounded-pill bg-secondary" style="font-size:0.65rem">{{ c.get('ferr', 0) }}</span>
                 </a>
                 <a href="/almoxarifado/{{ alm.id }}/epis"
-                   class="nav-link ps-4 py-1 d-flex justify-content-between align-items-center {% if request.endpoint == 'epis' and request.view_args.get('alm_id') == alm.id %}active{% endif %}"
-                   style="font-size:0.82rem">
+                   class="nav-link ps-5 py-1 d-flex justify-content-between align-items-center {% if request.endpoint == 'epis' and request.view_args.get('alm_id') == alm.id %}active{% endif %}"
+                   style="font-size:0.8rem">
                     <span><i class="bi bi-shield-check me-1"></i>EPIs / Uniformes</span>
                     <span class="badge rounded-pill bg-secondary" style="font-size:0.65rem">{{ c.get('epi', 0) }}</span>
                 </a>

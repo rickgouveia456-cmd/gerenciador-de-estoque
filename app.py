@@ -671,6 +671,8 @@ def run_migrations():
             safe_exec(conn, "ALTER TABLE almoxarifado ADD COLUMN cidade VARCHAR(100)")
             # Setar cidade padrão para almoxarifados existentes sem cidade definida
             safe_exec(conn, "UPDATE almoxarifado SET cidade = 'Salvador' WHERE cidade IS NULL OR cidade = ''")
+            # Se obra contém nome de cidade (Aracaju/Salvador), mover para cidade e limpar obra
+            safe_exec(conn, "UPDATE almoxarifado SET cidade = obra, obra = NULL WHERE obra IN ('Aracaju', 'Salvador', 'aracaju', 'salvador') AND (cidade IS NULL OR cidade = '')")
 
             # ── Tabela permissao_extra ────────────────────────────────────────
             if is_pg:

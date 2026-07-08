@@ -331,6 +331,8 @@ class Colaborador(db.Model):
     nome = db.Column(db.String(100), nullable=False)
     funcao = db.Column(db.String(50))   # ex: pedreiro, servente, eletricista
     escopo = db.Column(db.String(50))   # ex: estrutura, acabamento, infraestrutura, forma
+    obra = db.Column(db.String(100), nullable=True)   # ex: Ventura Patamares, Porto Aruana
+    cidade = db.Column(db.String(100), nullable=True) # ex: Salvador, Aracaju
     tipo = db.Column(db.String(30), default='peao')  # peao | mestre | tecnico_seguranca | engenheiro | almoxarife
     ativo = db.Column(db.Boolean, default=True)
     data_cadastro = db.Column(db.DateTime, default=agora)
@@ -645,6 +647,9 @@ def run_migrations():
 
             # ── Campo escopo em colaborador ──────────────────────────────────
             safe_exec(conn, "ALTER TABLE colaborador ADD COLUMN escopo VARCHAR(50)")
+            # ── Campos obra e cidade em colaborador ───────────────────────────
+            safe_exec(conn, "ALTER TABLE colaborador ADD COLUMN obra VARCHAR(100)")
+            safe_exec(conn, "ALTER TABLE colaborador ADD COLUMN cidade VARCHAR(100)")
 
             # ── Campo devolvido em movimentacao ──────────────────────────────
             safe_exec(conn, "ALTER TABLE movimentacao ADD COLUMN devolvido BOOLEAN")
@@ -673,6 +678,9 @@ def run_migrations():
             safe_exec(conn, "UPDATE almoxarifado SET cidade = 'Salvador' WHERE cidade IS NULL OR cidade = ''")
             # Se obra contém nome de cidade (Aracaju/Salvador), mover para cidade e limpar obra
             safe_exec(conn, "UPDATE almoxarifado SET cidade = obra, obra = NULL WHERE obra IN ('Aracaju', 'Salvador', 'aracaju', 'salvador') AND (cidade IS NULL OR cidade = '')")
+            # ── Campos obra e cidade em colaborador ───────────────────────────
+            safe_exec(conn, "ALTER TABLE colaborador ADD COLUMN obra VARCHAR(100)")
+            safe_exec(conn, "ALTER TABLE colaborador ADD COLUMN cidade VARCHAR(100)")
 
             # ── Tabela permissao_extra ────────────────────────────────────────
             if is_pg:
@@ -3191,20 +3199,38 @@ def colaboradores():
         return redirect(url_for('index'))
     cols = Colaborador.query.order_by(Colaborador.ativo.desc(), Colaborador.nome).all()
 
-    # Determinar escopo do almoxarife pelo nome do seu almoxarifado vinculado
+    # Determinar escopo, obra e cidade do almoxarife pelo seu almoxarifado vinculado
     escopo_almoxarife = None
+    obra_almoxarife = None
+    cidade_almoxarife = None
     if u.perfil == 'almoxarife' and u.almoxarifado_id:
         alm = db.session.get(Almoxarifado, u.almoxarifado_id)
         if alm:
+            obra_almoxarife = (alm.obra or '').lower().strip() or None
+            cidade_almoxarife = (alm.cidade or '').lower().strip() or None
             nome_lower = alm.nome.lower()
             for esc in ['estrutura', 'acabamento', 'infraestrutura', 'forma', 'acampamento']:
                 if esc in nome_lower:
                     escopo_almoxarife = esc
                     break
 
-    # Almoxarife vê apenas colaboradores da sua frente
-    if u.perfil == 'almoxarife' and escopo_almoxarife:
-        cols = [c for c in cols if (c.escopo or '').lower() == escopo_almoxarife]
+    # Almoxarife vê apenas colaboradores da sua obra E frente
+    if u.perfil == 'almoxarife':
+        def colab_pertence(c):
+            # Filtro por obra (se colaborador tem obra definida)
+            if obra_almoxarife and c.obra:
+                if c.obra.lower().strip() != obra_almoxarife:
+                    return False
+            # Filtro por cidade (se colaborador tem cidade definida)
+            if cidade_almoxarife and c.cidade:
+                if c.cidade.lower().strip() != cidade_almoxarife:
+                    return False
+            # Filtro por escopo (frente de obra)
+            if escopo_almoxarife and c.escopo:
+                if c.escopo.lower().strip() != escopo_almoxarife:
+                    return False
+            return True
+        cols = [c for c in cols if colab_pertence(c)]
 
     # Analista vê apenas colaboradores do seu próprio escopo
     if u.perfil == 'analista' and u.escopo:
@@ -3234,7 +3260,16 @@ def novo_colaborador():
     nome = request.form.get('nome', '').strip()
     funcao = request.form.get('funcao', '').strip()
     escopo = request.form.get('escopo', '').strip()
+    obra = request.form.get('obra', '').strip()
+    cidade = request.form.get('cidade', '').strip()
     tipo = request.form.get('tipo', 'peao').strip()
+
+    # Se almoxarife não preencheu obra/cidade, usa os do almoxarifado dele
+    if not obra and u.perfil == 'almoxarife' and u.almoxarifado_id:
+        alm = db.session.get(Almoxarifado, u.almoxarifado_id)
+        if alm:
+            obra = alm.obra or ''
+            cidade = alm.cidade or ''
     if not nome:
         flash('Informe o nome do colaborador.', 'warning')
         return redirect(url_for('colaboradores'))
@@ -3242,7 +3277,8 @@ def novo_colaborador():
     if Colaborador.query.filter(Colaborador.nome.ilike(nome)).first():
         flash(f'Colaborador "{nome}" já está cadastrado.', 'warning')
         return redirect(url_for('colaboradores'))
-    db.session.add(Colaborador(nome=nome, funcao=funcao or None, escopo=escopo or None, tipo=tipo or 'peao'))
+    db.session.add(Colaborador(nome=nome, funcao=funcao or None, escopo=escopo or None,
+                               obra=obra or None, cidade=cidade or None, tipo=tipo or 'peao'))
     db.session.commit()
     flash(f'✅ Colaborador "{nome}" cadastrado!', 'success')
     return redirect(url_for('colaboradores'))

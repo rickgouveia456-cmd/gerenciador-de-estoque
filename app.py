@@ -3181,6 +3181,22 @@ def colaboradores():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('index'))
     cols = Colaborador.query.order_by(Colaborador.ativo.desc(), Colaborador.nome).all()
+
+    # Determinar escopo do almoxarife pelo nome do seu almoxarifado vinculado
+    escopo_almoxarife = None
+    if u.perfil == 'almoxarife' and u.almoxarifado_id:
+        alm = db.session.get(Almoxarifado, u.almoxarifado_id)
+        if alm:
+            nome_lower = alm.nome.lower()
+            for esc in ['estrutura', 'acabamento', 'infraestrutura', 'forma', 'acampamento']:
+                if esc in nome_lower:
+                    escopo_almoxarife = esc
+                    break
+
+    # Almoxarife vê apenas colaboradores da sua frente
+    if u.perfil == 'almoxarife' and escopo_almoxarife:
+        cols = [c for c in cols if (c.escopo or '').lower() == escopo_almoxarife]
+
     # Analista vê apenas colaboradores do seu próprio escopo
     if u.perfil == 'analista' and u.escopo:
         cols = [c for c in cols if (c.escopo or '').lower() == u.escopo.lower()]

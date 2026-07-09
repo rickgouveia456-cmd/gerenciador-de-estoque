@@ -1116,20 +1116,31 @@ def novo_item():
         ids = u.almoxarifados_permitidos()
         almoxarifados = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).all() if ids else []
     if request.method == 'POST':
-        it = Item(
-            nome=request.form['nome'],
-            codigo=request.form['codigo'],
-            unidade=request.form['unidade'],
-            quantidade=float(request.form.get('quantidade', 0)),
-            estoque_minimo=float(request.form.get('estoque_minimo', 0)),
-            almoxarifado_id=int(request.form['almoxarifado_id']),
-            categoria=request.form.get('categoria', 'geral'),
-            ca=request.form.get('ca', '').strip() or None
-        )
-        db.session.add(it)
-        db.session.commit()
-        flash(f'Item "{it.nome}" cadastrado!', 'success')
-        return redirect(url_for('almoxarifado', id=it.almoxarifado_id))
+        codigo = request.form['codigo'].strip()
+        # Verificar duplicata de código
+        existente = Item.query.filter(Item.codigo.ilike(codigo)).first()
+        if existente:
+            flash(f'⚠️ Código "{codigo}" já está em uso pelo item "{existente.nome}" no almoxarifado "{existente.almoxarifado.nome}". Use um código diferente.', 'danger')
+            return render_template('form_item.html', item=None, almoxarifados=almoxarifados)
+        try:
+            it = Item(
+                nome=request.form['nome'],
+                codigo=codigo,
+                unidade=request.form['unidade'],
+                quantidade=float(request.form.get('quantidade', 0)),
+                estoque_minimo=float(request.form.get('estoque_minimo', 0)),
+                almoxarifado_id=int(request.form['almoxarifado_id']),
+                categoria=request.form.get('categoria', 'geral'),
+                ca=request.form.get('ca', '').strip() or None
+            )
+            db.session.add(it)
+            db.session.commit()
+            flash(f'Item "{it.nome}" cadastrado!', 'success')
+            return redirect(url_for('almoxarifado', id=it.almoxarifado_id))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao cadastrar item: código já existe ou dados inválidos.', 'danger')
+            return render_template('form_item.html', item=None, almoxarifados=almoxarifados)
     return render_template('form_item.html', item=None, almoxarifados=almoxarifados)
 
 @app.route('/item/<int:id>/editar', methods=['GET', 'POST'])

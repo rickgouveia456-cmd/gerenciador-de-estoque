@@ -207,7 +207,7 @@ class Almoxarifado(db.Model):
 class Item(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(300), nullable=False)
-    codigo = db.Column(db.String(50), unique=True, nullable=False)
+    codigo = db.Column(db.String(50), nullable=False)
     unidade = db.Column(db.String(20), nullable=False)
     quantidade = db.Column(db.Float, default=0)
     estoque_minimo = db.Column(db.Float, default=0)
@@ -1117,10 +1117,14 @@ def novo_item():
         almoxarifados = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).all() if ids else []
     if request.method == 'POST':
         codigo = request.form['codigo'].strip()
-        # Verificar duplicata de código
-        existente = Item.query.filter(Item.codigo.ilike(codigo)).first()
+        # Verificar duplicata de código DENTRO do mesmo almoxarifado
+        alm_id = int(request.form['almoxarifado_id'])
+        existente = Item.query.filter(
+            Item.codigo.ilike(codigo),
+            Item.almoxarifado_id == alm_id
+        ).first()
         if existente:
-            flash(f'⚠️ Código "{codigo}" já está em uso pelo item "{existente.nome}" no almoxarifado "{existente.almoxarifado.nome}". Use um código diferente.', 'danger')
+            flash(f'⚠️ Código "{codigo}" já está em uso pelo item "{existente.nome}" neste almoxarifado. Use um código diferente.', 'danger')
             return render_template('form_item.html', item=None, almoxarifados=almoxarifados)
         try:
             it = Item(

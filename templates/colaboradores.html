@@ -34,6 +34,28 @@
                         </select>
                         <div class="form-text">Define em qual frente de obra este colaborador atua</div>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Obra / Empreendimento</label>
+                        <input type="text" name="obra" class="form-control"
+                               list="lista-obras-colab"
+                               placeholder="Ex: Ventura Patamares, Porto Aruana">
+                        <datalist id="lista-obras-colab">
+                            <option value="Ventura Patamares">
+                            <option value="Alto Paralela">
+                            <option value="Porto Aruana">
+                            <option value="Maralto">
+                        </datalist>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Cidade</label>
+                        <input type="text" name="cidade" class="form-control"
+                               list="lista-cidades-colab"
+                               placeholder="Ex: Salvador, Aracaju">
+                        <datalist id="lista-cidades-colab">
+                            <option value="Salvador">
+                            <option value="Aracaju">
+                        </datalist>
+                    </div>
                     <button type="submit" class="btn btn-primary w-100">
                         <i class="bi bi-plus-lg me-1"></i> Cadastrar
                     </button>

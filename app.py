@@ -22,21 +22,9 @@ logger = logging.getLogger(__name__)
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
-# ── VARIÁVEIS DE AMBIENTE ─────────────────────────────────────────────────────
-# Valores padrão apenas para desenvolvimento local — no Railway use as variáveis de ambiente
-if not os.environ.get('BACKUP_EMAIL_FROM'):
-    os.environ['BACKUP_EMAIL_FROM'] = 'seu-email@gmail.com'
-if not os.environ.get('BACKUP_EMAIL_TO'):
-    os.environ['BACKUP_EMAIL_TO'] = 'seu-email@gmail.com'
-# BACKUP_EMAIL_PASS não tem fallback — deve ser configurada no Railway
-
 # ── DIAGNÓSTICO DE VARIÁVEIS DE AMBIENTE ─────────────────────────────────────
 logger.info('=' * 60)
 logger.info('DIAGNÓSTICO DE VARIÁVEIS DE AMBIENTE:')
-logger.info(f'  BACKUP_EMAIL_FROM = {os.environ.get("BACKUP_EMAIL_FROM", "NÃO DEFINIDO")}')
-_pass = os.environ.get("BACKUP_EMAIL_PASS", "")
-logger.info(f'  BACKUP_EMAIL_PASS = {"SIM" if _pass else "NÃO DEFINIDO"}')
-logger.info(f'  BACKUP_EMAIL_TO   = {os.environ.get("BACKUP_EMAIL_TO", "NÃO DEFINIDO")}')
 logger.info(f'  DATABASE_URL      = {"SIM" if os.environ.get("DATABASE_URL") else "NÃO DEFINIDO"}')
 logger.info('=' * 60)
 
@@ -992,7 +980,13 @@ def healthz():
 def index():
     u = usuario_atual()
     # Mestre e técnico de segurança só acessam a tela de requisições
+    # Engenheiro com pode_requisitar também é redirecionado para lá
     if u.perfil in ('mestre', 'tecnico_seguranca'):
+        return redirect(url_for('mestre_requisicoes'))
+    if u.perfil == 'colaborador' and (
+        u.pode_requisitar or
+        any(p.permissao == 'fazer_requisicao' for p in u.permissoes_extras)
+    ):
         return redirect(url_for('mestre_requisicoes'))
     if u.perfil in ('admin', 'analista'):
         almoxarifados = Almoxarifado.query.all()
@@ -1018,7 +1012,14 @@ def index():
 def almoxarifado(id):
     u = usuario_atual()
     # Mestre e técnico de segurança não acessam almoxarifado diretamente
+    # Engenheiro com pode_requisitar também não — usa tela de requisições
     if u.perfil in ('mestre', 'tecnico_seguranca'):
+        flash('Acesso restrito. Use a tela de requisições.', 'warning')
+        return redirect(url_for('mestre_requisicoes'))
+    if u.perfil == 'colaborador' and (
+        u.pode_requisitar or
+        any(p.permissao == 'fazer_requisicao' for p in u.permissoes_extras)
+    ):
         flash('Acesso restrito. Use a tela de requisições.', 'warning')
         return redirect(url_for('mestre_requisicoes'))
     alm = Almoxarifado.query.get_or_404(id)
@@ -3523,52 +3524,65 @@ def revogar_permissao(pid):
 def mestre_requisicoes():
     """Lista de requisições do mestre logado."""
     u = usuario_atual()
-    if u.perfil in ('mestre', 'tecnico_seguranca'):
-        reqs = RequisicaoMestre.query.filter_by(mestre_id=u.id).order_by(RequisicaoMestre.data_criacao.desc()).all()
-    elif u.perfil == 'colaborador' and any(p.permissao == 'fazer_requisicao' for p in u.permissoes_extras):
-        reqs = RequisicaoMestre.query.filter_by(mestre_id=u.id).order_by(RequisicaoMestre.data_criacao.desc()).all()
-    elif u.perfil in ('admin', 'almoxarife'):
-        # Almoxarife vê requisições do seu almoxarifado
-        if u.perfil == 'almoxarife' and u.almoxarifado_id:
-            reqs = RequisicaoMestre.query.filter_by(almoxarifado_id=u.almoxarifado_id).order_by(RequisicaoMestre.data_criacao.desc()).all()
-        else:
-            reqs = RequisicaoMestre.query.order_by(RequisicaoMestre.data_criacao.desc()).all()
-    else:
+
+    pode_fazer = (
+        u.perfil in ('mestre', 'tecnico_seguranca', 'admin', 'almoxarife') or
+        u.pode_requisitar or
+        any(p.permissao == 'fazer_requisicao' for p in u.permissoes_extras)
+    )
+    if not pode_fazer:
         flash('Acesso negado.', 'danger')
         return redirect(url_for('index'))
+
+    if u.perfil == 'admin':
+        reqs = RequisicaoMestre.query.order_by(RequisicaoMestre.data_criacao.desc()).all()
+    elif u.perfil == 'almoxarife' and u.almoxarifado_id:
+        reqs = RequisicaoMestre.query.filter_by(almoxarifado_id=u.almoxarifado_id).order_by(RequisicaoMestre.data_criacao.desc()).all()
+    else:
+        # mestre, tecnico, engenheiro com pode_requisitar — vê só as suas
+        reqs = RequisicaoMestre.query.filter_by(mestre_id=u.id).order_by(RequisicaoMestre.data_criacao.desc()).all()
+
     return render_template('mestre_requisicoes.html', requisicoes=reqs)
 
 @app.route('/mestre/requisicoes/nova', methods=['GET', 'POST'])
 @login_required
 def mestre_requisicao_nova():
-    """Mestre cria nova requisição."""
+    """Mestre, técnico, engenheiro (pode_requisitar) e admin criam requisição."""
     u = usuario_atual()
-    if u.perfil not in ('mestre', 'tecnico_seguranca', 'admin'):
-        # Verifica se o engenheiro tem permissão extra de fazer requisição
-        if u.perfil == 'colaborador' and any(p.permissao == 'fazer_requisicao' for p in u.permissoes_extras):
-            pass  # Permite continuar
-        else:
-            flash('Apenas mestres e técnicos podem criar requisições.', 'danger')
-            return redirect(url_for('index'))
 
-    # Almoxarifado do solicitante
-    if u.perfil in ('mestre', 'tecnico_seguranca'):
+    # ── Verificação de acesso ────────────────────────────────────────────────
+    pode_fazer = (
+        u.perfil in ('mestre', 'tecnico_seguranca', 'admin') or
+        u.pode_requisitar or
+        any(p.permissao == 'fazer_requisicao' for p in u.permissoes_extras)
+    )
+    if not pode_fazer:
+        flash('Você não tem permissão para criar requisições.', 'danger')
+        return redirect(url_for('index'))
+
+    # ── Almoxarifados que o usuário pode requisitar ──────────────────────────
+    if u.perfil == 'admin':
+        almoxarifados = Almoxarifado.query.all()
+    elif u.perfil == 'tecnico_seguranca':
+        ids = u.almoxarifados_permitidos()
+        almoxarifados = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).all() if ids else (
+            [u.almoxarifado] if u.almoxarifado_id else []
+        )
+    else:
+        # mestre, colaborador com pode_requisitar, engenheiro — usa almoxarifado vinculado
         if not u.almoxarifado_id:
             flash('Você não está vinculado a nenhum almoxarifado. Contate o administrador.', 'warning')
             return redirect(url_for('mestre_requisicoes'))
-        # Técnico de segurança pode ver múltiplos almoxarifados (principal + acessos extras)
-        if u.perfil == 'tecnico_seguranca':
-            ids = u.almoxarifados_permitidos()
-            almoxarifados = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).all() if ids else [u.almoxarifado]
-        else:
-            almoxarifados = [u.almoxarifado]
-    else:
-        almoxarifados = Almoxarifado.query.all()
+        almoxarifados = [u.almoxarifado]
+
+    if not almoxarifados:
+        flash('Nenhum almoxarifado disponível para requisição.', 'warning')
+        return redirect(url_for('mestre_requisicoes'))
 
     itens_json = {}
     for alm in almoxarifados:
         # Mestre NÃO pode requisitar EPIs — filtra categoria epi
-        # Técnico de segurança pode requisitar tudo
+        # Demais perfis podem requisitar tudo
         if u.perfil == 'mestre':
             itens_filtrados = [it for it in alm.itens if it.ativo and it.categoria != 'epi']
         else:
@@ -4036,223 +4050,7 @@ def gerar_excel_backup():
     buf.seek(0)
     return buf
 
-def _criptografar_backup(buf_excel, senha_zip):
-    """Empacota o Excel em ZIP com criptografia AES-256 protegido por senha."""
-    try:
-        import pyzipper, io as _io
-        buf_zip = _io.BytesIO()
-        with pyzipper.AESZipFile(buf_zip, 'w',
-                                  compression=pyzipper.ZIP_DEFLATED,
-                                  encryption=pyzipper.WZ_AES) as zf:
-            zf.setpassword(senha_zip.encode('utf-8'))
-            buf_excel.seek(0)
-            zf.writestr(f'backup_estoque_{date.today()}.xlsx', buf_excel.read())
-        buf_zip.seek(0)
-        return buf_zip, True
-    except ImportError:
-        # pyzipper não instalado — envia sem criptografia com aviso
-        logger.warning('BACKUP: pyzipper não disponível — enviando sem criptografia.')
-        buf_excel.seek(0)
-        return buf_excel, False
 
-def enviar_backup_email(buf):
-    """Envia o backup completo por email (para admin ou destinatário fixo)."""
-    import smtplib
-    from email.mime.multipart import MIMEMultipart
-    from email.mime.base import MIMEBase
-    from email.mime.text import MIMEText
-    from email import encoders
-
-    remetente = os.environ.get('BACKUP_EMAIL_FROM')
-    senha     = os.environ.get('BACKUP_EMAIL_PASS')
-    destinatario = os.environ.get('BACKUP_EMAIL_TO', 'rickgouveia17@gmail.com')
-    senha_zip = os.environ.get('BACKUP_ZIP_PASS', '')
-    if not senha_zip:
-        import secrets as _sec
-        senha_zip = _sec.token_urlsafe(24)
-        logger.warning('BACKUP: BACKUP_ZIP_PASS não configurada — usando senha aleatória para este envio.')
-
-    if not remetente or not senha:
-        logger.info('BACKUP: variáveis BACKUP_EMAIL_FROM e BACKUP_EMAIL_PASS não configuradas.')
-        return False
-
-    buf_anexo, criptografado = _criptografar_backup(buf, senha_zip)
-    ext = 'zip' if criptografado else 'xlsx'
-    nome_arquivo = f'backup_estoque_{date.today()}.{ext}'
-
-    msg = MIMEMultipart()
-    msg['From'] = remetente
-    msg['To'] = destinatario
-    msg['Subject'] = f'Backup Estoque Obra Patamares — {date.today().strftime("%d/%m/%Y")}'
-
-    aviso_cripto = (
-        f'\n🔒 Arquivo protegido com senha AES-256.\n'
-        f'Senha do arquivo: configure BACKUP_ZIP_PASS no Railway.\n'
-        if criptografado else
-        '\n⚠️ ATENÇÃO: arquivo enviado SEM criptografia (pyzipper não instalado).\n'
-    )
-    corpo = (
-        f'Backup automático do sistema de estoque.\n'
-        f'Data: {datetime.now().strftime("%d/%m/%Y %H:%M")}\n'
-        f'{aviso_cripto}\n'
-        f'Este arquivo contém todos os dados de estoque de todos os almoxarifados.\n'
-        f'Guarde em local seguro.'
-    )
-    msg.attach(MIMEText(corpo, 'plain'))
-
-    part = MIMEBase('application', 'octet-stream')
-    part.set_payload(buf_anexo.read())
-    encoders.encode_base64(part)
-    part.add_header('Content-Disposition', f'attachment; filename="{nome_arquivo}"')
-    msg.attach(part)
-
-    try:
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-            smtp.login(remetente, senha)
-            smtp.send_message(msg)
-        logger.info(f'BACKUP: enviado para {destinatario} (criptografado={criptografado})')
-        return True
-    except Exception as e:
-        logger.info(f'BACKUP: erro ao enviar email — {e}')
-        return False
-
-
-def _smtp_connect():
-    """Retorna conexão SMTP autenticada ou None se não configurado."""
-    import smtplib
-    remetente = os.environ.get('BACKUP_EMAIL_FROM')
-    senha     = os.environ.get('BACKUP_EMAIL_PASS')
-    if not remetente or not senha:
-        return None, None, None
-    smtp = smtplib.SMTP_SSL('smtp.gmail.com', 465)
-    smtp.login(remetente, senha)
-    return smtp, remetente, senha
-
-
-def enviar_backup_por_almoxarifado():
-    """Envia backup via Gmail SMTP personalizado por perfil:
-    - Admin → backup completo (todos os almoxarifados)
-    - Almoxarife → backup só do seu almoxarifado
-    - Engenheiro/Colaborador → backup do almoxarifado vinculado
-    - Emails fixos da equipe → backup completo
-    """
-    import smtplib
-    from email.mime.multipart import MIMEMultipart
-    from email.mime.base import MIMEBase
-    from email.mime.text import MIMEText
-    from email import encoders
-
-    remetente = os.environ.get('BACKUP_EMAIL_FROM', 'rickgouveia157@gmail.com')
-    senha_app = os.environ.get('BACKUP_EMAIL_PASS', '').replace(' ', '')  # remove espaços da senha de app
-    senha_zip = os.environ.get('BACKUP_ZIP_PASS', '')
-    if not senha_zip:
-        import secrets as _sec
-        senha_zip = _sec.token_urlsafe(24)
-        logger.warning('BACKUP: BACKUP_ZIP_PASS não configurada — usando senha aleatória para este envio.')
-    hoje      = date.today().strftime('%d/%m/%Y')
-
-    if not senha_app:
-        logger.warning('BACKUP: BACKUP_EMAIL_PASS não configurada.')
-        return False, 'Variável BACKUP_EMAIL_PASS não configurada no Railway.'
-
-    def _enviar(destinatarios, assunto, corpo, buf_excel, nome_arquivo):
-        """Envia um email com anexo Excel criptografado para a lista de destinatários."""
-        if not destinatarios:
-            logger.warning(f'BACKUP: lista de destinatários vazia para "{assunto}"')
-            return
-        buf_anexo, criptografado = _criptografar_backup(buf_excel, senha_zip)
-        ext = 'zip' if criptografado else 'xlsx'
-        nome_final = nome_arquivo.replace('.xlsx', f'.{ext}')
-        aviso = '🔒 Arquivo protegido com senha AES-256. Senha: variável BACKUP_ZIP_PASS no Railway.' if criptografado else '⚠️ Sem criptografia.'
-        buf_anexo.seek(0)
-        msg = MIMEMultipart()
-        msg['From']    = remetente
-        msg['To']      = remetente
-        todos = list(set(destinatarios) | {remetente})
-        if len(todos) > 1:
-            msg['Bcc'] = ', '.join(d for d in todos if d != remetente)
-        msg['Subject'] = assunto
-        msg.attach(MIMEText(f'{corpo}\n\n{aviso}', 'plain', 'utf-8'))
-        part = MIMEBase('application', 'octet-stream')
-        part.set_payload(buf_anexo.read())
-        encoders.encode_base64(part)
-        part.add_header('Content-Disposition', f'attachment; filename="{nome_final}"')
-        msg.attach(part)
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-            smtp.login(remetente, senha_app)
-            smtp.sendmail(remetente, todos, msg.as_string())
-        logger.info(f'BACKUP: enviado para {todos} (criptografado={criptografado})')
-
-    erros = 0
-
-    try:
-        # ── 1. Admins + emails fixos da equipe → backup COMPLETO ──
-        emails_admin = [u.email for u in Usuario.query.filter_by(perfil='admin', ativo=True).all() if u.email]
-        emails_fixos = [
-            'simao.reis@stanza.com.br', 'bianca.melo@stanza.com.br',
-            'deyvid.lopes@stanza.com.br', 'henrique.silva@stanza.com.br',
-            'ariel.apolonio@stanza.com.br', 'alisson.guimaraes@stanza.com.br',
-            'laura.santos@stanza.com.br', 'alanderson.santos@stanza.com.br',
-            remetente,
-        ]
-        dest_completo = list(set(emails_admin + emails_fixos))
-        buf = gerar_excel_backup()
-        try:
-            _enviar(dest_completo,
-                    f'Backup Completo Estoque — {hoje}',
-                    f'Backup automático completo.\nData: {datetime.now().strftime("%d/%m/%Y %H:%M")}\nContém todos os almoxarifados.',
-                    buf, f'backup_completo_{date.today()}.xlsx')
-            logger.info(f'BACKUP: completo enviado para {dest_completo}')
-        except Exception as e:
-            logger.error(f'BACKUP: erro backup completo — {e}')
-            erros += 1
-
-        # ── 2. Almoxarifes → backup só do SEU almoxarifado ──
-        for alm in Almoxarifado.query.all():
-            dest_alm = [u.email for u in alm.usuarios
-                        if u.perfil == 'almoxarife' and u.ativo and u.email
-                        and u.email not in dest_completo]
-            if not dest_alm:
-                continue
-            buf_alm = gerar_excel_backup_almoxarifado(alm)
-            try:
-                _enviar(dest_alm,
-                        f'Backup {alm.nome} — {hoje}',
-                        f'Backup do almoxarifado: {alm.nome}\nData: {datetime.now().strftime("%d/%m/%Y %H:%M")}',
-                        buf_alm, f'backup_{alm.nome.replace(" ","_")}_{date.today()}.xlsx')
-                logger.info(f'BACKUP: "{alm.nome}" enviado para {dest_alm}')
-            except Exception as e:
-                logger.error(f'BACKUP: erro "{alm.nome}" — {e}')
-                erros += 1
-
-        # ── 3. Engenheiros/Colaboradores → backup do almoxarifado vinculado ──
-        for u in Usuario.query.filter(
-            Usuario.perfil.in_(['colaborador']),
-            Usuario.ativo == True,
-            Usuario.email != None,
-            Usuario.almoxarifado_id != None
-        ).all():
-            if u.email in dest_completo:
-                continue
-            alm = u.almoxarifado
-            if not alm:
-                continue
-            buf_eng = gerar_excel_backup_almoxarifado(alm)
-            try:
-                _enviar([u.email],
-                        f'Backup {alm.nome} — {hoje}',
-                        f'Backup do almoxarifado: {alm.nome}\nData: {datetime.now().strftime("%d/%m/%Y %H:%M")}',
-                        buf_eng, f'backup_{alm.nome.replace(" ","_")}_{date.today()}.xlsx')
-                logger.info(f'BACKUP: engenheiro {u.email} recebeu backup de "{alm.nome}"')
-            except Exception as e:
-                logger.error(f'BACKUP: erro engenheiro {u.email} — {e}')
-                erros += 1
-
-    except Exception as e:
-        logger.error(f'BACKUP: erro geral — {e}')
-        return False, str(e)
-
-    return erros == 0, None
 
 @app.route('/admin/seed-colaboradores-infra', methods=['POST'])
 @admin_required
@@ -4476,21 +4274,8 @@ def debug_env():
 @app.route('/admin/backup', methods=['GET', 'POST'])
 @admin_required
 def backup_manual():
-    """Admin faz backup manual — baixa Excel ou envia por email."""
+    """Admin faz backup manual — baixa Excel."""
     if request.method == 'POST':
-        acao = request.form.get('acao', 'download')
-
-        if acao == 'email':
-            try:
-                ok, erro_msg = enviar_backup_por_almoxarifado()
-                if ok:
-                    flash('✅ Backup enviado com sucesso! Verifique seu email.', 'success')
-                else:
-                    flash(f'❌ Erro ao enviar: {erro_msg}', 'danger')
-            except Exception as e:
-                flash(f'❌ Erro: {str(e)}', 'danger')
-            return redirect(url_for('backup_manual'))
-
         # Download direto
         try:
             buf = gerar_excel_backup()
@@ -4502,8 +4287,7 @@ def backup_manual():
             return redirect(url_for('backup_manual'))
 
     # GET — mostra a página
-    email_configurado = bool(os.environ.get('BACKUP_EMAIL_FROM', '').strip())
-    return render_template('backup.html', email_configurado=email_configurado)
+    return render_template('backup.html')
 
 def seed_data():
     if Almoxarifado.query.count() == 0:
@@ -4771,59 +4555,6 @@ def init_on_first_request():
             inicializar_banco()
         except Exception as e:
             logger.error(f'Erro na inicialização: {e}')
-
-# ── BACKUP AUTOMÁTICO DIÁRIO ─────────────────────────────────────────────────
-def job_backup_diario():
-    """Executa o backup automático todo dia às 20h (horário de Brasília)."""
-    agora_str = datetime.now().strftime("%d/%m/%Y %H:%M")
-    logger.info(f'BACKUP AUTOMÁTICO: iniciando às {agora_str}')
-
-    # Diagnóstico das variáveis de ambiente
-    remetente = os.environ.get('BACKUP_EMAIL_FROM', '')
-    senha = os.environ.get('BACKUP_EMAIL_PASS', '')
-    destino_fixo = os.environ.get('BACKUP_EMAIL_TO', 'rickgouveia17@gmail.com')
-    logger.info(f'BACKUP AUTOMÁTICO: remetente configurado = {"SIM (" + remetente + ")" if remetente else "NÃO — BACKUP_EMAIL_FROM não definido"}')
-    logger.info(f'BACKUP AUTOMÁTICO: senha configurada = {"SIM" if senha else "NÃO — BACKUP_EMAIL_PASS não definido"}')
-    logger.info(f'BACKUP AUTOMÁTICO: destino fixo = {destino_fixo}')
-
-    with app.app_context():
-        try:
-            # Log dos emails cadastrados
-            admins = [u for u in Usuario.query.filter_by(perfil='admin', ativo=True).all() if u.email]
-            almoxarifes = [u for u in Usuario.query.filter_by(perfil='almoxarife', ativo=True).all() if u.email]
-            logger.info(f'BACKUP AUTOMÁTICO: admins com email = {[u.email for u in admins]}')
-            logger.info(f'BACKUP AUTOMÁTICO: almoxarifes com email = {[u.email for u in almoxarifes]}')
-
-            ok, erro_msg = enviar_backup_por_almoxarifado()
-            if ok:
-                logger.info('BACKUP AUTOMÁTICO: ✅ enviado com sucesso!')
-            else:
-                logger.info(f'BACKUP AUTOMÁTICO: ❌ falha no envio. Detalhe: {erro_msg}')
-        except Exception as e:
-            logger.info(f'BACKUP AUTOMÁTICO: erro — {e}')
-
-try:
-    from apscheduler.schedulers.background import BackgroundScheduler
-    from apscheduler.triggers.cron import CronTrigger
-    import pytz
-
-    _already_started = os.environ.get('_SCHEDULER_STARTED', '')
-    if not _already_started:
-        os.environ['_SCHEDULER_STARTED'] = '1'
-        _tz = pytz.timezone('America/Sao_Paulo')
-        scheduler = BackgroundScheduler(timezone=_tz)
-        scheduler.add_job(
-            job_backup_diario,
-            CronTrigger(hour=20, minute=0, timezone=_tz),
-            id='backup_diario',
-            replace_existing=True
-        )
-        scheduler.start()
-        logger.info('BACKUP AUTOMÁTICO: ✅ agendado para todo dia às 20:00 (Brasília)')
-    else:
-        logger.info('BACKUP AUTOMÁTICO: scheduler já iniciado, ignorando.')
-except Exception as e:
-    logger.error(f'BACKUP AUTOMÁTICO: ❌ erro ao iniciar agendador — {e}')
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

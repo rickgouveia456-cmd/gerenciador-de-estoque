@@ -141,7 +141,7 @@
             <i class="bi bi-clipboard-check me-2"></i> Requisições
             <span id="badge-req-pendentes" class="badge bg-danger ms-1" style="display:none"></span>
         </a>
-        {% if usuario_atual.perfil in ('admin', 'almoxarife') %}
+        {% if usuario_atual.perfil in ('admin', 'almoxarife') or usuario_atual.pode_requisitar %}
         <a href="/mestre/requisicoes/nova" class="nav-link {% if request.endpoint == 'mestre_requisicao_nova' %}active{% endif %}">
             <i class="bi bi-plus-circle me-2"></i> Nova Requisição
         </a>

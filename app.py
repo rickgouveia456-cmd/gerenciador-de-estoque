@@ -2878,7 +2878,7 @@ def api_almoxarife_notificacoes():
 def api_colaboradores():
     if _check_api_rate(request.remote_addr or '0.0.0.0'):
         return jsonify([]), 429
-    """Autocomplete — busca colaboradores por nome, priorizando o escopo do usuário logado."""
+    """Autocomplete — busca colaboradores por nome, filtrado por cidade do usuário."""
     q = request.args.get('q', '').strip()
     u = usuario_atual()
     nomes = []
@@ -2888,45 +2888,74 @@ def api_colaboradores():
 
     from sqlalchemy import text
 
-    # Determinar escopo do usuário logado (via almoxarifado vinculado)
+    # Determinar cidade e escopo do usuário logado (via almoxarifado vinculado)
     escopo_usuario = None
+    cidade_usuario = None
     if u and u.almoxarifado_id:
         alm = db.session.get(Almoxarifado, u.almoxarifado_id)
         if alm:
+            cidade_usuario = (alm.cidade or '').strip() or None
             nome_lower = alm.nome.lower()
             for esc in ['estrutura', 'acabamento', 'infraestrutura', 'forma', 'acampamento']:
                 if esc in nome_lower:
                     escopo_usuario = esc
                     break
 
+    # Filtro de cidade — admin vê todos, demais só da sua cidade
+    cidade_filtro = cidade_usuario if (u and u.perfil != 'admin') else None
+
+    def _query_colabs(extra_where='', extra_params=None):
+        params = {"q": like}
+        cidade_clause = ''
+        if cidade_filtro:
+            cidade_clause = f" AND (cidade {ilike} :cidade OR cidade IS NULL OR cidade = '')" if not extra_where else \
+                            f" AND (cidade {ilike} :cidade OR cidade IS NULL OR cidade = '')"
+            params["cidade"] = cidade_filtro
+        if extra_params:
+            params.update(extra_params)
+        sql = f"SELECT nome, funcao, escopo, tipo FROM colaborador WHERE ativo = TRUE AND nome {ilike} :q{cidade_clause}{extra_where} ORDER BY nome LIMIT 15"
+        return db.session.execute(text(sql), params).fetchall()
+
     # 1. Colaboradores do mesmo escopo primeiro
     if escopo_usuario:
-        rows = db.session.execute(
-            text(f"SELECT nome, funcao, escopo, tipo FROM colaborador WHERE ativo = TRUE AND nome {ilike} :q AND escopo {ilike} :esc ORDER BY nome LIMIT 10"),
-            {"q": like, "esc": f"%{escopo_usuario}%"}
-        ).fetchall()
+        rows = _query_colabs(
+            extra_where=f" AND escopo {ilike} :esc",
+            extra_params={"esc": f"%{escopo_usuario}%"}
+        )
         for r in rows:
             nomes.append({'nome': r[0], 'funcao': r[1] or '', 'escopo': r[2] or '', 'tipo': r[3] or 'peao'})
 
-    # 2. Demais colaboradores (sem escopo ou escopo diferente)
+    # 2. Demais colaboradores da mesma cidade
     nomes_ja = {n['nome'] for n in nomes}
-    rows = db.session.execute(
-        text(f"SELECT nome, funcao, escopo, tipo FROM colaborador WHERE ativo = TRUE AND nome {ilike} :q ORDER BY nome LIMIT 15"),
-        {"q": like}
-    ).fetchall()
+    rows = _query_colabs()
     for r in rows:
         if r[0] not in nomes_ja:
             nomes.append({'nome': r[0], 'funcao': r[1] or '', 'escopo': r[2] or '', 'tipo': r[3] or 'peao'})
 
-    # 3. Histórico de requisições (fallback — nomes que não estão no banco de colaboradores)
+    # 3. Histórico de requisições dos almoxarifados da cidade (fallback)
     nomes_ja = {n['nome'] for n in nomes}
-    rows = db.session.execute(
-        text(f"SELECT DISTINCT colaborador FROM requisicao_mestre WHERE colaborador {ilike} :q ORDER BY colaborador LIMIT 5"),
-        {"q": like}
-    ).fetchall()
-    for r in rows:
-        if r[0] not in nomes_ja:
-            nomes.append({'nome': r[0], 'funcao': '', 'escopo': '', 'tipo': ''})
+    if cidade_filtro:
+        # Só requisições de almoxarifados da mesma cidade
+        ids_cidade = [a.id for a in Almoxarifado.query.filter(
+            Almoxarifado.cidade.ilike(cidade_filtro)
+        ).all()]
+        if ids_cidade:
+            placeholders = ','.join(str(i) for i in ids_cidade)
+            rows = db.session.execute(
+                text(f"SELECT DISTINCT colaborador FROM requisicao_mestre WHERE colaborador {ilike} :q AND almoxarifado_id IN ({placeholders}) ORDER BY colaborador LIMIT 5"),
+                {"q": like}
+            ).fetchall()
+            for r in rows:
+                if r[0] not in nomes_ja:
+                    nomes.append({'nome': r[0], 'funcao': '', 'escopo': '', 'tipo': ''})
+    else:
+        rows = db.session.execute(
+            text(f"SELECT DISTINCT colaborador FROM requisicao_mestre WHERE colaborador {ilike} :q ORDER BY colaborador LIMIT 5"),
+            {"q": like}
+        ).fetchall()
+        for r in rows:
+            if r[0] not in nomes_ja:
+                nomes.append({'nome': r[0], 'funcao': '', 'escopo': '', 'tipo': ''})
 
     return jsonify(nomes[:12])
 

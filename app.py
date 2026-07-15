@@ -1705,9 +1705,22 @@ def relatorio_consumo():
     alm_id = request.args.get('almoxarifado_id', type=int)
     data_ini = request.args.get('data_ini', str(date.today().replace(day=1)))
     data_fim = request.args.get('data_fim', str(date.today()))
-    if alm_id and u.perfil not in ('admin', 'analista') and alm_id not in u.almoxarifados_permitidos():
+
+    # Determina almoxarifados permitidos filtrados por cidade
+    if u.perfil == 'admin':
+        ids_perm = None
+    else:
+        ids_perm = set(u.almoxarifados_permitidos())
+        # Técnico/analista: expande para todos da sua cidade
+        if u.perfil in ('tecnico_seguranca', 'analista') and u.almoxarifado_id:
+            alm_ref = db.session.get(Almoxarifado, u.almoxarifado_id)
+            if alm_ref and alm_ref.cidade:
+                ids_perm = {a.id for a in Almoxarifado.query.filter_by(cidade=alm_ref.cidade).all()}
+
+    if alm_id and ids_perm and alm_id not in ids_perm:
         flash('Acesso negado.', 'danger')
         return redirect(url_for('index'))
+
     query = Movimentacao.query.filter(
         Movimentacao.tipo == 'saida',
         Movimentacao.data >= data_ini,
@@ -1715,10 +1728,21 @@ def relatorio_consumo():
     )
     if alm_id:
         query = query.join(Item).filter(Item.almoxarifado_id == alm_id)
-    elif u.perfil not in ('admin', 'analista'):
-        query = query.join(Item).filter(Item.almoxarifado_id.in_(u.almoxarifados_permitidos()))
+    elif u.perfil != 'admin':
+        if ids_perm:
+            query = query.join(Item).filter(Item.almoxarifado_id.in_(ids_perm))
+        else:
+            query = query.filter(False)
+
     movs = query.order_by(Movimentacao.data.desc()).all()
-    almoxarifados = Almoxarifado.query.all()
+
+    if u.perfil == 'admin':
+        almoxarifados = Almoxarifado.query.all()
+    elif ids_perm:
+        almoxarifados = Almoxarifado.query.filter(Almoxarifado.id.in_(ids_perm)).all()
+    else:
+        almoxarifados = []
+
     return render_template('relatorio_consumo.html', movimentacoes=movs,
                            almoxarifados=almoxarifados, data_ini=data_ini,
                            data_fim=data_fim, alm_id=alm_id)
@@ -1823,12 +1847,25 @@ def relatorio_consumo_pessoa():
     data_fim = request.args.get('data_fim', str(date.today()))
     responsavel_filtro = request.args.get('responsavel', '').strip()
 
-    # Técnico de segurança e analista com permissão ver_relatorios vêem todos os almoxarifados
+    # Técnico de segurança e analista com permissão ver_relatorios vêem
+    # todos os almoxarifados da sua cidade — não de outras cidades
     tem_perm_relatorio = u.perfil in ('tecnico_seguranca', 'analista') or any(
         p.permissao == 'ver_relatorios' and p.ativo for p in u.permissoes_extras
     )
 
-    if alm_id and u.perfil not in ('admin', 'analista') and not tem_perm_relatorio and alm_id not in u.almoxarifados_permitidos():
+    # IDs de almoxarifados que o usuário pode ver (filtrado por cidade para não-admins)
+    if u.perfil == 'admin':
+        ids_permitidos = None  # sem restrição
+    else:
+        ids_permitidos = u.almoxarifados_permitidos()
+        # Para técnico/analista: expande para todos da mesma cidade
+        if tem_perm_relatorio and u.almoxarifado_id:
+            alm_ref = db.session.get(Almoxarifado, u.almoxarifado_id)
+            if alm_ref and alm_ref.cidade:
+                alms_cidade = Almoxarifado.query.filter_by(cidade=alm_ref.cidade).all()
+                ids_permitidos = set(a.id for a in alms_cidade)
+
+    if alm_id and u.perfil != 'admin' and ids_permitidos and alm_id not in ids_permitidos:
         flash('Acesso negado.', 'danger')
         return redirect(url_for('index'))
 
@@ -1839,8 +1876,12 @@ def relatorio_consumo_pessoa():
     )
     if alm_id:
         query = query.join(Item).filter(Item.almoxarifado_id == alm_id)
-    elif u.perfil != 'admin' and not tem_perm_relatorio:
-        query = query.join(Item).filter(Item.almoxarifado_id.in_(u.almoxarifados_permitidos()))
+    elif u.perfil != 'admin':
+        if ids_permitidos:
+            query = query.join(Item).filter(Item.almoxarifado_id.in_(ids_permitidos))
+        else:
+            # sem almoxarifados permitidos — retorna vazio
+            query = query.filter(False)
 
     movs = query.order_by(Movimentacao.data.desc()).all()
 
@@ -1932,7 +1973,14 @@ def relatorio_consumo_pessoa():
             'reqs': reqs,
         })
 
-    almoxarifados = Almoxarifado.query.all()
+    # Lista de almoxarifados para o filtro — respeita cidade do usuário
+    if u.perfil == 'admin':
+        almoxarifados = Almoxarifado.query.all()
+    elif ids_permitidos:
+        almoxarifados = Almoxarifado.query.filter(Almoxarifado.id.in_(ids_permitidos)).all()
+    else:
+        almoxarifados = []
+
     return render_template('relatorio_consumo_pessoa.html',
                            resumo=resumo,
                            almoxarifados=almoxarifados,
@@ -2551,7 +2599,13 @@ def relatorio_alertas():
             itens = []
             todos_ativos = []
     else:
-        ids = u.almoxarifados_permitidos()
+        # tecnico_seguranca, almoxarife, colaborador com pode_ver_alertas
+        # Para técnico: expande para todos da sua cidade
+        ids = set(u.almoxarifados_permitidos())
+        if u.perfil == 'tecnico_seguranca' and u.almoxarifado_id:
+            alm_ref = db.session.get(Almoxarifado, u.almoxarifado_id)
+            if alm_ref and alm_ref.cidade:
+                ids = {a.id for a in Almoxarifado.query.filter_by(cidade=alm_ref.cidade).all()}
         itens = Item.query.filter(
             Item.quantidade <= Item.estoque_minimo,
             Item.almoxarifado_id.in_(ids),

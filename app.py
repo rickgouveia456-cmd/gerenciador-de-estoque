@@ -485,6 +485,18 @@ def inject_sidebar():
         return dict(sidebar_alms=[], usuario_atual=None, sidebar_contadores={})
     if u.perfil == 'admin':
         alms = Almoxarifado.query.all()
+    elif u.perfil == 'analista':
+        # Analista vê apenas almoxarifados da sua cidade (via almoxarifado vinculado)
+        if u.almoxarifado_id:
+            alm_ref = db.session.get(Almoxarifado, u.almoxarifado_id)
+            if alm_ref and alm_ref.cidade:
+                alms = Almoxarifado.query.filter(
+                    Almoxarifado.cidade.ilike(alm_ref.cidade)
+                ).all()
+            else:
+                alms = [alm_ref] if alm_ref else []
+        else:
+            alms = Almoxarifado.query.all()
     elif u.perfil in ('mestre', 'tecnico_seguranca'):
         if u.perfil == 'tecnico_seguranca':
             ids = u.almoxarifados_permitidos()
@@ -988,9 +1000,28 @@ def index():
         any(p.permissao == 'fazer_requisicao' for p in u.permissoes_extras)
     ):
         return redirect(url_for('mestre_requisicoes'))
-    if u.perfil in ('admin', 'analista'):
+    if u.perfil == 'admin':
         almoxarifados = Almoxarifado.query.all()
         alertas = Item.query.filter(Item.quantidade <= Item.estoque_minimo, Item.ativo == True).all()
+    elif u.perfil == 'analista':
+        # Analista vê apenas almoxarifados da sua cidade (via almoxarifado vinculado)
+        if u.almoxarifado_id:
+            alm_ref = db.session.get(Almoxarifado, u.almoxarifado_id)
+            cidade_analista = (alm_ref.cidade or '').strip() if alm_ref else None
+            if cidade_analista:
+                almoxarifados = Almoxarifado.query.filter(
+                    Almoxarifado.cidade.ilike(cidade_analista)
+                ).all()
+            else:
+                almoxarifados = [alm_ref] if alm_ref else []
+        else:
+            almoxarifados = Almoxarifado.query.all()
+        ids_analista = {a.id for a in almoxarifados}
+        alertas = Item.query.filter(
+            Item.quantidade <= Item.estoque_minimo,
+            Item.almoxarifado_id.in_(ids_analista),
+            Item.ativo == True
+        ).all()
     else:
         ids = u.almoxarifados_permitidos()
         almoxarifados = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).all() if ids else []
@@ -1026,6 +1057,14 @@ def almoxarifado(id):
     if u.perfil not in ('admin', 'analista') and id not in u.almoxarifados_permitidos():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('index'))
+    # Analista só acessa almoxarifados da sua cidade
+    if u.perfil == 'analista' and u.almoxarifado_id:
+        alm_ref = db.session.get(Almoxarifado, u.almoxarifado_id)
+        if alm_ref and alm_ref.cidade:
+            alm_alvo = Almoxarifado.query.get_or_404(id)
+            if (alm_alvo.cidade or '').lower().strip() != alm_ref.cidade.lower().strip():
+                flash('Acesso negado.', 'danger')
+                return redirect(url_for('index'))
     # Mostrar todos os itens (ativos e desativados) para permitir reativação
     itens = Item.query.filter_by(almoxarifado_id=id).order_by(Item.ativo.desc(), Item.nome).all()
     return render_template('almoxarifado.html', almoxarifado=alm, itens=itens)
@@ -1208,7 +1247,8 @@ def deletar_item(id):
         flash('Sem permissão para deletar este item.', 'danger')
         return redirect(url_for('item', id=id))
     alm_id = it.almoxarifado_id
-    db.session.delete(it)
+    # Soft delete — preserva histórico e evita erro de constraint com requisições/movimentações
+    it.ativo = False
     db.session.commit()
     flash('Item removido!', 'warning')
     return redirect(url_for('almoxarifado', id=alm_id))
@@ -2484,11 +2524,32 @@ def relatorio_alertas():
         if not tem_permissao:
             flash('Sem permissão para ver alertas de estoque. Solicite ao administrador.', 'warning')
             return redirect(url_for('index'))
-    if u.perfil in ('admin', 'analista'):
+    if u.perfil == 'admin':
         itens = Item.query.filter(Item.quantidade <= Item.estoque_minimo, Item.ativo == True).order_by(
             Item.fixado.desc(), Item.quantidade.asc()
         ).all()
         todos_ativos = Item.query.filter(Item.ativo == True).all()
+    elif u.perfil == 'analista':
+        # Analista vê apenas alertas da sua cidade
+        ids_alm = set()
+        if u.almoxarifado_id:
+            alm_ref = db.session.get(Almoxarifado, u.almoxarifado_id)
+            if alm_ref and alm_ref.cidade:
+                ids_alm = {a.id for a in Almoxarifado.query.filter(
+                    Almoxarifado.cidade.ilike(alm_ref.cidade)
+                ).all()}
+            elif alm_ref:
+                ids_alm = {alm_ref.id}
+        if ids_alm:
+            itens = Item.query.filter(
+                Item.quantidade <= Item.estoque_minimo,
+                Item.almoxarifado_id.in_(ids_alm),
+                Item.ativo == True
+            ).order_by(Item.fixado.desc(), Item.quantidade.asc()).all()
+            todos_ativos = Item.query.filter(Item.ativo == True, Item.almoxarifado_id.in_(ids_alm)).all()
+        else:
+            itens = []
+            todos_ativos = []
     else:
         ids = u.almoxarifados_permitidos()
         itens = Item.query.filter(
@@ -3233,13 +3294,17 @@ def colaboradores():
     # Almoxarife vê apenas colaboradores da sua obra E frente
     if u.perfil == 'almoxarife':
         def colab_pertence(c):
-            # Filtro por obra (se colaborador tem obra definida)
-            if obra_almoxarife and c.obra:
-                if c.obra.lower().strip() != obra_almoxarife:
+            # Filtro por obra — se almoxarife tem obra definida, só vê colaboradores
+            # com a mesma obra. Colaboradores sem obra passam apenas se cidade bater.
+            if obra_almoxarife:
+                obra_colab = (c.obra or '').lower().strip()
+                if obra_colab and obra_colab != obra_almoxarife:
                     return False
-            # Filtro por cidade (se colaborador tem cidade definida)
-            if cidade_almoxarife and c.cidade:
-                if c.cidade.lower().strip() != cidade_almoxarife:
+            # Filtro por cidade — se almoxarife tem cidade, colaboradores sem cidade
+            # ou de outra cidade ficam fora
+            if cidade_almoxarife:
+                cidade_colab = (c.cidade or '').lower().strip()
+                if cidade_colab != cidade_almoxarife:
                     return False
             # Filtro por escopo (frente de obra)
             if escopo_almoxarife and c.escopo:
@@ -3248,9 +3313,30 @@ def colaboradores():
             return True
         cols = [c for c in cols if colab_pertence(c)]
 
-    # Analista vê apenas colaboradores do seu próprio escopo
-    if u.perfil == 'analista' and u.escopo:
-        cols = [c for c in cols if (c.escopo or '').lower() == u.escopo.lower()]
+    # Analista vê apenas colaboradores da sua cidade E escopo
+    if u.perfil == 'analista':
+        # Determina cidade do analista pelo almoxarifado vinculado
+        cidade_analista = None
+        if u.almoxarifado_id:
+            alm_analista = db.session.get(Almoxarifado, u.almoxarifado_id)
+            if alm_analista:
+                cidade_analista = (alm_analista.cidade or '').lower().strip() or None
+
+        def analista_pertence(c):
+            # Filtro por cidade — se analista tem cidade definida, só vê colaboradores
+            # da mesma cidade. Colaboradores sem cidade definida ficam visíveis apenas
+            # para admin.
+            if cidade_analista:
+                cidade_colab = (c.cidade or '').lower().strip()
+                if cidade_colab != cidade_analista:
+                    return False
+            # Filtro por escopo
+            if u.escopo and c.escopo:
+                if c.escopo.lower().strip() != u.escopo.lower().strip():
+                    return False
+            return True
+
+        cols = [c for c in cols if analista_pertence(c)]
     from collections import OrderedDict
     grupos = OrderedDict([
         ('estrutura',      {'label': '🏗️ Estrutura',      'cor': '#f0a500', 'colaboradores': []}),
@@ -4559,3 +4645,4 @@ def init_on_first_request():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(debug=False, host='0.0.0.0', port=port)
+ba

@@ -1036,7 +1036,16 @@ def index():
         'itens_alerta': len([a for a in alertas if a.quantidade > 0]),
         'itens_criticos': len([a for a in alertas if a.quantidade <= 0]),
     }
-    return render_template('index.html', almoxarifados=almoxarifados, alertas=alertas, stats=stats)
+    # Previsão de ruptura no dashboard — itens OK mas em risco nos próximos 15 dias
+    ids_alm = {a.id for a in almoxarifados}
+    todos_ativos_dash = Item.query.filter(
+        Item.ativo == True,
+        Item.almoxarifado_id.in_(ids_alm)
+    ).all() if ids_alm else []
+    ruptura_dash = calcular_ruptura(todos_ativos_dash, limite_dias=15)
+
+    return render_template('index.html', almoxarifados=almoxarifados, alertas=alertas,
+                           stats=stats, ruptura=ruptura_dash)
 
 @app.route('/almoxarifado/<int:id>')
 @login_required
@@ -2562,6 +2571,72 @@ def excluir_movimentacoes():
     flash(f'{excluidas} movimentação(ões) excluída(s) e estoque revertido.', 'success')
     return redirect(request.referrer or url_for('relatorio_consumo_pessoa'))
 
+def calcular_ruptura(itens_ativos, limite_dias=30):
+    """Calcula previsão de ruptura para uma lista de itens ativos.
+
+    Usa média ponderada para maior precisão:
+    - Últimos 7 dias: peso 3  (tendência recente)
+    - Dias 8-30: peso 1       (tendência histórica)
+
+    Só inclui itens com estoque acima do mínimo e consumo recente real.
+    Retorna lista ordenada por urgência (menos dias primeiro).
+    """
+    from datetime import timedelta
+    agora_dt = datetime.utcnow()
+    corte_30 = agora_dt - timedelta(days=30)
+    corte_7  = agora_dt - timedelta(days=7)
+
+    ruptura = []
+    for it in itens_ativos:
+        # Já zerado ou abaixo do mínimo — aparece nos alertas normais
+        if it.quantidade <= it.estoque_minimo:
+            continue
+
+        movs = [m for m in it.movimentacoes if m.tipo == 'saida' and m.data >= corte_30]
+        if not movs:
+            continue  # sem consumo nos últimos 30 dias — sem previsão
+
+        saidas_7  = sum(m.quantidade for m in movs if m.data >= corte_7)
+        saidas_30 = sum(m.quantidade for m in movs)
+
+        consumo_diario_7  = saidas_7  / 7  if saidas_7  > 0 else 0
+        consumo_diario_30 = saidas_30 / 30 if saidas_30 > 0 else 0
+
+        # Média ponderada: tendência recente (7 dias) tem peso 3x
+        if consumo_diario_7 > 0 and consumo_diario_30 > 0:
+            consumo_diario = (consumo_diario_7 * 3 + consumo_diario_30 * 1) / 4
+        elif consumo_diario_7 > 0:
+            consumo_diario = consumo_diario_7
+        else:
+            consumo_diario = consumo_diario_30
+
+        if consumo_diario <= 0:
+            continue
+
+        # Dias até atingir o estoque mínimo (não zero)
+        estoque_disponivel = it.quantidade - it.estoque_minimo
+        dias_ate_minimo = estoque_disponivel / consumo_diario
+
+        # Dias até zerar completamente
+        dias_ate_zero = it.quantidade / consumo_diario
+
+        if dias_ate_minimo <= limite_dias:
+            ruptura.append({
+                'item': it,
+                'dias': round(dias_ate_minimo, 1),
+                'dias_zero': round(dias_ate_zero, 1),
+                'consumo_diario': round(consumo_diario, 2),
+                'urgencia': (
+                    'critico' if dias_ate_minimo <= 3 else
+                    'alerta'  if dias_ate_minimo <= 7 else
+                    'aviso'
+                ),
+            })
+
+    ruptura.sort(key=lambda x: x['dias'])
+    return ruptura
+
+
 @app.route('/relatorios/alertas')
 @login_required
 def relatorio_alertas():
@@ -2615,33 +2690,7 @@ def relatorio_alertas():
             Item.ativo == True, Item.almoxarifado_id.in_(ids)
         ).all() if ids else []
 
-    # ── Previsão de Ruptura ───────────────────────────────────────────────────
-    from datetime import timedelta
-    limite_dias = 10  # alertar itens que vão acabar em até 10 dias
-    corte = datetime.utcnow() - timedelta(days=30)
-    ruptura = []
-    for it in todos_ativos:
-        if it.quantidade <= 0:
-            continue  # já zerado, aparece nos alertas normais
-        if it.quantidade <= it.estoque_minimo:
-            continue  # já aparece nos alertas normais
-        # Consumo dos últimos 30 dias
-        total_saidas = sum(
-            m.quantidade for m in it.movimentacoes
-            if m.tipo == 'saida' and m.data >= corte
-        )
-        if total_saidas <= 0:
-            continue  # item sem consumo recente — sem previsão
-        consumo_diario = total_saidas / 30
-        dias_restantes = it.quantidade / consumo_diario
-        if dias_restantes <= limite_dias:
-            ruptura.append({
-                'item': it,
-                'dias': round(dias_restantes, 1),
-                'consumo_diario': round(consumo_diario, 2),
-            })
-    ruptura.sort(key=lambda x: x['dias'])
-
+    ruptura = calcular_ruptura(todos_ativos, limite_dias=30)
     return render_template('relatorio_alertas.html', itens=itens, ruptura=ruptura)
 
 @app.route('/item/<int:id>/status_compra', methods=['POST'])

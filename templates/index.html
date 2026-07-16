@@ -63,6 +63,56 @@
     </div>
 </div>
 
+<!-- Previsão de Ruptura -->
+{% if ruptura %}
+<div class="card border-0 shadow-sm mb-4" style="border-left:4px solid #f97316 !important;">
+    <div class="card-header d-flex align-items-center gap-2"
+         style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border-left:4px solid #f97316">
+        <span style="font-size:1.2rem">⏳</span>
+        <strong style="color:#c2410c">Previsão de Ruptura</strong>
+        <span class="badge ms-1" style="background:#f97316;color:#fff">{{ ruptura|length }}</span>
+        <span class="ms-auto small text-muted">Itens em risco nos próximos 15 dias</span>
+        <a href="/relatorios/alertas" class="btn btn-sm btn-outline-secondary ms-2">Ver todos</a>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0 table-sm">
+            <thead class="table-light">
+                <tr>
+                    <th>Item</th>
+                    <th>Almoxarifado</th>
+                    <th class="text-center">Estoque</th>
+                    <th class="text-center">Consumo/dia</th>
+                    <th class="text-center">Previsão</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in ruptura[:8] %}
+                <tr>
+                    <td>
+                        <a href="/item/{{ r.item.id }}" class="fw-semibold text-decoration-none">
+                            {{ r.item.nome }}
+                        </a>
+                    </td>
+                    <td class="small text-muted">{{ r.item.almoxarifado.nome }}</td>
+                    <td class="text-center">{{ r.item.quantidade|fmt_qtd }} {{ r.item.unidade }}</td>
+                    <td class="text-center text-muted small">{{ r.consumo_diario }} {{ r.item.unidade }}/dia</td>
+                    <td class="text-center">
+                        {% if r.urgencia == 'critico' %}
+                            <span class="badge bg-danger">🔴 ~{{ r.dias }}d p/ mínimo</span>
+                        {% elif r.urgencia == 'alerta' %}
+                            <span class="badge bg-warning text-dark">🟡 ~{{ r.dias }}d p/ mínimo</span>
+                        {% else %}
+                            <span class="badge" style="background:#f97316;color:#fff">🟠 ~{{ r.dias }}d p/ mínimo</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 <!-- Alertas de Estoque Mínimo -->
 {% if alertas %}
 <div class="card border-0 shadow-sm mb-4">

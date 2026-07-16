@@ -48,13 +48,14 @@
                         <td class="text-center fw-bold">{{ r.item.quantidade|fmt_qtd }} {{ r.item.unidade }}</td>
                         <td class="text-center text-muted small">{{ r.consumo_diario }} {{ r.item.unidade }}/dia</td>
                         <td class="text-center">
-                            {% if r.dias <= 3 %}
-                                <span class="badge bg-danger px-3 py-2">🔴 ~{{ r.dias }} dias</span>
-                            {% elif r.dias <= 7 %}
-                                <span class="badge bg-warning text-dark px-3 py-2">🟡 ~{{ r.dias }} dias</span>
+                            {% if r.urgencia == 'critico' %}
+                                <span class="badge bg-danger px-3 py-2">🔴 ~{{ r.dias }} dias p/ mínimo</span>
+                            {% elif r.urgencia == 'alerta' %}
+                                <span class="badge bg-warning text-dark px-3 py-2">🟡 ~{{ r.dias }} dias p/ mínimo</span>
                             {% else %}
-                                <span class="badge px-3 py-2" style="background:#f97316;color:#fff">🟠 ~{{ r.dias }} dias</span>
+                                <span class="badge px-3 py-2" style="background:#f97316;color:#fff">🟠 ~{{ r.dias }} dias p/ mínimo</span>
                             {% endif %}
+                            <div class="small text-muted mt-1">zera em ~{{ r.dias_zero }} dias</div>
                         </td>
                     </tr>
                     {% endfor %}

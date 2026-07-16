@@ -2571,14 +2571,14 @@ def excluir_movimentacoes():
     flash(f'{excluidas} movimentação(ões) excluída(s) e estoque revertido.', 'success')
     return redirect(request.referrer or url_for('relatorio_consumo_pessoa'))
 
-def calcular_ruptura(itens_ativos, limite_dias=30):
+def calcular_ruptura(itens_ativos, limite_dias=None):
     """Calcula previsão de ruptura para uma lista de itens ativos.
 
     Usa média ponderada para maior precisão:
     - Últimos 7 dias: peso 3  (tendência recente)
     - Dias 8-30: peso 1       (tendência histórica)
 
-    Só inclui itens com estoque acima do mínimo e consumo recente real.
+    Se limite_dias=None, retorna previsão para TODOS os itens com consumo.
     Retorna lista ordenada por urgência (menos dias primeiro).
     """
     from datetime import timedelta
@@ -2613,25 +2613,29 @@ def calcular_ruptura(itens_ativos, limite_dias=30):
         if consumo_diario <= 0:
             continue
 
-        # Dias até atingir o estoque mínimo (não zero)
+        # Dias até atingir o estoque mínimo
         estoque_disponivel = it.quantidade - it.estoque_minimo
         dias_ate_minimo = estoque_disponivel / consumo_diario
 
         # Dias até zerar completamente
         dias_ate_zero = it.quantidade / consumo_diario
 
-        if dias_ate_minimo <= limite_dias:
-            ruptura.append({
-                'item': it,
-                'dias': round(dias_ate_minimo, 1),
-                'dias_zero': round(dias_ate_zero, 1),
-                'consumo_diario': round(consumo_diario, 2),
-                'urgencia': (
-                    'critico' if dias_ate_minimo <= 3 else
-                    'alerta'  if dias_ate_minimo <= 7 else
-                    'aviso'
-                ),
-            })
+        # Filtra por limite se definido
+        if limite_dias is not None and dias_ate_minimo > limite_dias:
+            continue
+
+        ruptura.append({
+            'item': it,
+            'dias': int(round(dias_ate_minimo)),
+            'dias_zero': int(round(dias_ate_zero)),
+            'consumo_diario': round(consumo_diario, 2),
+            'urgencia': (
+                'critico' if dias_ate_minimo <= 3 else
+                'alerta'  if dias_ate_minimo <= 7 else
+                'aviso'   if dias_ate_minimo <= 15 else
+                'normal'
+            ),
+        })
 
     ruptura.sort(key=lambda x: x['dias'])
     return ruptura
@@ -2690,7 +2694,7 @@ def relatorio_alertas():
             Item.ativo == True, Item.almoxarifado_id.in_(ids)
         ).all() if ids else []
 
-    ruptura = calcular_ruptura(todos_ativos, limite_dias=30)
+    ruptura = calcular_ruptura(todos_ativos, limite_dias=None)
     return render_template('relatorio_alertas.html', itens=itens, ruptura=ruptura)
 
 @app.route('/item/<int:id>/status_compra', methods=['POST'])

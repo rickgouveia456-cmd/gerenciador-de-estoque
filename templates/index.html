@@ -101,8 +101,10 @@
                             <span class="badge bg-danger">🔴 ~{{ r.dias }}d p/ mínimo</span>
                         {% elif r.urgencia == 'alerta' %}
                             <span class="badge bg-warning text-dark">🟡 ~{{ r.dias }}d p/ mínimo</span>
-                        {% else %}
+                        {% elif r.urgencia == 'aviso' %}
                             <span class="badge" style="background:#f97316;color:#fff">🟠 ~{{ r.dias }}d p/ mínimo</span>
+                        {% else %}
+                            <span class="badge bg-secondary">🟢 ~{{ r.dias }}d p/ mínimo</span>
                         {% endif %}
                     </td>
                 </tr>

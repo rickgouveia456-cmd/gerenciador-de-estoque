@@ -52,8 +52,10 @@
                                 <span class="badge bg-danger px-3 py-2">🔴 ~{{ r.dias }} dias p/ mínimo</span>
                             {% elif r.urgencia == 'alerta' %}
                                 <span class="badge bg-warning text-dark px-3 py-2">🟡 ~{{ r.dias }} dias p/ mínimo</span>
-                            {% else %}
+                            {% elif r.urgencia == 'aviso' %}
                                 <span class="badge px-3 py-2" style="background:#f97316;color:#fff">🟠 ~{{ r.dias }} dias p/ mínimo</span>
+                            {% else %}
+                                <span class="badge bg-secondary px-3 py-2">🟢 ~{{ r.dias }} dias p/ mínimo</span>
                             {% endif %}
                             <div class="small text-muted mt-1">zera em ~{{ r.dias_zero }} dias</div>
                         </td>

@@ -1,22 +1,7 @@
-<tr class="{% if item.fixado %}table-warning{% elif item.status == 'critico' %}table-danger{% else %}table-warning{% endif %}"
+<tr class="{% if item.status == 'critico' %}table-danger{% else %}table-warning{% endif %}"
     data-busca="{{ item.nome | lower }} {{ item.codigo | lower }} {{ item.almoxarifado.nome | lower }}">
-    <td class="text-center">
-        {% if item.fixado %}<i class="bi bi-pin-fill text-warning"></i>{% endif %}
-    </td>
     <td>
         <strong>{{ item.nome }}</strong>
-        {% if prev %}
-            <span class="badge ms-1
-                {% if prev.urgencia == 'critico' %}bg-danger
-                {% elif prev.urgencia == 'alerta' %}bg-warning text-dark
-                {% elif prev.urgencia == 'aviso' %}text-white
-                {% else %}bg-secondary
-                {% endif %}"
-                {% if prev.urgencia == 'aviso' %}style="background:#f97316"{% endif %}
-                title="Zera em ~{{ prev.dias_zero }} dias">
-                ⏳ ~{{ prev.dias }}d
-            </span>
-        {% endif %}
         <br><small class="text-muted"><code>{{ item.codigo }}</code></small>
     </td>
     <td class="small">{{ item.almoxarifado.nome }}</td>
@@ -41,15 +26,22 @@
         </div>
     </td>
     <td class="text-center">
-        <button class="btn btn-sm border-0 bg-transparent p-0"
-                onclick="toggleFixar({{ item.id }}, this)"
-                title="{{ 'Desafixar' if item.fixado else 'Fixar item' }}">
-            {% if item.fixado %}
-                <i class="bi bi-pin-fill text-warning fs-5"></i>
-            {% else %}
-                <i class="bi bi-pin text-muted fs-5"></i>
-            {% endif %}
-        </button>
+        {% if prev %}
+            <div>
+                {% if prev.urgencia == 'critico' %}
+                    <span class="badge bg-danger px-2 py-1">🔴 ~{{ prev.dias }}d p/ mínimo</span>
+                {% elif prev.urgencia == 'alerta' %}
+                    <span class="badge bg-warning text-dark px-2 py-1">🟡 ~{{ prev.dias }}d p/ mínimo</span>
+                {% elif prev.urgencia == 'aviso' %}
+                    <span class="badge px-2 py-1" style="background:#f97316;color:#fff">🟠 ~{{ prev.dias }}d p/ mínimo</span>
+                {% else %}
+                    <span class="badge bg-secondary px-2 py-1">🟢 ~{{ prev.dias }}d p/ mínimo</span>
+                {% endif %}
+                <div class="small text-muted mt-1">zera em ~{{ prev.dias_zero }}d</div>
+            </div>
+        {% else %}
+            <span class="text-muted small">—</span>
+        {% endif %}
     </td>
     <td>
         <a href="/item/{{ item.id }}" class="btn btn-sm btn-primary">

@@ -12,62 +12,7 @@
     'recebido':           ('✅', 'Recebido',                  'success')
 } %}
 
-<!-- ── PREVISÃO DE RUPTURA ──────────────────────────────────────────── -->
-{% if ruptura %}
-<div class="card border-0 shadow-sm mb-4" style="border-left: 4px solid #f97316 !important;">
-    <div class="card-header fw-bold d-flex align-items-center gap-2"
-         style="background: linear-gradient(135deg, #fff7ed, #ffedd5); border-left: 4px solid #f97316;">
-        <span style="font-size:1.3rem">⏳</span>
-        <div>
-            <span class="fw-bold" style="color:#c2410c">Previsão de Ruptura</span>
-            <span class="badge ms-2" style="background:#f97316;color:#fff">{{ ruptura|length }} item(ns)</span>
-        </div>
-        <span class="ms-auto small text-muted">Baseado no consumo dos últimos 30 dias</span>
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Item</th>
-                        <th>Almoxarifado</th>
-                        <th class="text-center">Estoque Atual</th>
-                        <th class="text-center">Consumo/dia</th>
-                        <th class="text-center">⏳ Dias Restantes</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for r in ruptura %}
-                    <tr>
-                        <td>
-                            <a href="/item/{{ r.item.id }}" class="fw-semibold text-decoration-none">
-                                {{ r.item.nome }}
-                            </a>
-                        </td>
-                        <td class="small text-muted">{{ r.item.almoxarifado.nome }}</td>
-                        <td class="text-center fw-bold">{{ r.item.quantidade|fmt_qtd }} {{ r.item.unidade }}</td>
-                        <td class="text-center text-muted small">{{ r.consumo_diario }} {{ r.item.unidade }}/dia</td>
-                        <td class="text-center">
-                            {% if r.urgencia == 'critico' %}
-                                <span class="badge bg-danger px-3 py-2">🔴 ~{{ r.dias }} dias p/ mínimo</span>
-                            {% elif r.urgencia == 'alerta' %}
-                                <span class="badge bg-warning text-dark px-3 py-2">🟡 ~{{ r.dias }} dias p/ mínimo</span>
-                            {% elif r.urgencia == 'aviso' %}
-                                <span class="badge px-3 py-2" style="background:#f97316;color:#fff">🟠 ~{{ r.dias }} dias p/ mínimo</span>
-                            {% else %}
-                                <span class="badge bg-secondary px-3 py-2">🟢 ~{{ r.dias }} dias p/ mínimo</span>
-                            {% endif %}
-                            <div class="small text-muted mt-1">zera em ~{{ r.dias_zero }} dias</div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-{% endif %}
-<!-- ── FIM PREVISÃO DE RUPTURA ──────────────────────────────────────── -->
+<!-- ── FIM PREVISÃO DE RUPTURA removida — agora inline na tabela ──── -->
 
 {% if itens %}
 <div class="alert alert-warning d-flex align-items-center gap-2 mb-4">
@@ -106,13 +51,12 @@
         <table class="table table-hover mb-0 d-none d-md-table">
             <thead>
                 <tr>
-                    <th style="width:40px"></th>
                     <th>Item</th>
                     <th>Almoxarifado</th>
                     <th>Qtd. Atual</th>
                     <th>Déficit</th>
                     <th>Status Compra</th>
-                    <th>Fixar</th>
+                    <th class="text-center">Previsão</th>
                     <th>Ação</th>
                 </tr>
             </thead>
@@ -142,13 +86,12 @@
         <table class="table table-hover mb-0 d-none d-md-table">
             <thead>
                 <tr>
-                    <th style="width:40px"></th>
                     <th>Item</th>
                     <th>Almoxarifado</th>
                     <th>Qtd. Atual</th>
                     <th>Déficit</th>
                     <th>Status Compra</th>
-                    <th>Fixar</th>
+                    <th class="text-center">Previsão</th>
                     <th>Ação</th>
                 </tr>
             </thead>

@@ -2695,7 +2695,10 @@ def relatorio_alertas():
         ).all() if ids else []
 
     ruptura = calcular_ruptura(todos_ativos, limite_dias=None)
-    return render_template('relatorio_alertas.html', itens=itens, ruptura=ruptura)
+    # Dicionário item_id → previsão para uso inline nos templates
+    ruptura_por_item = {r['item'].id: r for r in ruptura}
+    return render_template('relatorio_alertas.html', itens=itens, ruptura=ruptura,
+                           ruptura_por_item=ruptura_por_item)
 
 @app.route('/item/<int:id>/status_compra', methods=['POST'])
 @login_required

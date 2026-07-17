@@ -5,6 +5,18 @@
     </td>
     <td>
         <strong>{{ item.nome }}</strong>
+        {% if prev %}
+            <span class="badge ms-1
+                {% if prev.urgencia == 'critico' %}bg-danger
+                {% elif prev.urgencia == 'alerta' %}bg-warning text-dark
+                {% elif prev.urgencia == 'aviso' %}text-white
+                {% else %}bg-secondary
+                {% endif %}"
+                {% if prev.urgencia == 'aviso' %}style="background:#f97316"{% endif %}
+                title="Zera em ~{{ prev.dias_zero }} dias">
+                ⏳ ~{{ prev.dias }}d
+            </span>
+        {% endif %}
         <br><small class="text-muted"><code>{{ item.codigo }}</code></small>
     </td>
     <td class="small">{{ item.almoxarifado.nome }}</td>

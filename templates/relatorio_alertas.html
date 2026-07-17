@@ -118,12 +118,14 @@
             </thead>
             <tbody>
                 {% for item in fixados %}
+                {% set prev = ruptura_por_item.get(item.id) %}
                 {% include '_linha_alerta.html' %}
                 {% endfor %}
             </tbody>
         </table>
         <div class="d-md-none">
             {% for item in fixados %}
+            {% set prev = ruptura_por_item.get(item.id) %}
             {% include '_card_alerta_mobile.html' %}
             {% endfor %}
         </div>
@@ -152,12 +154,14 @@
             </thead>
             <tbody>
                 {% for item in itens %}
+                {% set prev = ruptura_por_item.get(item.id) %}
                 {% include '_linha_alerta.html' %}
                 {% endfor %}
             </tbody>
         </table>
         <div class="d-md-none">
             {% for item in itens %}
+            {% set prev = ruptura_por_item.get(item.id) %}
             {% include '_card_alerta_mobile.html' %}
             {% endfor %}
         </div>

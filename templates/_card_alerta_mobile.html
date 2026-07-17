@@ -5,6 +5,17 @@
             <div>
                 {% if item.fixado %}<i class="bi bi-pin-fill text-warning me-1"></i>{% endif %}
                 <strong>{{ item.nome }}</strong>
+                {% if prev %}
+                <span class="badge ms-1
+                    {% if prev.urgencia == 'critico' %}bg-danger
+                    {% elif prev.urgencia == 'alerta' %}bg-warning text-dark
+                    {% elif prev.urgencia == 'aviso' %}text-white
+                    {% else %}bg-secondary
+                    {% endif %}"
+                    {% if prev.urgencia == 'aviso' %}style="background:#f97316"{% endif %}>
+                    ⏳ ~{{ prev.dias }}d
+                </span>
+                {% endif %}
                 <br><small class="text-muted">{{ item.almoxarifado.nome }}</small>
             </div>
             <button class="btn btn-sm border-0 bg-transparent p-0"

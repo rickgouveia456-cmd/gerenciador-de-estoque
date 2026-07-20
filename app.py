@@ -1192,7 +1192,7 @@ def novo_item():
             return redirect(url_for('almoxarifado', id=it.almoxarifado_id))
         except Exception as e:
             db.session.rollback()
-            flash(f'Erro ao cadastrar item: código já existe ou dados inválidos.', 'danger')
+            flash(f'Erro ao cadastrar item: {str(e)}', 'danger')
             return render_template('form_item.html', item=None, almoxarifados=almoxarifados)
     return render_template('form_item.html', item=None, almoxarifados=almoxarifados)
 

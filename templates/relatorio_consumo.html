@@ -1,12 +1,13 @@
 {% extends 'base.html' %}
-{% block title %}Relatório de Consumo{% endblock %}
-{% block page_title %}Relatório de Consumo{% endblock %}
+{% block title %}Relatório de Movimentações{% endblock %}
+{% block page_title %}Relatório de Movimentações{% endblock %}
 
 {% block content %}
 <!-- Filtros -->
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-body">
         <form method="GET" class="row g-3 align-items-end" id="formFiltro">
+            <input type="hidden" name="aba" id="inputAba" value="{{ aba }}">
             <div class="col-md-3">
                 <label class="form-label fw-semibold">Almoxarifado</label>
                 <select name="almoxarifado_id" class="form-select">
@@ -30,21 +31,43 @@
                 <button type="submit" class="btn btn-primary flex-fill">
                     <i class="bi bi-search me-1"></i> Filtrar
                 </button>
+                {% if aba == 'saidas' %}
                 <a id="btnExportar"
                    href="/relatorios/consumo/exportar?almoxarifado_id={{ alm_id or '' }}&data_ini={{ data_ini }}&data_fim={{ data_fim }}"
                    class="btn btn-success">
                     <i class="bi bi-file-earmark-excel me-1"></i> Excel
                 </a>
+                {% endif %}
             </div>
         </form>
     </div>
 </div>
 
+<!-- Abas -->
+<ul class="nav nav-tabs mb-0" style="border-bottom:none">
+    <li class="nav-item">
+        <a class="nav-link {% if aba == 'saidas' %}active fw-bold{% endif %}"
+           href="?aba=saidas&almoxarifado_id={{ alm_id or '' }}&data_ini={{ data_ini }}&data_fim={{ data_fim }}">
+            <i class="bi bi-box-arrow-up-right me-1 text-danger"></i> Saídas
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if aba == 'entradas' %}active fw-bold{% endif %}"
+           href="?aba=entradas&almoxarifado_id={{ alm_id or '' }}&data_ini={{ data_ini }}&data_fim={{ data_fim }}">
+            <i class="bi bi-box-arrow-in-down-right me-1 text-success"></i> Entradas
+        </a>
+    </li>
+</ul>
+
 <!-- Resultado -->
-<div class="card border-0 shadow-sm">
+<div class="card border-0 shadow-sm" style="border-top-left-radius:0">
     <div class="card-header d-flex justify-content-between align-items-center"
          style="background:var(--accent);color:#fff">
+        {% if aba == 'saidas' %}
         <span><i class="bi bi-graph-down me-2"></i>Saídas no Período</span>
+        {% else %}
+        <span><i class="bi bi-graph-up me-2"></i>Entradas no Período</span>
+        {% endif %}
         <span class="badge bg-light text-dark">{{ movimentacoes|length }} registros</span>
     </div>
     <div class="card-body p-0">
@@ -71,7 +94,7 @@
                     <th>Almoxarifado</th>
                     <th>Quantidade</th>
                     <th>Responsável</th>
-                    <th>Colaborador</th>
+                    {% if aba == 'saidas' %}<th>Colaborador</th>{% endif %}
                     <th>Observação</th>
                 </tr>
             </thead>
@@ -98,9 +121,13 @@
                         <br><small class="text-muted">{{ mov.item.codigo }}</small>
                     </td>
                     <td>{{ mov.item.almoxarifado.nome }}</td>
-                    <td class="fw-bold text-danger">{{ mov.quantidade }} {{ mov.item.unidade }}</td>
+                    <td class="fw-bold {% if aba == 'saidas' %}text-danger{% else %}text-success{% endif %}">
+                        {% if aba == 'entradas' %}+{% endif %}{{ mov.quantidade }} {{ mov.item.unidade }}
+                    </td>
                     <td>{{ mov.responsavel or '—' }}</td>
+                    {% if aba == 'saidas' %}
                     <td class="fw-semibold">{{ colab_nome or '—' }}</td>
+                    {% endif %}
                     <td class="text-muted small">{{ obs_limpa or '—' }}</td>
                 </tr>
                 {% endfor %}
@@ -112,7 +139,7 @@
         {% else %}
         <div class="text-center py-5 text-muted">
             <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-            Nenhuma saída encontrada no período.
+            Nenhuma {{ 'saída' if aba == 'saidas' else 'entrada' }} encontrada no período.
         </div>
         {% endif %}
     </div>
@@ -132,13 +159,9 @@ function filtrarConsumo(q) {
     document.getElementById('semResultadosConsumo').style.display = visiveis === 0 ? '' : 'none';
 }
 
-// Atualiza o link do botão Excel conforme os filtros do formulário
-document.getElementById('formFiltro').addEventListener('change', function() {
-    const alm = this.querySelector('[name=almoxarifado_id]').value;
-    const ini = this.querySelector('[name=data_ini]').value;
-    const fim = this.querySelector('[name=data_fim]').value;
-    document.getElementById('btnExportar').href =
-        `/relatorios/consumo/exportar?almoxarifado_id=${alm}&data_ini=${ini}&data_fim=${fim}`;
+// Mantém a aba ativa ao filtrar pelo formulário
+document.getElementById('formFiltro').addEventListener('submit', function() {
+    document.getElementById('inputAba').value = '{{ aba }}';
 });
 </script>
 {% endblock %}

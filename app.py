@@ -1192,7 +1192,7 @@ def novo_item():
             return redirect(url_for('almoxarifado', id=it.almoxarifado_id))
         except Exception as e:
             db.session.rollback()
-            flash(f'Erro ao cadastrar item: {str(e)}', 'danger')
+            flash(f'Erro ao cadastrar item: código já existe ou dados inválidos.', 'danger')
             return render_template('form_item.html', item=None, almoxarifados=almoxarifados)
     return render_template('form_item.html', item=None, almoxarifados=almoxarifados)
 
@@ -2588,6 +2588,10 @@ def calcular_ruptura(itens_ativos, limite_dias=None):
 
     ruptura = []
     for it in itens_ativos:
+        # Já zerado ou abaixo do mínimo — aparece nos alertas normais
+        if it.quantidade <= it.estoque_minimo:
+            continue
+
         movs = [m for m in it.movimentacoes if m.tipo == 'saida' and m.data >= corte_30]
         if not movs:
             continue  # sem consumo nos últimos 30 dias — sem previsão
@@ -2598,6 +2602,7 @@ def calcular_ruptura(itens_ativos, limite_dias=None):
         consumo_diario_7  = saidas_7  / 7  if saidas_7  > 0 else 0
         consumo_diario_30 = saidas_30 / 30 if saidas_30 > 0 else 0
 
+        # Média ponderada: tendência recente (7 dias) tem peso 3x
         if consumo_diario_7 > 0 and consumo_diario_30 > 0:
             consumo_diario = (consumo_diario_7 * 3 + consumo_diario_30 * 1) / 4
         elif consumo_diario_7 > 0:
@@ -2608,30 +2613,28 @@ def calcular_ruptura(itens_ativos, limite_dias=None):
         if consumo_diario <= 0:
             continue
 
-        # Dias até zerar completamente
-        dias_ate_zero = max(0, it.quantidade / consumo_diario)
-
-        # Dias até atingir o estoque mínimo (pode ser negativo se já abaixo)
+        # Dias até atingir o estoque mínimo
         estoque_disponivel = it.quantidade - it.estoque_minimo
         dias_ate_minimo = estoque_disponivel / consumo_diario
 
+        # Dias até zerar completamente
+        dias_ate_zero = it.quantidade / consumo_diario
+
+        # Filtra por limite se definido
         if limite_dias is not None and dias_ate_minimo > limite_dias:
             continue
 
-        # Urgência baseada em dias até zerar (para itens já abaixo do mínimo)
-        if it.quantidade <= 0:
-            urgencia = 'zerado'
-        elif it.quantidade <= it.estoque_minimo:
-            urgencia = 'critico' if dias_ate_zero <= 3 else 'alerta' if dias_ate_zero <= 7 else 'aviso'
-        else:
-            urgencia = 'critico' if dias_ate_minimo <= 3 else 'alerta' if dias_ate_minimo <= 7 else 'aviso' if dias_ate_minimo <= 15 else 'normal'
-
         ruptura.append({
             'item': it,
-            'dias': int(round(max(0, dias_ate_minimo))),
+            'dias': int(round(dias_ate_minimo)),
             'dias_zero': int(round(dias_ate_zero)),
             'consumo_diario': round(consumo_diario, 2),
-            'urgencia': urgencia,
+            'urgencia': (
+                'critico' if dias_ate_minimo <= 3 else
+                'alerta'  if dias_ate_minimo <= 7 else
+                'aviso'   if dias_ate_minimo <= 15 else
+                'normal'
+            ),
         })
 
     ruptura.sort(key=lambda x: x['dias'])
@@ -2692,10 +2695,7 @@ def relatorio_alertas():
         ).all() if ids else []
 
     ruptura = calcular_ruptura(todos_ativos, limite_dias=None)
-    # Dicionário item_id → previsão para uso inline nos templates
-    ruptura_por_item = {r['item'].id: r for r in ruptura}
-    return render_template('relatorio_alertas.html', itens=itens, ruptura=ruptura,
-                           ruptura_por_item=ruptura_por_item)
+    return render_template('relatorio_alertas.html', itens=itens, ruptura=ruptura)
 
 @app.route('/item/<int:id>/status_compra', methods=['POST'])
 @login_required
@@ -4054,8 +4054,6 @@ def mestre_requisicao_entregar(id):
 
     flash(f'✅ Entrega confirmada! Estoque atualizado para {len(itens_a_entregar)} item(ns).', 'success')
     return redirect(url_for('mestre_requisicao_detalhe', id=id))
-
-
 @app.route('/mestre/requisicoes/<int:id>/foto', methods=['POST'])
 @login_required
 def mestre_requisicao_foto(id):

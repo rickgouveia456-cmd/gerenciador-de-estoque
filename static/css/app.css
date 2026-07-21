@@ -36,13 +36,14 @@ body {
 /* ── Sidebar ── */
 .sidebar {
     width: var(--sidebar-w);
-    min-height: 100vh;
+    height: 100vh;
     background: var(--primary);
     position: fixed; top: 0; left: 0;
     z-index: 200;
     box-shadow: 2px 0 20px rgba(0,0,0,0.1);
     transition: transform 0.3s ease;
     overflow-y: auto;
+    overflow-x: hidden;
     border-right: 1px solid var(--border);
 }
 .sidebar .brand {

@@ -2588,10 +2588,6 @@ def calcular_ruptura(itens_ativos, limite_dias=None):
 
     ruptura = []
     for it in itens_ativos:
-        # Já zerado ou abaixo do mínimo — aparece nos alertas normais
-        if it.quantidade <= it.estoque_minimo:
-            continue
-
         movs = [m for m in it.movimentacoes if m.tipo == 'saida' and m.data >= corte_30]
         if not movs:
             continue  # sem consumo nos últimos 30 dias — sem previsão
@@ -2602,7 +2598,6 @@ def calcular_ruptura(itens_ativos, limite_dias=None):
         consumo_diario_7  = saidas_7  / 7  if saidas_7  > 0 else 0
         consumo_diario_30 = saidas_30 / 30 if saidas_30 > 0 else 0
 
-        # Média ponderada: tendência recente (7 dias) tem peso 3x
         if consumo_diario_7 > 0 and consumo_diario_30 > 0:
             consumo_diario = (consumo_diario_7 * 3 + consumo_diario_30 * 1) / 4
         elif consumo_diario_7 > 0:
@@ -2613,28 +2608,30 @@ def calcular_ruptura(itens_ativos, limite_dias=None):
         if consumo_diario <= 0:
             continue
 
-        # Dias até atingir o estoque mínimo
+        # Dias até zerar completamente
+        dias_ate_zero = max(0, it.quantidade / consumo_diario)
+
+        # Dias até atingir o estoque mínimo (pode ser negativo se já abaixo)
         estoque_disponivel = it.quantidade - it.estoque_minimo
         dias_ate_minimo = estoque_disponivel / consumo_diario
 
-        # Dias até zerar completamente
-        dias_ate_zero = it.quantidade / consumo_diario
-
-        # Filtra por limite se definido
         if limite_dias is not None and dias_ate_minimo > limite_dias:
             continue
 
+        # Urgência baseada em dias até zerar (para itens já abaixo do mínimo)
+        if it.quantidade <= 0:
+            urgencia = 'zerado'
+        elif it.quantidade <= it.estoque_minimo:
+            urgencia = 'critico' if dias_ate_zero <= 3 else 'alerta' if dias_ate_zero <= 7 else 'aviso'
+        else:
+            urgencia = 'critico' if dias_ate_minimo <= 3 else 'alerta' if dias_ate_minimo <= 7 else 'aviso' if dias_ate_minimo <= 15 else 'normal'
+
         ruptura.append({
             'item': it,
-            'dias': int(round(dias_ate_minimo)),
+            'dias': int(round(max(0, dias_ate_minimo))),
             'dias_zero': int(round(dias_ate_zero)),
             'consumo_diario': round(consumo_diario, 2),
-            'urgencia': (
-                'critico' if dias_ate_minimo <= 3 else
-                'alerta'  if dias_ate_minimo <= 7 else
-                'aviso'   if dias_ate_minimo <= 15 else
-                'normal'
-            ),
+            'urgencia': urgencia,
         })
 
     ruptura.sort(key=lambda x: x['dias'])

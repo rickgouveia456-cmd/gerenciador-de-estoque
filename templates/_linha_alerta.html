@@ -28,16 +28,22 @@
     <td class="text-center">
         {% if prev %}
             <div>
-                {% if prev.urgencia == 'critico' %}
-                    <span class="badge bg-danger px-2 py-1">🔴 ~{{ prev.dias }}d p/ mínimo</span>
+                {% if prev.urgencia == 'zerado' %}
+                    <span class="badge bg-dark px-2 py-1">⛔ Zerado</span>
+                    <div class="small text-muted mt-1">consumo: {{ prev.consumo_diario }} {{ item.unidade }}/dia</div>
+                {% elif prev.urgencia == 'critico' %}
+                    <span class="badge bg-danger px-2 py-1">🔴 ~{{ prev.dias_zero }}d p/ zerar</span>
+                    <div class="small text-muted mt-1">consumo: {{ prev.consumo_diario }} {{ item.unidade }}/dia</div>
                 {% elif prev.urgencia == 'alerta' %}
-                    <span class="badge bg-warning text-dark px-2 py-1">🟡 ~{{ prev.dias }}d p/ mínimo</span>
+                    <span class="badge bg-warning text-dark px-2 py-1">🟡 ~{{ prev.dias_zero }}d p/ zerar</span>
+                    <div class="small text-muted mt-1">consumo: {{ prev.consumo_diario }} {{ item.unidade }}/dia</div>
                 {% elif prev.urgencia == 'aviso' %}
                     <span class="badge px-2 py-1" style="background:#f97316;color:#fff">🟠 ~{{ prev.dias }}d p/ mínimo</span>
+                    <div class="small text-muted mt-1">zera em ~{{ prev.dias_zero }}d</div>
                 {% else %}
                     <span class="badge bg-secondary px-2 py-1">🟢 ~{{ prev.dias }}d p/ mínimo</span>
+                    <div class="small text-muted mt-1">zera em ~{{ prev.dias_zero }}d</div>
                 {% endif %}
-                <div class="small text-muted mt-1">zera em ~{{ prev.dias_zero }}d</div>
             </div>
         {% else %}
             <span class="text-muted small">—</span>

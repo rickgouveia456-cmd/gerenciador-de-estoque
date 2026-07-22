@@ -3574,6 +3574,16 @@ def usuarios():
                            usuarios=todos,
                            permissoes_disponiveis=PERMISSOES_DISPONIVEIS)
 
+
+
+# ── PERMISSÕES EXTRAS DE FUNÇÃO ───────────────────────────────────────────────
+
+PERMISSOES_DISPONIVEIS = {
+    'fazer_requisicao': 'Fazer Requisições ao Almoxarifado',
+    'ver_relatorios':   'Ver Relatórios (Consumo, Ficha EPI)',
+    'ver_alertas':      'Ver Alertas de Estoque',
+}
+
 @app.route('/usuarios/novo', methods=['GET', 'POST'])
 @admin_required
 def novo_usuario():
@@ -3701,14 +3711,6 @@ def revogar_acesso_extra(id):
     db.session.commit()
     flash('Acesso revogado!', 'warning')
     return redirect(url_for('editar_usuario', id=uid))
-
-# ── PERMISSÕES EXTRAS DE FUNÇÃO ───────────────────────────────────────────────
-
-PERMISSOES_DISPONIVEIS = {
-    'fazer_requisicao': 'Fazer Requisições ao Almoxarifado',
-    'ver_relatorios':   'Ver Relatórios (Consumo, Ficha EPI)',
-    'ver_alertas':      'Ver Alertas de Estoque',
-}
 
 @app.route('/usuarios/<int:id>/permissao', methods=['POST'])
 @admin_required

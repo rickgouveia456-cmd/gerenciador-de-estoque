@@ -3590,16 +3590,14 @@ def novo_usuario():
         if len(senha_nova) < 8:
             flash('A senha deve ter pelo menos 8 caracteres.', 'danger')
             return render_template('form_usuario.html', usuario=None, almoxarifados=almoxarifados,
-                                   permissoes_disponiveis=PERMISSOES_DISPONIVEIS,
-                                   usuario_atual=usuario_atual())
+                                   permissoes_disponiveis=PERMISSOES_DISPONIVEIS)
         u.set_senha(senha_nova)
         db.session.add(u)
         db.session.commit()
         flash(f'Usuário "{u.nome}" criado!', 'success')
         return redirect(url_for('usuarios'))
     return render_template('form_usuario.html', usuario=None, almoxarifados=almoxarifados,
-                           permissoes_disponiveis=PERMISSOES_DISPONIVEIS,
-                           usuario_atual=usuario_atual())
+                           permissoes_disponiveis=PERMISSOES_DISPONIVEIS)
 
 @app.route('/usuarios/<int:id>/editar', methods=['GET', 'POST'])
 @admin_required

@@ -2697,7 +2697,9 @@ def relatorio_alertas():
         ).all() if ids else []
 
     ruptura = calcular_ruptura(todos_ativos, limite_dias=None)
-    return render_template('relatorio_alertas.html', itens=itens, ruptura=ruptura)
+    ruptura_por_item = {r['item'].id: r for r in ruptura}
+    return render_template('relatorio_alertas.html', itens=itens, ruptura=ruptura,
+                           ruptura_por_item=ruptura_por_item)
 
 @app.route('/item/<int:id>/status_compra', methods=['POST'])
 @login_required
@@ -3587,13 +3589,17 @@ def novo_usuario():
         senha_nova = request.form.get('senha', '')
         if len(senha_nova) < 8:
             flash('A senha deve ter pelo menos 8 caracteres.', 'danger')
-            return render_template('form_usuario.html', usuario=None, almoxarifados=almoxarifados)
+            return render_template('form_usuario.html', usuario=None, almoxarifados=almoxarifados,
+                                   permissoes_disponiveis=PERMISSOES_DISPONIVEIS,
+                                   usuario_atual=usuario_atual())
         u.set_senha(senha_nova)
         db.session.add(u)
         db.session.commit()
         flash(f'Usuário "{u.nome}" criado!', 'success')
         return redirect(url_for('usuarios'))
-    return render_template('form_usuario.html', usuario=None, almoxarifados=almoxarifados)
+    return render_template('form_usuario.html', usuario=None, almoxarifados=almoxarifados,
+                           permissoes_disponiveis=PERMISSOES_DISPONIVEIS,
+                           usuario_atual=usuario_atual())
 
 @app.route('/usuarios/<int:id>/editar', methods=['GET', 'POST'])
 @admin_required

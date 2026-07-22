@@ -137,6 +137,13 @@ def handle_csrf_error(e):
     flash('Sessão expirada ou requisição inválida. Tente novamente.', 'warning')
     return redirect(request.referrer or url_for('index'))
 
+# ── TRATAMENTO DE ERRO 500 — mostra detalhe temporariamente ──────────────────
+@app.errorhandler(500)
+def handle_500(e):
+    import traceback
+    logger.error(f'ERRO 500: {traceback.format_exc()}')
+    return f'<pre style="padding:20px;font-size:13px">{traceback.format_exc()}</pre>', 500
+
 # ── RATE LIMITING DE LOGIN ────────────────────────────────────────────────────
 _login_attempts: dict = {}
 _MAX_ATTEMPTS = 10

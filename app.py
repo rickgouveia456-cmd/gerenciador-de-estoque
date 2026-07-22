@@ -137,13 +137,6 @@ def handle_csrf_error(e):
     flash('Sessão expirada ou requisição inválida. Tente novamente.', 'warning')
     return redirect(request.referrer or url_for('index'))
 
-# ── TRATAMENTO DE ERRO 500 — mostra detalhe temporariamente ──────────────────
-@app.errorhandler(500)
-def handle_500(e):
-    import traceback
-    logger.error(f'ERRO 500: {traceback.format_exc()}')
-    return f'<pre style="padding:20px;font-size:13px">{traceback.format_exc()}</pre>', 500
-
 # ── RATE LIMITING DE LOGIN ────────────────────────────────────────────────────
 _login_attempts: dict = {}
 _MAX_ATTEMPTS = 10
@@ -3596,9 +3589,15 @@ PERMISSOES_DISPONIVEIS = {
 def novo_usuario():
     almoxarifados = Almoxarifado.query.all()
     if request.method == 'POST':
+        login = request.form['login'].strip()
+        # Verifica se login já existe
+        if Usuario.query.filter_by(login=login).first():
+            flash(f'⚠️ O login "{login}" já está em uso. Escolha outro.', 'danger')
+            return render_template('form_usuario.html', usuario=None, almoxarifados=almoxarifados,
+                                   permissoes_disponiveis=PERMISSOES_DISPONIVEIS)
         u = Usuario(
             nome=request.form['nome'],
-            login=request.form['login'],
+            login=login,
             perfil=request.form['perfil'],
             almoxarifado_id=request.form.get('almoxarifado_id') or None,
             email=request.form.get('email', '').strip() or None

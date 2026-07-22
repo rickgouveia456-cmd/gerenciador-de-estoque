@@ -1714,13 +1714,13 @@ def relatorio_consumo():
     alm_id = request.args.get('almoxarifado_id', type=int)
     data_ini = request.args.get('data_ini', str(date.today().replace(day=1)))
     data_fim = request.args.get('data_fim', str(date.today()))
+    aba = request.args.get('aba', 'saidas')  # saidas | entradas
 
     # Determina almoxarifados permitidos filtrados por cidade
     if u.perfil == 'admin':
         ids_perm = None
     else:
         ids_perm = set(u.almoxarifados_permitidos())
-        # Técnico/analista: expande para todos da sua cidade
         if u.perfil in ('tecnico_seguranca', 'analista') and u.almoxarifado_id:
             alm_ref = db.session.get(Almoxarifado, u.almoxarifado_id)
             if alm_ref and alm_ref.cidade:
@@ -1730,8 +1730,10 @@ def relatorio_consumo():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('index'))
 
+    tipo_mov = 'saida' if aba == 'saidas' else 'entrada'
+
     query = Movimentacao.query.filter(
-        Movimentacao.tipo == 'saida',
+        Movimentacao.tipo == tipo_mov,
         Movimentacao.data >= data_ini,
         Movimentacao.data <= data_fim + ' 23:59:59'
     )
@@ -1754,7 +1756,7 @@ def relatorio_consumo():
 
     return render_template('relatorio_consumo.html', movimentacoes=movs,
                            almoxarifados=almoxarifados, data_ini=data_ini,
-                           data_fim=data_fim, alm_id=alm_id)
+                           data_fim=data_fim, alm_id=alm_id, aba=aba)
 
 @app.route('/relatorios/consumo/exportar')
 @login_required

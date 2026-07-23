@@ -486,17 +486,12 @@ def inject_sidebar():
     if u.perfil == 'admin':
         alms = Almoxarifado.query.all()
     elif u.perfil == 'analista':
-        # Analista vê apenas almoxarifados da sua cidade (via almoxarifado vinculado)
+        # Analista vê apenas o almoxarifado vinculado a ele
         if u.almoxarifado_id:
             alm_ref = db.session.get(Almoxarifado, u.almoxarifado_id)
-            if alm_ref and alm_ref.cidade:
-                alms = Almoxarifado.query.filter(
-                    Almoxarifado.cidade.ilike(alm_ref.cidade)
-                ).all()
-            else:
-                alms = [alm_ref] if alm_ref else []
+            alms = [alm_ref] if alm_ref else []
         else:
-            alms = Almoxarifado.query.all()
+            alms = []
     elif u.perfil in ('mestre', 'tecnico_seguranca'):
         if u.perfil == 'tecnico_seguranca':
             ids = u.almoxarifados_permitidos()
@@ -1004,18 +999,12 @@ def index():
         almoxarifados = Almoxarifado.query.all()
         alertas = Item.query.filter(Item.quantidade <= Item.estoque_minimo, Item.ativo == True).all()
     elif u.perfil == 'analista':
-        # Analista vê apenas almoxarifados da sua cidade (via almoxarifado vinculado)
+        # Analista vê apenas o almoxarifado vinculado a ele
         if u.almoxarifado_id:
             alm_ref = db.session.get(Almoxarifado, u.almoxarifado_id)
-            cidade_analista = (alm_ref.cidade or '').strip() if alm_ref else None
-            if cidade_analista:
-                almoxarifados = Almoxarifado.query.filter(
-                    Almoxarifado.cidade.ilike(cidade_analista)
-                ).all()
-            else:
-                almoxarifados = [alm_ref] if alm_ref else []
+            almoxarifados = [alm_ref] if alm_ref else []
         else:
-            almoxarifados = Almoxarifado.query.all()
+            almoxarifados = []
         ids_analista = {a.id for a in almoxarifados}
         alertas = Item.query.filter(
             Item.quantidade <= Item.estoque_minimo,

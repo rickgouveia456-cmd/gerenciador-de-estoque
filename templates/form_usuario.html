@@ -73,7 +73,7 @@
                                 </option>
                                 {% endfor %}
                             </select>
-                            <div class="form-text">Engenheiro acessa este almoxarifado</div>
+                            <div class="form-text" id="textoAlmox">Engenheiro acessa este almoxarifado</div>
                         </div>
                         {% if usuario %}
                         <div class="col-12">
@@ -282,6 +282,15 @@
 function toggleAlmox() {
     const perfil = document.getElementById('selectPerfil').value;
     document.getElementById('divAlmox').style.display = perfil === 'admin' ? 'none' : '';
+    const textos = {
+        'colaborador': 'Engenheiro acessa este almoxarifado',
+        'almoxarife': 'Almoxarife gerencia este almoxarifado',
+        'analista': 'Analista vê apenas os dados deste almoxarifado',
+        'mestre': 'Mestre faz requisições para este almoxarifado',
+        'tecnico_seguranca': 'Técnico acessa este almoxarifado'
+    };
+    const t = document.getElementById('textoAlmox');
+    if (t) t.textContent = textos[perfil] || 'Almoxarifado vinculado';
 }
 toggleAlmox();
 </script>

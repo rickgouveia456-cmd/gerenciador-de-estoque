@@ -31,6 +31,9 @@ from models import (
     AcessoExtra, PermissaoExtra
 )
 
+# ── UTILITÁRIOS ──────────────────────────────────────────────────────────────
+from utils import extrair_colaborador, calcular_ruptura
+
 # ── DIAGNÓSTICO DE VARIÁVEIS DE AMBIENTE ─────────────────────────────────────
 logger.info('=' * 60)
 logger.info('DIAGNÓSTICO DE VARIÁVEIS DE AMBIENTE:')
@@ -226,20 +229,6 @@ def is_fundador():
     """Retorna True se o usuário logado é o fundador (login 'rick')."""
     u = usuario_atual()
     return u is not None and u.login == 'rick'
-
-def extrair_colaborador(mov):
-    """Extrai o nome do colaborador da observação da movimentação.
-    Suporta: 'liberado P/ Nome', 'Colaborador: Nome'.
-    Fallback para mov.responsavel.
-    """
-    obs = mov.observacao or ''
-    m = re.search(r'liberado\s+[Pp][/\s]+(.+)', obs, re.IGNORECASE)
-    if m:
-        return m.group(1).strip()
-    m = re.search(r'[Cc]olaborador[:\s]+([^|]+)', obs)
-    if m:
-        return m.group(1).strip()
-    return mov.responsavel or 'Sem responsável'
 
 # ── CONTEXT PROCESSOR ────────────────────────────────────────────────────────
 
@@ -2326,76 +2315,6 @@ def excluir_movimentacoes():
     db.session.commit()
     flash(f'{excluidas} movimentação(ões) excluída(s) e estoque revertido.', 'success')
     return redirect(request.referrer or url_for('relatorio_consumo_pessoa'))
-
-def calcular_ruptura(itens_ativos, limite_dias=None):
-    """Calcula previsão de ruptura para uma lista de itens ativos.
-
-    Usa média ponderada para maior precisão:
-    - Últimos 7 dias: peso 3  (tendência recente)
-    - Dias 8-30: peso 1       (tendência histórica)
-
-    Se limite_dias=None, retorna previsão para TODOS os itens com consumo.
-    Retorna lista ordenada por urgência (menos dias primeiro).
-    """
-    from datetime import timedelta
-    agora_dt = datetime.utcnow()
-    corte_30 = agora_dt - timedelta(days=30)
-    corte_7  = agora_dt - timedelta(days=7)
-
-    ruptura = []
-    for it in itens_ativos:
-        # Já zerado ou abaixo do mínimo — aparece nos alertas normais
-        if it.quantidade <= it.estoque_minimo:
-            continue
-
-        movs = [m for m in it.movimentacoes if m.tipo == 'saida' and m.data >= corte_30]
-        if not movs:
-            continue  # sem consumo nos últimos 30 dias — sem previsão
-
-        saidas_7  = sum(m.quantidade for m in movs if m.data >= corte_7)
-        saidas_30 = sum(m.quantidade for m in movs)
-
-        consumo_diario_7  = saidas_7  / 7  if saidas_7  > 0 else 0
-        consumo_diario_30 = saidas_30 / 30 if saidas_30 > 0 else 0
-
-        # Média ponderada: tendência recente (7 dias) tem peso 3x
-        if consumo_diario_7 > 0 and consumo_diario_30 > 0:
-            consumo_diario = (consumo_diario_7 * 3 + consumo_diario_30 * 1) / 4
-        elif consumo_diario_7 > 0:
-            consumo_diario = consumo_diario_7
-        else:
-            consumo_diario = consumo_diario_30
-
-        if consumo_diario <= 0:
-            continue
-
-        # Dias até atingir o estoque mínimo
-        estoque_disponivel = it.quantidade - it.estoque_minimo
-        dias_ate_minimo = estoque_disponivel / consumo_diario
-
-        # Dias até zerar completamente
-        dias_ate_zero = it.quantidade / consumo_diario
-
-        # Filtra por limite se definido
-        if limite_dias is not None and dias_ate_minimo > limite_dias:
-            continue
-
-        ruptura.append({
-            'item': it,
-            'dias': int(round(dias_ate_minimo)),
-            'dias_zero': int(round(dias_ate_zero)),
-            'consumo_diario': round(consumo_diario, 2),
-            'urgencia': (
-                'critico' if dias_ate_minimo <= 3 else
-                'alerta'  if dias_ate_minimo <= 7 else
-                'aviso'   if dias_ate_minimo <= 15 else
-                'normal'
-            ),
-        })
-
-    ruptura.sort(key=lambda x: x['dias'])
-    return ruptura
-
 
 @app.route('/relatorios/alertas')
 @login_required

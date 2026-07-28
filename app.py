@@ -1,7 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, send_file, session
-from flask_sqlalchemy import SQLAlchemy
-from flask_wtf.csrf import CSRFProtect, CSRFError
-from werkzeug.security import generate_password_hash, check_password_hash
+from flask_wtf.csrf import CSRFError
 from markupsafe import Markup, escape
 from datetime import datetime, date, timezone, timedelta
 from functools import wraps
@@ -22,37 +20,34 @@ logger = logging.getLogger(__name__)
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
+# ── EXTENSÕES ────────────────────────────────────────────────────────────────
+from extensions import db, csrf
+
+# ── MODELOS ──────────────────────────────────────────────────────────────────
+from models import (
+    agora, Almoxarifado, Item, Movimentacao, Requisicao,
+    RequisicaoMestre, RequisicaoMestreItem, Usuario, Colaborador,
+    Ferramenta, HistoricoFerramenta, ItemEPI, HistoricoEPI,
+    AcessoExtra, PermissaoExtra
+)
+
+# Fuso horário de Brasília (UTC-3) — mantido para compatibilidade
 # ── DIAGNÓSTICO DE VARIÁVEIS DE AMBIENTE ─────────────────────────────────────
 logger.info('=' * 60)
 logger.info('DIAGNÓSTICO DE VARIÁVEIS DE AMBIENTE:')
 logger.info(f'  DATABASE_URL      = {"SIM" if os.environ.get("DATABASE_URL") else "NÃO DEFINIDO"}')
 logger.info('=' * 60)
 
-# Fuso horário de Brasília (UTC-3)
-TZ_BRASILIA = timezone(timedelta(hours=-3))
-
-def agora():
-    """Retorna o datetime atual no horário de Brasília"""
-    return datetime.now(TZ_BRASILIA).replace(tzinfo=None)
-
-db = SQLAlchemy()
-csrf = CSRFProtect()
-
 
 def configure_app(app):
-    # SECRET_KEY deve ser definida como variável de ambiente no Railway.
-    # Em produção, a aplicação deve falhar rápido se a variável não estiver definida.
     _secret = os.environ.get('SECRET_KEY')
     if not _secret:
         if os.environ.get('DATABASE_URL') or os.environ.get('URI_DO_BANCO_DE_DADOS'):
             raise RuntimeError('SECRET_KEY não definida em produção. Configure SECRET_KEY no Railway.')
-        # Desenvolvimento local: gera chave aleatória por sessão (não previsível)
         import secrets as _secrets
         _secret = _secrets.token_hex(32)
     app.secret_key = _secret
 
-    # Railway fornece DATABASE_URL com prefixo "postgres://" (formato antigo),
-    # mas o SQLAlchemy 1.4+ exige "postgresql://". Corrige automaticamente.
     _db_url = (
         os.environ.get('DATABASE_URL') or
         os.environ.get('URI_DO_BANCO_DE_DADOS') or
@@ -68,7 +63,7 @@ def configure_app(app):
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('DATABASE_URL') or os.environ.get('URI_DO_BANCO_DE_DADOS'))
-    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=60)  # sessão expira em 60 min de inatividade
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=60)
     app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 
 
@@ -181,235 +176,6 @@ def fmt_qtd(value):
         return f"{v:.4f}".rstrip('0').rstrip('.')
     except (TypeError, ValueError):
         return value
-
-# ── MODELOS ──────────────────────────────────────────────────────────────────
-
-class Almoxarifado(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(100), nullable=False)
-    descricao = db.Column(db.String(200))
-    obra = db.Column(db.String(100), nullable=True)    # ex: "Ventura Patamares", "Porto Aruana"
-    cidade = db.Column(db.String(100), nullable=True)  # ex: "Salvador", "Aracaju"
-    itens = db.relationship('Item', backref='almoxarifado', lazy=True, cascade='all, delete-orphan')
-
-class Item(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(300), nullable=False)
-    codigo = db.Column(db.String(50), nullable=False)
-    unidade = db.Column(db.String(20), nullable=False)
-    quantidade = db.Column(db.Float, default=0)
-    estoque_minimo = db.Column(db.Float, default=0)
-    almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=False)
-    status_compra = db.Column(db.String(30), default='pendente')
-    fixado = db.Column(db.Boolean, default=False)
-    ativo = db.Column(db.Boolean, default=True)
-    categoria = db.Column(db.String(30), default='geral')  # 'epi', 'maquinario', 'geral'
-    ca = db.Column(db.String(20))  # Certificado de Aprovação (só EPIs)
-    movimentacoes = db.relationship('Movimentacao', backref='item', lazy=True, cascade='all, delete-orphan')
-
-    @property
-    def status(self):
-        if self.quantidade <= 0:
-            return 'critico'
-        elif self.quantidade <= self.estoque_minimo:
-            return 'alerta'
-        return 'ok'
-
-class Movimentacao(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    tipo = db.Column(db.String(10), nullable=False)
-    quantidade = db.Column(db.Float, nullable=False)
-    responsavel = db.Column(db.String(100))
-    observacao = db.Column(db.String(200))
-    data = db.Column(db.DateTime, default=agora)
-    item_id = db.Column(db.Integer, db.ForeignKey('item.id'), nullable=False)
-    devolvido = db.Column(db.Boolean, nullable=True)  # None=não aplicável, True=devolvido, False=não devolvido
-    foto_url = db.Column(db.Text, nullable=True)       # foto base64 — prova de entrega de EPI
-
-class Requisicao(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    colaborador = db.Column(db.String(100), nullable=False)
-    observacao = db.Column(db.String(200))
-    quantidade = db.Column(db.Float, nullable=False)
-    status = db.Column(db.String(20), default='aberta')  # aberta | devolvida
-    data_retirada = db.Column(db.DateTime, default=agora)
-    data_devolucao = db.Column(db.DateTime, nullable=True)
-    item_id = db.Column(db.Integer, db.ForeignKey('item.id'), nullable=False)
-    item = db.relationship('Item', backref='requisicoes')
-
-# ── REQUISIÇÃO DO MESTRE ──────────────────────────────────────────────────────
-
-class RequisicaoMestre(db.Model):
-    """Requisição feita pelo mestre de obra ao almoxarifado.
-    Fluxo: pendente → aprovada (almoxarife separa) → entregue (baixa no estoque)
-    """
-    id = db.Column(db.Integer, primary_key=True)
-    protocolo = db.Column(db.String(30), unique=True, nullable=True)  # ex: REQ-20250611-0042
-    mestre_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
-    mestre = db.relationship('Usuario', foreign_keys=[mestre_id])
-    colaborador = db.Column(db.String(100), nullable=False)
-    almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=False)
-    almoxarifado = db.relationship('Almoxarifado')
-    observacao = db.Column(db.String(300))
-    # Status: pendente | aprovada | parcial | recusada | entregue | cancelada
-    status = db.Column(db.String(20), default='pendente')
-    data_criacao = db.Column(db.DateTime, default=agora)
-    data_entrega = db.Column(db.DateTime, nullable=True)
-    entregue_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
-    entregue_por = db.relationship('Usuario', foreign_keys=[entregue_por_id])
-    foto_url = db.Column(db.Text, nullable=True)  # foto base64 — comprovante de entrega
-    # Itens da requisição
-    itens = db.relationship('RequisicaoMestreItem', backref='requisicao', lazy=True, cascade='all, delete-orphan')
-
-class RequisicaoMestreItem(db.Model):
-    """Cada item dentro de uma RequisicaoMestre."""
-    id = db.Column(db.Integer, primary_key=True)
-    requisicao_id = db.Column(db.Integer, db.ForeignKey('requisicao_mestre.id'), nullable=False)
-    item_id = db.Column(db.Integer, db.ForeignKey('item.id'), nullable=False)
-    item = db.relationship('Item')
-    quantidade = db.Column(db.Float, nullable=False)
-    observacao = db.Column(db.String(200))
-    # Aprovação por item: pendente | aprovado | recusado
-    status_item = db.Column(db.String(20), default='pendente')
-    motivo_recusa = db.Column(db.String(200))
-
-class Usuario(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(100), nullable=False)
-    login = db.Column(db.String(50), unique=True, nullable=False)
-    senha_hash = db.Column(db.String(256), nullable=False)
-    perfil = db.Column(db.String(20), default='colaborador')  # admin | colaborador | mestre | almoxarife | tecnico_seguranca | analista
-    almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=True)
-    escopo = db.Column(db.String(50), nullable=True)  # estrutura | infraestrutura | acabamento — usado pelo analista
-    email = db.Column(db.String(120), nullable=True)
-    ativo = db.Column(db.Boolean, default=True)
-    totp_secret = db.Column(db.String(32), nullable=True)   # 2FA — None = desativado
-    almoxarifado = db.relationship('Almoxarifado', backref='usuarios')
-    acessos_extras = db.relationship('AcessoExtra', backref='usuario', lazy=True, cascade='all, delete-orphan')
-    pode_requisitar = db.Column(db.Boolean, default=False)
-    pode_ver_alertas = db.Column(db.Boolean, default=False)
-
-    def set_senha(self, senha):
-        self.senha_hash = generate_password_hash(senha)
-
-    def check_senha(self, senha):
-        # Compatibilidade: hashes antigos eram SHA-256 puro (64 chars hex)
-        if len(self.senha_hash) == 64 and not self.senha_hash.startswith('pbkdf2:'):
-            import hashlib
-            if self.senha_hash == hashlib.sha256(senha.encode()).hexdigest():
-                # Migra automaticamente para o novo hash seguro
-                self.set_senha(senha)
-                db.session.commit()
-                return True
-            return False
-        return check_password_hash(self.senha_hash, senha)
-
-    def almoxarifados_permitidos(self):
-        ids = set()
-        if self.almoxarifado_id:
-            ids.add(self.almoxarifado_id)
-        for a in self.acessos_extras:
-            if a.ativo:
-                ids.add(a.almoxarifado_id)
-        return ids
-
-class Colaborador(db.Model):
-    """Banco de dados de colaboradores/peões que retiram material no almoxarifado."""
-    id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(100), nullable=False)
-    funcao = db.Column(db.String(50))   # ex: pedreiro, servente, eletricista
-    escopo = db.Column(db.String(50))   # ex: estrutura, acabamento, infraestrutura, forma
-    obra = db.Column(db.String(100), nullable=True)   # ex: Ventura Patamares, Porto Aruana
-    cidade = db.Column(db.String(100), nullable=True) # ex: Salvador, Aracaju
-    tipo = db.Column(db.String(30), default='peao')  # peao | mestre | tecnico_seguranca | engenheiro | almoxarife
-    ativo = db.Column(db.Boolean, default=True)
-    data_cadastro = db.Column(db.DateTime, default=agora)
-
-class Ferramenta(db.Model):
-    """Frota de ferramentas e máquinas por almoxarifado."""
-    id = db.Column(db.Integer, primary_key=True)
-    identificacao = db.Column(db.String(50), nullable=False)  # ID/patrimônio
-    nome = db.Column(db.String(200), nullable=False)
-    empresa = db.Column(db.String(100))                       # empresa proprietária (vazio = própria)
-    almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=False)
-    almoxarifado = db.relationship('Almoxarifado', backref='ferramentas')
-    status = db.Column(db.String(20), default='disponivel')   # disponivel | em_uso | atrasado | manutencao
-    responsavel_atual = db.Column(db.String(100))
-    data_saida = db.Column(db.DateTime, nullable=True)        # quando foi retirada
-    observacao = db.Column(db.String(200))
-    local = db.Column(db.String(100))                         # localização física
-    ativo = db.Column(db.Boolean, default=True)
-    data_cadastro = db.Column(db.DateTime, default=agora)
-    historico = db.relationship('HistoricoFerramenta', backref='ferramenta', lazy=True, order_by='HistoricoFerramenta.data_saida.desc()')
-
-class HistoricoFerramenta(db.Model):
-    """Registro de cada saída/devolução/manutenção de ferramenta."""
-    id = db.Column(db.Integer, primary_key=True)
-    ferramenta_id = db.Column(db.Integer, db.ForeignKey('ferramenta.id'), nullable=False)
-    colaborador = db.Column(db.String(100), nullable=False)
-    data_saida = db.Column(db.DateTime, nullable=False)
-    data_devolucao = db.Column(db.DateTime, nullable=True)
-    registrado_por = db.Column(db.String(100))
-    tipo_evento = db.Column(db.String(20), default='uso')     # uso | manutencao
-    motivo_manutencao = db.Column(db.String(300), nullable=True)
-    foto_url = db.Column(db.Text, nullable=True)       # foto base64 comprimida — prova de retirada
-
-class ItemEPI(db.Model):
-    """Controle de EPIs e uniformes por almoxarifado (espelho de Ferramenta, sem prazo)."""
-    id = db.Column(db.Integer, primary_key=True)
-    identificacao = db.Column(db.String(50), nullable=False)  # CA ou código interno
-    nome = db.Column(db.String(200), nullable=False)
-    tamanho = db.Column(db.String(30))                        # P, M, G, GG, 38, 40...
-    almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=False)
-    almoxarifado = db.relationship('Almoxarifado', backref='epis')
-    status = db.Column(db.String(20), default='disponivel')   # disponivel | em_uso | manutencao
-    responsavel_atual = db.Column(db.String(100))
-    quantidade = db.Column(db.Integer, default=1)             # estoque disponível deste EPI
-    local = db.Column(db.String(100))                         # localização física
-    observacao = db.Column(db.String(200))
-    ativo = db.Column(db.Boolean, default=True)
-    data_cadastro = db.Column(db.DateTime, default=agora)
-    historico = db.relationship('HistoricoEPI', backref='item_epi', lazy=True, order_by='HistoricoEPI.data_saida.desc()')
-
-class HistoricoEPI(db.Model):
-    """Registro de cada entrega/devolução de EPI."""
-    id = db.Column(db.Integer, primary_key=True)
-    item_epi_id = db.Column(db.Integer, db.ForeignKey('item_epi.id'), nullable=False)
-    colaborador = db.Column(db.String(100), nullable=False)
-    data_saida = db.Column(db.DateTime, nullable=False)
-    data_devolucao = db.Column(db.DateTime, nullable=True)
-    registrado_por = db.Column(db.String(100))
-    tipo_evento = db.Column(db.String(20), default='uso')     # uso | manutencao
-    motivo_manutencao = db.Column(db.String(300), nullable=True)
-    foto_url = db.Column(db.Text, nullable=True)              # foto base64 — comprovante de entrega
-
-class AcessoExtra(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
-    almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=False)
-    motivo = db.Column(db.String(200))
-    data_inicio = db.Column(db.DateTime, default=agora)
-    data_fim = db.Column(db.DateTime, nullable=True)
-    concedido_por = db.Column(db.String(100))
-    almoxarifado = db.relationship('Almoxarifado')
-
-    @property
-    def ativo(self):
-        if self.data_fim and agora() > self.data_fim:
-            return False
-        return True
-
-class PermissaoExtra(db.Model):
-    """Permissões especiais concedidas a usuários pelo fundador/admin.
-    Ex: dar ao engenheiro a permissão de fazer requisições.
-    permissao: 'fazer_requisicao' | 'ver_relatorios' | 'gerenciar_colaboradores'
-    """
-    id = db.Column(db.Integer, primary_key=True)
-    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
-    permissao = db.Column(db.String(50), nullable=False)
-    concedido_por = db.Column(db.String(100))
-    data_concessao = db.Column(db.DateTime, default=agora)
-    usuario = db.relationship('Usuario', backref='permissoes_extras')
 
 # ── DECORATORS DE ACESSO ─────────────────────────────────────────────────────
 

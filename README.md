@@ -1,303 +1,94 @@
-# 📦 Sistema de Gestão de Estoque para Obras
+# Olá, eu sou o Henrique 👋
 
-<div align="center">
+<p align="center">
+  Desenvolvedor focado em construir sistemas web robustos com Python e Flask.
+</p>
 
-![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)
-![Flask](https://img.shields.io/badge/Flask-3.0-green.svg)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-blue.svg)
-![License](https://img.shields.io/badge/License-Proprietary-red.svg)
-![Status](https://img.shields.io/badge/Status-Production-success.svg)
-
-**Sistema completo de gestão de almoxarifado para obras de construção civil**
-
-[Demonstração](#-demonstração) • [Instalação](#-instalação-rápida) • [Documentação](#-documentação) • [Suporte](#-suporte)
-
-</div>
-
----
-
-## 🎯 Sobre o Sistema
-
-Sistema web desenvolvido para gerenciar múltiplos almoxarifados em obras de construção civil, com controle de estoque, requisições de materiais, relatórios gerenciais e backup automático.
-
-### ✨ Principais Funcionalidades
-
-- 🏢 **Múltiplos Almoxarifados** - Gerencie vários almoxarifados independentes
-- 👥 **4 Perfis de Acesso** - Admin, Almoxarife, Mestre de Obra e Colaborador
-- 📋 **Requisições de Material** - Fluxo completo de solicitação e aprovação
-- 📊 **Relatórios Gerenciais** - Consumo, alertas e movimentações
-- 💾 **Backup Automático** - Backup diário por email
-- 📱 **Interface Responsiva** - Funciona em desktop, tablet e celular
-- 🔒 **Segurança** - Senhas criptografadas e controle de acesso
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white"/>
+  <img src="https://img.shields.io/badge/SQLAlchemy-D71F00?style=for-the-badge&logo=sqlalchemy&logoColor=white"/>
+  <img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Bootstrap-563D7C?style=for-the-badge&logo=bootstrap&logoColor=white"/>
+  <img src="https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white"/>
+  <img src="https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Railway-0B0D0E?style=for-the-badge&logo=railway&logoColor=white"/>
+</p>
 
 ---
 
-## 🖼️ Screenshots
+## 🙋 Sobre mim
 
-### Dashboard Principal
-![Dashboard](https://via.placeholder.com/800x400/4CAF50/FFFFFF?text=Dashboard+Principal)
-
-### Controle de Estoque
-![Estoque](https://via.placeholder.com/800x400/2196F3/FFFFFF?text=Controle+de+Estoque)
-
-### Requisições
-![Requisições](https://via.placeholder.com/800x400/FF9800/FFFFFF?text=Requisições+de+Material)
-
----
- Direitos Autorais
-
-© 2026 Henrique Silva Gouveia Carvalho Todos os direitos reservados.
-
-Este software é proprietário. O uso, cópia, modificação ou distribuição não autorizada é estritamente proibido.
-```
-
-Acesse: **http://localhost:5000**
-
-**Login padrão:** `entre em contato com o suporte para gerar uma senha nova` / `entre em contato com o suporte para gerar uma senha nova`
-
-### Opção 2: Deploy na Nuvem (Railway)
-
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template)
-
-1. Clique no botão acima
-2. Conecte seu GitHub
-3. Configure as variáveis de ambiente
-4. Deploy automático em 2 minutos!
+- 💼 Jovem aprendiz desenvolvendo soluções reais pra empresas
+- 🏗️ Construo sistemas de gestão com Python, Flask e PostgreSQL
+- 📦 Apaixonado por resolver problemas práticos com código
+- 🚀 Sempre aprendendo e evoluindo no mundo do desenvolvimento
+- 💬 Me chame para falar sobre Python, Flask ou sistemas de gestão
 
 ---
 
-## 📋 Requisitos
+## 🔧 Stack principal
 
-### Desenvolvimento
-- Python 3.11+
-- SQLite (incluído)
+**Backend**
 
-### Produção
-- Python 3.11+
-- PostgreSQL 14+
-- 2GB RAM
-- 10GB disco
+![Python](https://img.shields.io/badge/Python-3776AB?style=flat&logo=python&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-000000?style=flat&logo=flask&logoColor=white)
+![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-D71F00?style=flat&logo=sqlalchemy&logoColor=white)
 
----
+**Banco de dados**
 
-## 🛠️ Tecnologias
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=flat&logo=postgresql&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-07405E?style=flat&logo=sqlite&logoColor=white)
 
-- **Backend:** Python, Flask, SQLAlchemy
-- **Frontend:** HTML5, CSS3, Bootstrap 5, JavaScript
-- **Banco de Dados:** PostgreSQL / SQLite
-- **Relatórios:** OpenPyXL (Excel)
-- **Email:** SMTP (Gmail)
-- **Deploy:** Railway, Gunicorn
+**Frontend**
 
----
+![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=flat&logo=html5&logoColor=white)
+![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=flat&logo=css3&logoColor=white)
+![Bootstrap](https://img.shields.io/badge/Bootstrap-563D7C?style=flat&logo=bootstrap&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat&logo=javascript&logoColor=black)
 
-## 📚 Documentação
+**Deploy & ferramentas**
 
-- 📘 [Manual de Instalação](MANUAL_INSTALACAO.md)
-- 📗 [Manual do Usuário](MANUAL_USUARIO.md)
-- 📙 [Apresentação do Sistema](APRESENTACAO_SISTEMA.md)
-- 📕 [Guia de Deploy no Railway](INSTRUCOES_RAILWAY.md)
+![Railway](https://img.shields.io/badge/Railway-0B0D0E?style=flat&logo=railway&logoColor=white)
+![Git](https://img.shields.io/badge/Git-F05032?style=flat&logo=git&logoColor=white)
+![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat&logo=github&logoColor=white)
 
 ---
 
-## 🎓 Guia Rápido
+## 🚀 Projeto em destaque
 
-### Primeiro Acesso
+### 📦 Logi-Prime — Sistema de Gestão de Estoque
 
-1. **Login:** Use `admin` / `admin123`
-2. **Altere a senha:** Vá em Usuários → Editar Admin
-3. **Crie almoxarifados:** Menu → Novo Almoxarifado
-4. **Cadastre itens:** Entre no almoxarifado → Novo Item
-5. **Crie usuários:** Menu → Usuários → Novo Usuário
+Sistema completo de gestão de almoxarifado desenvolvido do zero para uso real em obras de construção civil.
 
-### Operação Diária
+**Funcionalidades:**
+- Controle de estoque por almoxarifado e cidade
+- Gestão de EPIs, ferramentas e materiais
+- Sistema de requisições com fluxo de aprovação
+- Relatórios de consumo por pessoa e por período
+- Autenticação com 2FA, controle de perfis e permissões
+- PWA — funciona no celular como app
+- Deploy em produção no Railway com PostgreSQL
 
-**Entrada de Material:**
-1. Acesse o almoxarifado
-2. Clique em "Movimentação em Lote"
-3. Selecione "Entrada"
-4. Adicione os itens e quantidades
-5. Confirme
+**Tecnologias:** Python · Flask · SQLAlchemy · PostgreSQL · Bootstrap · Railway
 
-**Saída de Material:**
-1. Acesse o almoxarifado
-2. Clique em "Movimentação em Lote"
-3. Selecione "Saída"
-4. Adicione os itens, quantidades e colaborador
-5. Confirme
-
-**Requisição do Mestre:**
-1. Login como mestre de obra
-2. Menu → Nova Requisição
-3. Selecione almoxarifado e itens
-4. Envie para aprovação
-5. Almoxarife aprova e entrega
+[![Repositório](https://img.shields.io/badge/Ver%20Repositório-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/rickgouveia456-cmd/gerenciador-de-estoque)
 
 ---
 
-## 🔧 Configuração
+## 📊 Estatísticas do GitHub
 
-### Variáveis de Ambiente
+<p align="center">
+  <img height="160" src="https://github-readme-stats.vercel.app/api?username=rickgouveia456-cmd&show_icons=true&theme=dark&hide_border=true&count_private=true"/>
+  <img height="160" src="https://github-readme-stats.vercel.app/api/top-langs/?username=rickgouveia456-cmd&layout=compact&theme=dark&hide_border=true"/>
+</p>
 
-Crie um arquivo `.env` na raiz:
-
-```env
-# Banco de dados
-DATABASE_URL=postgresql://user:pass@host:5432/dbname
-
-# Email para backup
-BACKUP_EMAIL_FROM=seu-email@gmail.com
-BACKUP_EMAIL_PASS=senha-app-gmail
-BACKUP_EMAIL_TO=destinatario@empresa.com
-
-# Segurança
-SECRET_KEY=sua-chave-secreta-aqui
-```
-
-### ⚠️ Não versionar o banco local
-
-O arquivo de banco local em `instance/estoque.db` contém dados sensíveis e de
-desenvolvimento. Não o comite no repositório. O diretório `instance/` e arquivos
-`.db` já estão listados em `.gitignore`. Se por algum motivo o banco for adicionado
-ao repositório, remova-o do controle de versão com:
-
-```bash
-git rm --cached instance/estoque.db
-git commit -m "Remove local DB from repo"
-git push
-```
-
-
-### Backup Automático
-
-O sistema envia backup automático diário às 20h. Para configurar:
-
-1. Configure as variáveis de email
-2. Crie uma senha de app no Gmail
-3. O backup será enviado automaticamente
-
-**Testar backup manualmente:**
-```
-https://seu-dominio.com/api/backup-automatico
-```
+<p align="center">
+  <img src="https://github-readme-streak-stats.herokuapp.com/?user=rickgouveia456-cmd&theme=dark&hide_border=true"/>
+</p>
 
 ---
 
-## 📊 Estrutura do Projeto
-
-```
-estoqueobrapatamares/
-├── app.py                      # Aplicação principal
-├── requirements.txt            # Dependências
-├── Procfile                    # Config Railway
-├── railway.toml                # Config Railway
-├── templates/                  # Templates HTML
-│   ├── base.html              # Template base
-│   ├── index.html             # Dashboard
-│   ├── almoxarifado.html      # Gestão de almoxarifado
-│   ├── requisicoes.html       # Requisições
-│   ├── relatorios.html        # Relatórios
-│   └── ...
-├── instance/                   # Banco SQLite local
-├── docs/                       # Documentação
-└── README.md                   # Este arquivo
-```
-
----
-
-## 🤝 Contribuindo
-
-Este é um projeto proprietário. Contribuições não são aceitas publicamente.
-
-Para licenciamento e customizações, entre em contato.
-
----
-
-## 📞 Suporte
-
-### Suporte Técnico
-
-- **Email:** rickgouveia157@gmail.com
-- **WhatsApp:** +5571999164873
-- **Horário:** Segunda a Sexta, 8h às 18h
-
-### Reportar Problemas
-
-Para clientes com suporte ativo, envie um email detalhando:
-- Descrição do problema
-- Passos para reproduzir
-- Screenshots (se aplicável)
-- Logs do sistema
-
----
-
-## 💰 Licenciamento
-
-### Uso Comercial
-
-Este sistema está disponível para licenciamento comercial.
-
-**Opções:**
-- 💼 **Licença Única** - Compra única com código-fonte
-- 📅 **Mensalidade (SaaS)** - Hospedagem e suporte incluídos
-- 🎨 **Customização** - Desenvolvimento sob medida
-
-**Contato para vendas:** rickgouveia157@gmail.com
-
-### Direitos Autorais
-
-© 2026 Henrique Silva Gouveia Carvalho Todos os direitos reservados.
-
-Este software é proprietário. O uso, cópia, modificação ou distribuição não autorizada é estritamente proibido.
-
----
-
-## 🌟 Recursos Adicionais
-
-### Integrações Disponíveis
-
-- ✅ Email (SMTP)
-- ✅ Excel (Importação/Exportação)
-- ✅ Backup automático
-- 🔄 API REST (em desenvolvimento)
-- 🔄 Integração com ERP (sob demanda)
-
-### Roadmap
-
-- [ ] API REST completa
-- [ ] App mobile (Android/iOS)
-- [ ] Integração com WhatsApp
-- [ ] Dashboard analytics avançado
-- [ ] Leitor de código de barras
-- [ ] Integração com fornecedores
-
----
-
-## 📈 Estatísticas
-
-- ⭐ **Versão:** 2.0
-- 📅 **Última Atualização:** Maio 2026
-- 🏢 **Empresas Usando:** 5+
-- 👥 **Usuários Ativos:** 100+
-- 📦 **Itens Gerenciados:** 10.000+
-
----
-
----
-
-## 🔗 Links Úteis
-
-- 🌐 [Site Oficial](#)
-- 📺 [Vídeo Demonstração](#)
-- 📖 [Documentação Completa](MANUAL_INSTALACAO.md)
-- 💬 [Suporte](@rickgouveia157@gmail.com)
-
----
-
-<div align="center">
-
-**Desenvolvido com ❤️ por Henrique silva Gouveia Carvalho**
-
-[⬆ Voltar ao topo](#-sistema-de-gestão-de-estoque-para-obras)
-
-</div>
+<p align="center">
+  <img src="https://komarev.com/ghpvc/?username=rickgouveia456-cmd&color=orange&style=flat-square&label=Visitas+ao+perfil"/>
+</p>

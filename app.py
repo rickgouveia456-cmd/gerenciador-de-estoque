@@ -31,7 +31,6 @@ from models import (
     AcessoExtra, PermissaoExtra
 )
 
-# Fuso horário de Brasília (UTC-3) — mantido para compatibilidade
 # ── DIAGNÓSTICO DE VARIÁVEIS DE AMBIENTE ─────────────────────────────────────
 logger.info('=' * 60)
 logger.info('DIAGNÓSTICO DE VARIÁVEIS DE AMBIENTE:')

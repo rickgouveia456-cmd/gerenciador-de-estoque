@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Editar' if insumo else 'Novo' }} Insumo — Catálogo · Logi-Prime{% endblock %}
+{% block page_title %}{{ 'Editar Insumo' if insumo else 'Novo Insumo no Catálogo' }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-7">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+
+                <p class="text-muted small mb-4">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Insumos cadastrados aqui ficam disponíveis para todos os almoxarifados usarem como modelo.
+                </p>
+
+                <form method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Nome <span class="text-danger">*</span></label>
+                        <input type="text" name="nome" class="form-control" required
+                               value="{{ insumo.nome if insumo else (form_data.get('nome', '')) }}"
+                               placeholder="Ex: Capacete de Segurança Classe A">
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Código de Referência</label>
+                            <input type="text" name="codigo_ref" class="form-control"
+                                   value="{{ insumo.codigo_ref if insumo else (form_data.get('codigo_ref', '')) }}"
+                                   placeholder="Ex: CAP-001 ou código do fabricante">
+                            <div class="form-text">Código sugerido ao importar para o estoque</div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Unidade <span class="text-danger">*</span></label>
+                            <select name="unidade" class="form-select" required>
+                                {% set unidades = ['un', 'kg', 'g', 'L', 'mL', 'm', 'm²', 'm³', 'sc', 'cx', 'pc', 'rolo', 'par', 'jg', 'RL'] %}
+                                {% set val_uni = insumo.unidade if insumo else form_data.get('unidade', 'un') %}
+                                {% for u in unidades %}
+                                <option value="{{ u }}" {% if u == val_uni %}selected{% endif %}>{{ u }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3" id="divCA_cat"
+                             style="{% set val_cat = insumo.categoria if insumo else form_data.get('categoria','geral') %}{% if val_cat != 'epi' %}display:none{% endif %}">
+                            <label class="form-label">C.A. (EPI)</label>
+                            <input type="text" name="ca" class="form-control"
+                                   value="{{ insumo.ca if insumo else (form_data.get('ca', '')) }}"
+                                   placeholder="Nº do CA">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Categoria</label>
+                        <select name="categoria" class="form-select" id="selectCategoria_cat"
+                                onchange="toggleCA_cat(this.value)">
+                            {% set val_cat = insumo.categoria if insumo else form_data.get('categoria', 'geral') %}
+                            {% for c in categorias %}
+                            <option value="{{ c }}" {% if c == val_cat %}selected{% endif %}>
+                                {{ cat_label[c] }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Descrição / Especificação</label>
+                        <textarea name="descricao" class="form-control" rows="3"
+                                  placeholder="Especificações técnicas, normas, marca recomendada...">{{ insumo.descricao if insumo else (form_data.get('descricao', '')) }}</textarea>
+                        <div class="form-text">Visível para todos os almoxarifados ao consultar o catálogo</div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>
+                            {{ 'Salvar Alterações' if insumo else 'Adicionar ao Catálogo' }}
+                        </button>
+                        <a href="{{ url_for('catalogo_insumos') }}" class="btn btn-outline-secondary">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleCA_cat(val) {
+    document.getElementById('divCA_cat').style.display = val === 'epi' ? '' : 'none';
+}
+</script>
+{% endblock %}

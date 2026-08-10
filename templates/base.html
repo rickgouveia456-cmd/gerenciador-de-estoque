@@ -94,6 +94,9 @@
         <a href="/colaboradores" class="nav-link {% if request.endpoint == 'colaboradores' %}active{% endif %}">
             <i class="bi bi-person-badge me-2"></i> Colaboradores
         </a>
+        <a href="/catalogo/insumos" class="nav-link {% if request.endpoint in ('catalogo_insumos','catalogo_novo','catalogo_editar') %}active{% endif %}">
+            <i class="bi bi-collection me-2"></i> Catálogo de Insumos
+        </a>
 
         {% elif usuario_atual and usuario_atual.perfil in ('mestre', 'tecnico_seguranca') %}
         <!-- SIDEBAR PARA MESTRE / TÉCNICO DE SEGURANÇA -->
@@ -150,6 +153,9 @@
         {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
         <a href="/colaboradores" class="nav-link {% if request.endpoint == 'colaboradores' %}active{% endif %}">
             <i class="bi bi-person-badge me-2"></i> Colaboradores
+        </a>
+        <a href="/catalogo/insumos" class="nav-link {% if request.endpoint in ('catalogo_insumos','catalogo_novo','catalogo_editar') %}active{% endif %}">
+            <i class="bi bi-collection me-2"></i> Catálogo de Insumos
         </a>
         {% endif %}
 

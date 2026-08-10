@@ -9,10 +9,26 @@
             <div class="card-body p-4">
                 <form method="POST">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    {# ── Importar do Catálogo ──────────────────────────────── #}
+                    {% if not item %}
+                    <div class="mb-3 p-3 rounded" style="background:#f0f7ff;border:1px dashed #90bef0">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <span class="text-muted small"><i class="bi bi-lightbulb me-1 text-warning"></i>Reutilize um insumo já cadastrado:</span>
+                            <button type="button" class="btn btn-outline-primary btn-sm"
+                                    data-bs-toggle="modal" data-bs-target="#modalCatalogo">
+                                <i class="bi bi-collection me-1"></i>Importar do Catálogo
+                            </button>
+                            <span class="text-muted small">ou preencha os campos manualmente abaixo</span>
+                        </div>
+                    </div>
+                    {% endif %}
+
                     <div class="row g-3">
                         <div class="col-md-8">
                             <label class="form-label fw-semibold">Nome do Item *</label>
                             <input type="text" name="nome" class="form-control" required
+                                   id="campo_nome"
                                    value="{{ item.nome if item else '' }}"
                                    placeholder="Ex: Cimento CP-II">
                         </div>
@@ -99,4 +115,140 @@ function toggleCA(val) {
     document.getElementById('divCA').style.display = val === 'epi' ? '' : 'none';
 }
 </script>
+
+{# ── Modal Catálogo ─────────────────────────────────────────────────────── #}
+{% if not item %}
+<div class="modal fade" id="modalCatalogo" tabindex="-1" aria-labelledby="modalCatalogoLabel">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalCatalogoLabel">
+                    <i class="bi bi-collection me-2"></i>Importar do Catálogo de Insumos
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">
+                    Selecione um insumo para preencher os campos automaticamente.
+                    Você ainda pode editar antes de salvar.
+                </p>
+                <div class="input-group mb-3">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" id="buscaCatalogo" class="form-control"
+                           placeholder="Digite o nome do insumo..." autocomplete="off">
+                </div>
+                <div id="resultadosCatalogo" style="max-height:360px;overflow-y:auto">
+                    <p class="text-muted small text-center py-3">
+                        <i class="bi bi-arrow-up me-1"></i>Digite para buscar no catálogo
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a href="{{ url_for('catalogo_insumos') }}" class="btn btn-outline-secondary btn-sm" target="_blank">
+                    <i class="bi bi-box-arrow-up-right me-1"></i>Ver catálogo completo
+                </a>
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const inputBusca = document.getElementById('buscaCatalogo');
+    const resultados = document.getElementById('resultadosCatalogo');
+    let timer;
+
+    // Mapeamento de unidade do catálogo para o <select> do form
+    const unidadesValidas = ['un','kg','g','L','mL','m','m²','m³','sc','cx','pc','rolo','par','jg','RL'];
+
+    inputBusca.addEventListener('input', function () {
+        clearTimeout(timer);
+        const q = this.value.trim();
+        if (q.length < 2) {
+            resultados.innerHTML = '<p class="text-muted small text-center py-3"><i class="bi bi-arrow-up me-1"></i>Digite ao menos 2 caracteres</p>';
+            return;
+        }
+        resultados.innerHTML = '<p class="text-muted small text-center py-3"><i class="bi bi-hourglass-split me-1"></i>Buscando...</p>';
+        timer = setTimeout(function () {
+            fetch('/api/catalogo/buscar?q=' + encodeURIComponent(q))
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data.length) {
+                        resultados.innerHTML = '<p class="text-muted small text-center py-3">Nenhum resultado. <a href="{{ url_for("catalogo_novo") }}" target="_blank">Adicionar ao catálogo</a>?</p>';
+                        return;
+                    }
+                    const catLabel = {
+                        geral: '🏗️ Geral', epi: '🦺 EPI', maquinario: '⚙️ Maquinário',
+                        eletrica: '⚡ Elétrica', hidraulica: '💧 Hidráulica', gas: '🔥 Gás'
+                    };
+                    resultados.innerHTML = data.map(function (ins) {
+                        const encodedIns = encodeURIComponent(JSON.stringify(ins));
+                        return '<div class="d-flex justify-content-between align-items-center p-2 border-bottom hover-bg" style="cursor:pointer" onclick="selecionarInsumo(\'' + encodedIns + '\')">'
+                            + '<div>'
+                            + '<div class="fw-semibold">' + ins.nome + '</div>'
+                            + '<small class="text-muted">'
+                            + (ins.codigo_ref ? 'Ref: ' + ins.codigo_ref + ' · ' : '')
+                            + (catLabel[ins.categoria] || ins.categoria)
+                            + (ins.ca ? ' · CA ' + ins.ca : '')
+                            + '</small>'
+                            + '</div>'
+                            + '<span class="badge bg-secondary ms-2">' + ins.unidade + '</span>'
+                            + '</div>';
+                    }).join('');
+                })
+                .catch(function () {
+                    resultados.innerHTML = '<p class="text-danger small text-center py-3">Erro ao buscar. Tente novamente.</p>';
+                });
+        }, 300);
+    });
+
+    window.selecionarInsumo = function (encodedIns) {
+        const ins = JSON.parse(decodeURIComponent(encodedIns));
+
+        // Preencher campos
+        const nome = document.getElementById('campo_nome');
+        const codigo = document.querySelector('[name="codigo"]');
+        const unidadeSelect = document.querySelector('[name="unidade"]');
+        const categoriaSelect = document.getElementById('selectCategoria');
+        const ca = document.querySelector('[name="ca"]');
+
+        if (nome) nome.value = ins.nome;
+
+        // Código: só preenche se estiver vazio
+        if (codigo && !codigo.value && ins.codigo_ref) {
+            codigo.value = ins.codigo_ref;
+        }
+
+        // Unidade: seleciona a opção correta
+        if (unidadeSelect && ins.unidade) {
+            for (let opt of unidadeSelect.options) {
+                if (opt.value === ins.unidade) { opt.selected = true; break; }
+            }
+        }
+
+        // Categoria
+        if (categoriaSelect && ins.categoria) {
+            for (let opt of categoriaSelect.options) {
+                if (opt.value === ins.categoria) { opt.selected = true; break; }
+            }
+            // Disparar evento para mostrar/ocultar campo CA
+            categoriaSelect.dispatchEvent(new Event('change'));
+        }
+
+        // CA
+        if (ca && ins.ca) ca.value = ins.ca;
+
+        // Fechar modal
+        bootstrap.Modal.getInstance(document.getElementById('modalCatalogo')).hide();
+
+        // Feedback visual no campo nome
+        if (nome) {
+            nome.classList.add('border-success');
+            setTimeout(function () { nome.classList.remove('border-success'); }, 2000);
+        }
+    };
+})();
+</script>
+{% endif %}
 {% endblock %}

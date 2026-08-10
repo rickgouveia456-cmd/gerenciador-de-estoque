@@ -334,6 +334,38 @@ def run_migrations():
             # Garantir que ferramenta aceita status 'manutencao' (sem restrição de CHECK no SQLite)
             safe_exec(conn, "UPDATE ferramenta SET status = 'disponivel' WHERE status NOT IN ('disponivel','em_uso','manutencao','atrasado')")
 
+            # ── Tabela catalogo_insumo ────────────────────────────────────────────
+            if is_pg:
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS catalogo_insumo (
+                        id SERIAL PRIMARY KEY,
+                        nome VARCHAR(300) NOT NULL,
+                        codigo_ref VARCHAR(50),
+                        unidade VARCHAR(20) NOT NULL,
+                        categoria VARCHAR(30) DEFAULT 'geral',
+                        ca VARCHAR(20),
+                        descricao VARCHAR(500),
+                        ativo BOOLEAN DEFAULT TRUE,
+                        data_cadastro TIMESTAMP,
+                        criado_por VARCHAR(100)
+                    )
+                """)
+            else:
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS catalogo_insumo (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        nome VARCHAR(300) NOT NULL,
+                        codigo_ref VARCHAR(50),
+                        unidade VARCHAR(20) NOT NULL,
+                        categoria VARCHAR(30) DEFAULT 'geral',
+                        ca VARCHAR(20),
+                        descricao VARCHAR(500),
+                        ativo BOOLEAN DEFAULT TRUE,
+                        data_cadastro DATETIME,
+                        criado_por VARCHAR(100)
+                    )
+                """)
+
     except Exception as e:
         logger.error(f'Migração: {e}')
 

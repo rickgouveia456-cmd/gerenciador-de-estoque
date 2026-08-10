@@ -232,3 +232,17 @@ class PermissaoExtra(db.Model):
     concedido_por = db.Column(db.String(100))
     data_concessao = db.Column(db.DateTime, default=agora)
     usuario = db.relationship('Usuario', backref='permissoes_extras')
+
+
+class CatalogoInsumo(db.Model):
+    __tablename__ = 'catalogo_insumo'
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(300), nullable=False)
+    codigo_ref = db.Column(db.String(50), nullable=True)  # código de referência/fabricante
+    unidade = db.Column(db.String(20), nullable=False)
+    categoria = db.Column(db.String(30), default='geral')
+    ca = db.Column(db.String(20), nullable=True)  # Certificado de Aprovação (EPIs)
+    descricao = db.Column(db.String(500), nullable=True)
+    ativo = db.Column(db.Boolean, default=True)
+    data_cadastro = db.Column(db.DateTime, default=agora)
+    criado_por = db.Column(db.String(100), nullable=True)

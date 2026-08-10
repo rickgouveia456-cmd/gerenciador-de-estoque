@@ -95,7 +95,7 @@
                     </td>
                     <td class="small text-muted">{{ r.item.almoxarifado.nome }}</td>
                     <td class="text-center">{{ r.item.quantidade|fmt_qtd }} {{ r.item.unidade }}</td>
-                    <td class="text-center text-muted small">{{ r.consumo_diario }} {{ r.item.unidade }}/dia</td>
+                    <td class="text-center text-muted small">{{ r.consumo_diario|fmt_qtd }} {{ r.item.unidade }}/dia</td>
                     <td class="text-center">
                         {% if r.urgencia == 'critico' %}
                             <span class="badge bg-danger">🔴 ~{{ r.dias }}d p/ mínimo</span>

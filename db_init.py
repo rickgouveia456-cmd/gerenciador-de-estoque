@@ -593,20 +593,3 @@ def inicializar_banco():
         seed_ferramentas_estrutura_auto()
     except Exception as e:
         logger.error(f'Inicialização do banco: {e}')
-
-# Inicializa na primeira requisição para não bloquear o boot do gunicorn
-_banco_inicializado = False
-
-@app.before_request
-def init_on_first_request():
-    global _banco_inicializado
-    if not _banco_inicializado:
-        _banco_inicializado = True
-        try:
-            inicializar_banco()
-        except Exception as e:
-            logger.error(f'Erro na inicialização: {e}')
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(debug=False, host='0.0.0.0', port=port)

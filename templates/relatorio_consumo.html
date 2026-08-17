@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+{% block title %}Relatório de Movimentações{% endblock %}
+{% block page_title %}Relatório de Movimentações{% endblock %}
+
+{% block content %}
+<!-- Filtros -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end" id="formFiltro">
+            <input type="hidden" name="aba" id="inputAba" value="{{ aba }}">
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Almoxarifado</label>
+                <select name="almoxarifado_id" class="form-select">
+                    <option value="">Todos</option>
+                    {% for alm in almoxarifados %}
+                    <option value="{{ alm.id }}" {% if alm_id == alm.id %}selected{% endif %}>
+                        {{ alm.nome }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Data Início</label>
+                <input type="date" name="data_ini" class="form-control" value="{{ data_ini }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Data Fim</label>
+                <input type="date" name="data_fim" class="form-control" value="{{ data_fim }}">
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-fill">
+                    <i class="bi bi-search me-1"></i> Filtrar
+                </button>
+                {% if aba == 'saidas' %}
+                <a id="btnExportar"
+                   href="/relatorios/consumo/exportar?almoxarifado_id={{ alm_id or '' }}&data_ini={{ data_ini }}&data_fim={{ data_fim }}"
+                   class="btn btn-success">
+                    <i class="bi bi-file-earmark-excel me-1"></i> Excel
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Abas -->
+<ul class="nav nav-tabs mb-0" style="border-bottom:none">
+    <li class="nav-item">
+        <a class="nav-link {% if aba == 'saidas' %}active fw-bold{% endif %}"
+           href="?aba=saidas&almoxarifado_id={{ alm_id or '' }}&data_ini={{ data_ini }}&data_fim={{ data_fim }}">
+            <i class="bi bi-box-arrow-up-right me-1 text-danger"></i> Saídas
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if aba == 'entradas' %}active fw-bold{% endif %}"
+           href="?aba=entradas&almoxarifado_id={{ alm_id or '' }}&data_ini={{ data_ini }}&data_fim={{ data_fim }}">
+            <i class="bi bi-box-arrow-in-down-right me-1 text-success"></i> Entradas
+        </a>
+    </li>
+</ul>
+
+<!-- Resultado -->
+<div class="card border-0 shadow-sm" style="border-top-left-radius:0">
+    <div class="card-header d-flex justify-content-between align-items-center"
+         style="background:var(--accent);color:#fff">
+        {% if aba == 'saidas' %}
+        <span><i class="bi bi-graph-down me-2"></i>Saídas no Período</span>
+        {% else %}
+        <span><i class="bi bi-graph-up me-2"></i>Entradas no Período</span>
+        {% endif %}
+        <span class="badge bg-light text-dark">{{ movimentacoes|length }} registros</span>
+    </div>
+    <div class="card-body p-0">
+        {% if movimentacoes %}
+        <div class="p-3 border-bottom">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0">
+                    <i class="bi bi-search text-muted"></i>
+                </span>
+                <input type="text" id="buscaConsumo" class="form-control border-start-0"
+                       placeholder="Pesquisar por item ou almoxarifado..."
+                       oninput="filtrarConsumo(this.value)">
+                <button class="btn btn-outline-secondary" type="button"
+                        onclick="document.getElementById('buscaConsumo').value=''; filtrarConsumo('')">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+        </div>
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Item</th>
+                    <th>Almoxarifado</th>
+                    <th>Quantidade</th>
+                    <th>Responsável</th>
+                    {% if aba == 'saidas' %}<th>Colaborador</th>{% endif %}
+                    <th>Observação</th>
+                </tr>
+            </thead>
+            <tbody id="tbodyConsumo">
+                {% for mov in movimentacoes %}
+                {% set obs = mov.observacao or '' %}
+                {% if 'liberado P/' in obs or 'liberado p/' in obs %}
+                    {% set partes = obs.split('liberado P/')[-1].split('liberado p/')[-1].split(' | ') %}
+                    {% set colab_nome = partes[0].strip() %}
+                    {% set obs_limpa = partes[1:] | join(' | ') if partes|length > 1 else '' %}
+                {% elif 'Colaborador:' in obs %}
+                    {% set colab_nome = obs.split('Colaborador:')[-1].split('|')[0].strip() %}
+                    {% set obs_limpa = obs.split('|')[-1].strip() if '|' in obs else '' %}
+                {% else %}
+                    {% set colab_nome = '' %}
+                    {% set obs_limpa = obs %}
+                {% endif %}
+                <tr data-busca="{{ mov.item.nome | lower }} {{ mov.item.codigo | lower }} {{ mov.item.almoxarifado.nome | lower }}">
+                    <td class="text-muted small">{{ mov.data.strftime('%d/%m/%Y %H:%M') }}</td>
+                    <td>
+                        <a href="/item/{{ mov.item.id }}" class="text-decoration-none fw-semibold">
+                            {{ mov.item.nome }}
+                        </a>
+                        <br><small class="text-muted">{{ mov.item.codigo }}</small>
+                    </td>
+                    <td>{{ mov.item.almoxarifado.nome }}</td>
+                    <td class="fw-bold {% if aba == 'saidas' %}text-danger{% else %}text-success{% endif %}">
+                        {% if aba == 'entradas' %}+{% endif %}{{ mov.quantidade }} {{ mov.item.unidade }}
+                    </td>
+                    <td>{{ mov.responsavel or '—' }}</td>
+                    {% if aba == 'saidas' %}
+                    <td class="fw-semibold">{{ colab_nome or '—' }}</td>
+                    {% endif %}
+                    <td class="text-muted small">{{ obs_limpa or '—' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div id="semResultadosConsumo" class="text-center py-4 text-muted" style="display:none">
+            <i class="bi bi-search fs-2 d-block mb-2"></i>Nenhum resultado encontrado.
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+            Nenhuma {{ 'saída' if aba == 'saidas' else 'entrada' }} encontrada no período.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+function filtrarConsumo(q) {
+    q = q.toLowerCase().trim();
+    const rows = document.querySelectorAll('#tbodyConsumo tr');
+    let visiveis = 0;
+    rows.forEach(tr => {
+        const match = tr.dataset.busca.includes(q);
+        tr.style.display = match ? '' : 'none';
+        if (match) visiveis++;
+    });
+    document.getElementById('semResultadosConsumo').style.display = visiveis === 0 ? '' : 'none';
+}
+
+// Mantém a aba ativa ao filtrar pelo formulário
+document.getElementById('formFiltro').addEventListener('submit', function() {
+    document.getElementById('inputAba').value = '{{ aba }}';
+});
+</script>
+{% endblock %}
+{% endblock %}

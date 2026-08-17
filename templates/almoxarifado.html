@@ -1,0 +1,267 @@
+{% extends 'base.html' %}
+{% block title %}{{ almoxarifado.nome }}{% endblock %}
+{% block page_title %}{{ almoxarifado.nome }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <p class="text-muted mb-0">{{ almoxarifado.descricao }}</p>
+    <div class="d-flex flex-wrap gap-2">
+        {% if usuario_atual.perfil != 'analista' %}
+        <a href="/item/novo?alm={{ almoxarifado.id }}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i> Novo Item
+        </a>
+        {% endif %}
+        <a href="/almoxarifado/{{ almoxarifado.id }}/exportar" class="btn btn-success btn-sm">
+            <i class="bi bi-file-earmark-excel me-1"></i> Exportar Excel
+        </a>
+        {% if usuario_atual.perfil != 'analista' %}
+        <a href="/almoxarifado/{{ almoxarifado.id }}/importar" class="btn btn-warning btn-sm">
+            <i class="bi bi-file-earmark-arrow-up me-1"></i> Importar Excel
+        </a>
+        <a href="/almoxarifado/{{ almoxarifado.id }}/editar" class="btn btn-outline-secondary btn-sm">
+               <i class="bi bi-pencil me-1"></i> Editar
+        </a>
+        <form action="/almoxarifado/{{ almoxarifado.id }}/deletar" method="POST"
+              onsubmit="return confirm('Deletar este almoxarifado e todos os seus itens?')">
+            <button class="btn btn-outline-danger btn-sm">
+                <i class="bi bi-trash"></i>
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+{% if itens %}
+<!-- Filtro por categoria -->
+<div class="d-flex flex-wrap gap-2 mb-3">
+    <button class="btn btn-sm btn-outline-secondary active" id="cat_btn_" onclick="filtrarCat('')">
+        <i class="bi bi-grid me-1"></i>Todos <span class="badge bg-secondary ms-1">{{ itens|length }}</span>
+    </button>
+    {% set cats = [('epi','🦺','warning','EPI'),('eletrica','⚡','warning','Elétrica'),('hidraulica','💧','info','Hidráulica'),('gas','🔥','danger','Gás'),('maquinario','⚙️','secondary','Maquinário'),('geral','🏗️','secondary','Geral')] %}
+    {% for cat_key, cat_icon, cat_cor, cat_label in cats %}
+    {% set count = itens | selectattr('categoria','equalto',cat_key) | list | length %}
+    {% if count > 0 %}
+    <button class="btn btn-sm btn-outline-{{ cat_cor }}" id="cat_btn_{{ cat_key }}"
+            onclick="filtrarCat('{{ cat_key }}')">
+        {{ cat_icon }} {{ cat_label }}
+        <span class="badge bg-{{ cat_cor }} ms-1 {% if cat_cor == 'warning' %}text-dark{% endif %}">{{ count }}</span>
+    </button>
+    {% endif %}
+    {% endfor %}
+</div>
+
+<!-- Barra de pesquisa -->
+<div class="mb-3">
+    <div class="input-group">
+        <span class="input-group-text border-end-0">
+            <i class="bi bi-search text-muted"></i>
+        </span>
+        <input type="text" id="buscaItem" class="form-control border-start-0"
+               placeholder="Pesquisar item por nome ou código..."
+               oninput="filtrarItens(this.value)">
+        <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('buscaItem').value=''; filtrarItens('')">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
+</div>
+
+<!-- Tabela para desktop -->
+<div class="card border-0 shadow-sm d-none d-md-block">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Item</th>
+                    <th>Unidade</th>
+                    <th>Qtd. Atual</th>
+                    <th>Estoque Mínimo</th>
+                    <th>Nível</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tbodyItens">
+                {% for item in itens %}
+                <tr data-busca="{{ item.nome | lower }} {{ item.codigo | lower }}"
+                    data-cat="{{ item.categoria or 'geral' }}"
+                    {% if not item.ativo %}class="table-secondary text-muted"{% endif %}>
+                    <td><code>{{ item.codigo }}</code></td>
+                    <td>
+                        <strong>{{ item.nome }}</strong>
+                        {% if not item.ativo %}<span class="badge bg-warning text-dark ms-1">Desativado</span>{% endif %}
+                    </td>
+                    <td>{{ item.unidade }}</td>
+                    <td class="fw-bold {% if not item.ativo %}text-muted{% elif item.status == 'critico' %}text-danger{% elif item.status == 'alerta' %}text-warning{% else %}text-success{% endif %}">
+                        {{ item.quantidade|fmt_qtd }}
+                    </td>
+                    <td>{{ item.estoque_minimo }}</td>
+                    <td style="min-width:120px">
+                        {% if item.ativo and item.estoque_minimo > 0 %}
+                        {% set pct = [(item.quantidade / item.estoque_minimo * 100), 100] | min %}
+                        {% if pct <= 50 %}{% set bar_color = 'bg-danger' %}{% elif pct <= 100 %}{% set bar_color = 'bg-warning' %}{% else %}{% set bar_color = 'bg-success' %}{% endif %}
+                        <div class="progress progress-estoque">
+                            <div class="progress-bar {{ bar_color }}" style="width:{{ pct }}%"></div>
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if not item.ativo %}
+                            <span class="badge bg-secondary">⚠️ Desativado</span>
+                        {% elif item.status == 'critico' %}
+                            <span class="badge bg-danger">🔴 Zerado</span>
+                        {% elif item.status == 'alerta' %}
+                            <span class="badge bg-warning">🟡 Alerta</span>
+                        {% else %}
+                            <span class="badge bg-success">🟢 OK</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="/item/{{ item.id }}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        {% if item.ativo and usuario_atual.perfil != 'analista' %}
+                        <a href="/item/{{ item.id }}/editar" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div id="semResultados" class="text-center py-4 text-muted" style="display:none">
+            <i class="bi bi-search fs-2 d-block mb-2"></i>Nenhum item encontrado.
+        </div>
+    </div>
+</div>
+
+<!-- Cards para mobile -->
+<div class="d-md-none" id="cardsItens">
+    {% for item in itens %}
+    <div class="card border-0 shadow-sm mb-3 card-item-mobile {% if not item.ativo %}border-warning{% endif %}"
+         data-busca="{{ item.nome | lower }} {{ item.codigo | lower }}"
+         data-cat="{{ item.categoria or 'geral' }}">
+        <div class="card-body {% if not item.ativo %}bg-light{% endif %}">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                    <h6 class="mb-0 fw-bold {% if not item.ativo %}text-muted{% endif %}">{{ item.nome }}</h6>
+                    <small class="text-muted"><code>{{ item.codigo }}</code></small>
+                </div>
+                {% if not item.ativo %}
+                    <span class="badge bg-secondary">⚠️ Desativado</span>
+                {% elif item.status == 'critico' %}
+                    <span class="badge bg-danger">🔴 Zerado</span>
+                {% elif item.status == 'alerta' %}
+                    <span class="badge bg-warning">🟡 Alerta</span>
+                {% else %}
+                    <span class="badge bg-success">🟢 OK</span>
+                {% endif %}
+            </div>
+
+            {% if item.ativo %}
+            <div class="row g-2 mb-2 text-center">
+                <div class="col-4">
+                    <div class="small text-muted">Atual</div>
+                    <div class="fw-bold {% if item.status == 'critico' %}text-danger{% elif item.status == 'alerta' %}text-warning{% else %}text-success{% endif %}">
+                        {{ item.quantidade|fmt_qtd }} {{ item.unidade }}
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="small text-muted">Mínimo</div>
+                    <div class="fw-bold">{{ item.estoque_minimo }} {{ item.unidade }}</div>
+                </div>
+                <div class="col-4">
+                    <div class="small text-muted">Déficit</div>
+                    <div class="fw-bold text-danger">
+                        {{ [0, item.estoque_minimo - item.quantidade] | max | round(1) }} {{ item.unidade }}
+                    </div>
+                </div>
+            </div>
+
+            {% if item.estoque_minimo > 0 %}
+            {% set pct = [(item.quantidade / item.estoque_minimo * 100), 100] | min %}
+            {% if pct <= 50 %}{% set bar_color = 'bg-danger' %}{% elif pct <= 100 %}{% set bar_color = 'bg-warning' %}{% else %}{% set bar_color = 'bg-success' %}{% endif %}
+            <div class="progress progress-estoque mb-3">
+                <div class="progress-bar {{ bar_color }}" style="width:{{ pct }}%"></div>
+            </div>
+            {% endif %}
+
+            <div class="d-flex gap-2">
+                <a href="/item/{{ item.id }}" class="btn btn-sm btn-primary flex-fill">
+                    <i class="bi bi-arrow-left-right me-1"></i> Ver Item
+                </a>
+                {% if usuario_atual.perfil != 'analista' %}
+                <a href="/item/{{ item.id }}/editar" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-pencil"></i>
+                </a>
+                {% endif %}
+            </div>
+            {% else %}
+            <a href="/item/{{ item.id }}" class="btn btn-sm btn-outline-secondary w-100">
+                <i class="bi bi-eye me-1"></i> Ver histórico
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    <div id="semResultadosMobile" class="text-center py-4 text-muted" style="display:none">
+        <i class="bi bi-search fs-2 d-block mb-2"></i>Nenhum item encontrado.
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+let _catAtiva = '';
+
+function filtrarCat(cat) {
+    _catAtiva = cat;
+    // Atualizar botões
+    document.querySelectorAll('[id^="cat_btn_"]').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('cat_btn_' + cat);
+    if (btn) btn.classList.add('active');
+    // Aplicar filtro combinado com busca
+    aplicarFiltros();
+}
+
+function filtrarItens(q) {
+    aplicarFiltros(q);
+}
+
+function aplicarFiltros(q) {
+    if (q === undefined) q = document.getElementById('buscaItem')?.value?.toLowerCase().trim() || '';
+    const cat = _catAtiva;
+    // Desktop
+    const rows = document.querySelectorAll('#tbodyItens tr');
+    let visiveis = 0;
+    rows.forEach(tr => {
+        const matchBusca = !q || tr.dataset.busca.includes(q);
+        const matchCat = !cat || tr.dataset.cat === cat;
+        tr.style.display = (matchBusca && matchCat) ? '' : 'none';
+        if (matchBusca && matchCat) visiveis++;
+    });
+    document.getElementById('semResultados').style.display = visiveis === 0 ? '' : 'none';
+    // Mobile
+    const cards = document.querySelectorAll('.card-item-mobile');
+    let visiveisMobile = 0;
+    cards.forEach(c => {
+        const matchBusca = !q || c.dataset.busca.includes(q);
+        const matchCat = !cat || c.dataset.cat === cat;
+        c.style.display = (matchBusca && matchCat) ? '' : 'none';
+        if (matchBusca && matchCat) visiveisMobile++;
+    });
+    document.getElementById('semResultadosMobile').style.display = visiveisMobile === 0 ? '' : 'none';
+}
+</script>
+{% endblock %}
+
+{% else %}
+<div class="card border-0 shadow-sm">
+    <div class="text-center py-5 text-muted">
+        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+        Nenhum item cadastrado.
+        <a href="/item/novo?alm={{ almoxarifado.id }}">Cadastrar primeiro item</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}{% if almoxarifado %}Editar{% else %}Novo{% endif %} Almoxarifado{% endblock %}
+{% block page_title %}{% if almoxarifado %}Editar Almoxarifado{% else %}Novo Almoxarifado{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Nome do Almoxarifado *</label>
+                        <input type="text" name="nome" class="form-control" required
+                               value="{{ almoxarifado.nome if almoxarifado else '' }}"
+                               placeholder="Ex: Almoxarifado do Acampamento">
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">Descrição</label>
+                        <textarea name="descricao" class="form-control" rows="3"
+                                  placeholder="Descrição opcional">{{ almoxarifado.descricao if almoxarifado else '' }}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Cidade *</label>
+                        <input type="text" name="cidade" class="form-control"
+                               value="{{ almoxarifado.cidade or '' if almoxarifado else '' }}"
+                               list="lista-cidades"
+                               placeholder="Ex: Salvador, Aracaju">
+                        <datalist id="lista-cidades">
+                            <option value="Salvador">
+                            <option value="Aracaju">
+                        </datalist>
+                        <div class="form-text">Cidade onde está a obra</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Obra / Empreendimento</label>
+                        <input type="text" name="obra" class="form-control"
+                               value="{{ almoxarifado.obra or '' if almoxarifado else '' }}"
+                               placeholder="Ex: Ventura Patamares, Porto Aruana, Alto Paralela">
+                        <div class="form-text">Nome do empreendimento — agrupa os almoxarifados na sidebar</div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>
+                            {% if almoxarifado %}Salvar{% else %}Criar{% endif %}
+                        </button>
+                        <a href="/" class="btn btn-outline-secondary">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Reativar Todos os Itens{% endblock %}
+{% block page_title %}Reativar Todos os Itens{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header fw-bold" style="background:var(--gradient-primary);color:#fff">
+                <i class="bi bi-arrow-clockwise me-2"></i>Reativar Todos os Itens
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>📊 Status atual:</strong><br>
+                    • Total de itens: <strong>{{ total_itens }}</strong><br>
+                    • Itens desativados: <strong>{{ itens_desativados }}</strong><br>
+                    • Itens ativos: <strong>{{ total_itens - itens_desativados }}</strong>
+                </div>
+
+                <p class="text-muted">Esta ação irá reativar todos os itens marcados como "desativado" no sistema.</p>
+
+                <form method="POST"
+                      onsubmit="return confirm('Tem certeza que deseja reativar todos os itens desativados?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-success btn-lg w-100">
+                        <i class="bi bi-check-circle me-2"></i>Reativar Todos os Itens
+                    </button>
+                </form>
+
+                <div class="mt-3">
+                    <a href="/" class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-arrow-left me-1"></i>Voltar ao Sistema
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

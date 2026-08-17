@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+{% block title %}Importar Itens — {{ almoxarifado.nome }}{% endblock %}
+{% block page_title %}Importar Itens via Excel{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+    <!-- Formulário de upload -->
+    <div class="col-12 col-md-7">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header fw-bold text-white" style="background:var(--accent)">
+                <i class="bi bi-file-earmark-arrow-up me-2"></i>
+                Upload — {{ almoxarifado.nome }}
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data" id="formImport">
+
+                    <!-- Área de drop -->
+                    <div class="upload-area border-2 border-dashed rounded-3 text-center p-5 mb-4"
+                         id="dropArea"
+                         style="border-color:#1a3a5c;cursor:pointer;transition:all .2s"
+                         onclick="document.getElementById('arquivo').click()">
+                        <i class="bi bi-file-earmark-excel fs-1 text-success d-block mb-2"></i>
+                        <div class="fw-semibold">Clique ou arraste o arquivo Excel aqui</div>
+                        <div class="text-muted small mt-1">Formatos aceitos: .xlsx, .xls</div>
+                        <div id="nomeArquivo" class="mt-2 text-primary fw-semibold"></div>
+                    </div>
+                    <input type="file" name="arquivo" id="arquivo" accept=".xlsx,.xls"
+                           class="d-none" required onchange="mostrarNome(this)">
+
+                    <!-- Modo de importação -->
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">Modo de importação *</label>
+                        <div class="d-flex flex-column gap-2">
+                            <div class="form-check p-3 border rounded-2">
+                                <input class="form-check-input" type="radio" name="modo"
+                                       value="adicionar" id="modoAdicionar" checked>
+                                <label class="form-check-label" for="modoAdicionar">
+                                    <strong>➕ Apenas adicionar novos</strong>
+                                    <div class="text-muted small">Insere itens novos. Ignora códigos já existentes.</div>
+                                </label>
+                            </div>
+                            <div class="form-check p-3 border rounded-2">
+                                <input class="form-check-input" type="radio" name="modo"
+                                       value="atualizar" id="modoAtualizar">
+                                <label class="form-check-label" for="modoAtualizar">
+                                    <strong>🔄 Adicionar novos + somar quantidade nos existentes</strong>
+                                    <div class="text-muted small">Insere novos e soma a quantidade nos já cadastrados.</div>
+                                </label>
+                            </div>
+                            <div class="form-check p-3 border rounded-2 border-warning">
+                                <input class="form-check-input" type="radio" name="modo"
+                                       value="substituir" id="modoSubstituir">
+                                <label class="form-check-label" for="modoSubstituir">
+                                    <strong>⚠️ Substituir quantidade nos existentes</strong>
+                                    <div class="text-muted small">Substitui a quantidade atual pela do arquivo nos itens já cadastrados.</div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary px-4">
+                            <i class="bi bi-upload me-1"></i> Importar
+                        </button>
+                        <a href="/almoxarifado/{{ almoxarifado.id }}" class="btn btn-outline-secondary">
+                            Cancelar
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Instruções + modelo -->
+    <div class="col-12 col-md-5">
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header fw-bold text-white" style="background:var(--accent)">
+                <i class="bi bi-info-circle me-2"></i>Como preparar o arquivo
+            </div>
+            <div class="card-body">
+                <p class="small text-muted mb-3">
+                    O arquivo Excel deve ter as colunas <strong>nessa ordem exata</strong>,
+                    a partir da linha 2 (linha 1 é o cabeçalho):
+                </p>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered small mb-3">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>A</th><th>B</th><th>C</th><th>D</th><th>E</th>
+                            </tr>
+                            <tr>
+                                <th>Código</th>
+                                <th>Nome</th>
+                                <th>Unidade</th>
+                                <th>Quantidade</th>
+                                <th>Est. Mínimo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>CIM-001</td>
+                                <td>Cimento CP-II</td>
+                                <td>sc</td>
+                                <td>500</td>
+                                <td>100</td>
+                            </tr>
+                            <tr>
+                                <td>ARG-002</td>
+                                <td>Areia Grossa</td>
+                                <td>m³</td>
+                                <td>30</td>
+                                <td>5</td>
+                            </tr>
+                            <tr>
+                                <td>EPI-003</td>
+                                <td>Capacete</td>
+                                <td>un</td>
+                                <td>20</td>
+                                <td>5</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <ul class="small text-muted mb-3">
+                    <li>Coluna A — <strong>Código</strong>: único por item (ex: CIM-001)</li>
+                    <li>Coluna B — <strong>Nome</strong>: descrição do material</li>
+                    <li>Coluna C — <strong>Unidade</strong>: un, kg, sc, m², m³, L, etc.</li>
+                    <li>Coluna D — <strong>Quantidade</strong>: número (pode ser 0)</li>
+                    <li>Coluna E — <strong>Estoque Mínimo</strong>: alerta abaixo deste valor</li>
+                </ul>
+                <a href="/almoxarifado/{{ almoxarifado.id }}/modelo_excel"
+                   class="btn btn-success btn-sm w-100">
+                    <i class="bi bi-download me-1"></i> Baixar Modelo Excel
+                </a>
+            </div>
+        </div>
+
+        <!-- Resumo atual -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="text-muted small">Itens já cadastrados neste almoxarifado</div>
+                <div class="display-5 fw-bold text-primary">
+                    {{ almoxarifado.itens | length }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function mostrarNome(input) {
+    const nome = input.files[0]?.name || '';
+    document.getElementById('nomeArquivo').textContent = nome ? `📄 ${nome}` : '';
+    const area = document.getElementById('dropArea');
+    area.style.background = nome ? '#f0fff4' : '';
+    area.style.borderColor = nome ? '#198754' : '#1a3a5c';
+}
+
+// Drag and drop
+const drop = document.getElementById('dropArea');
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.style.background = '#e8f4fd'; });
+drop.addEventListener('dragleave', () => { drop.style.background = ''; });
+drop.addEventListener('drop', e => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) {
+        const input = document.getElementById('arquivo');
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        input.files = dt.files;
+        mostrarNome(input);
+    }
+});
+</script>
+{% endblock %}

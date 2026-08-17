@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}Ativar 2FA{% endblock %}
+{% block page_title %}🔐 Autenticação de Dois Fatores{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header fw-bold text-white" style="background:#1F3864">
+                <i class="bi bi-shield-lock me-2"></i>Ativar 2FA — {{ usuario.nome }}
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted small mb-3">
+                    Escaneie o QR Code abaixo com o <strong>Google Authenticator</strong>
+                    ou <strong>Authy</strong>. Depois insira o código de 6 dígitos para confirmar.
+                </p>
+
+                <!-- QR Code SVG -->
+                {% if qr_svg %}
+                <div class="text-center mb-3 p-3 border rounded bg-white">
+                    {{ qr_svg | safe }}
+                </div>
+                {% else %}
+                <!-- Fallback: link direto para abrir no app -->
+                <div class="text-center mb-3">
+                    <a href="{{ uri }}" class="btn btn-outline-primary">
+                        <i class="bi bi-phone me-1"></i> Abrir no Authenticator
+                    </a>
+                    <div class="text-muted small mt-2">Clique se não conseguir escanear o QR Code</div>
+                </div>
+                {% endif %}
+
+                <div class="alert alert-secondary py-2 text-center small mb-3">
+                    <strong>Chave manual:</strong><br>
+                    <code class="fs-6 user-select-all">{{ secret }}</code>
+                    <div class="text-muted" style="font-size:0.75rem">
+                        No app: adicione manualmente com essa chave
+                    </div>
+                </div>
+
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Código de verificação *</label>
+                        <input type="text" name="codigo"
+                               class="form-control form-control-lg text-center fw-bold letter-spacing-2"
+                               placeholder="000000" maxlength="6" autocomplete="one-time-code"
+                               inputmode="numeric" pattern="[0-9]{6}" required autofocus
+                               style="font-size:1.5rem;letter-spacing:0.3em">
+                        <div class="form-text text-center">
+                            Digite o código de 6 dígitos do app autenticador.
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary flex-fill">
+                            <i class="bi bi-check-lg me-1"></i> Confirmar e Ativar
+                        </button>
+                        <a href="/" class="btn btn-outline-secondary">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="alert alert-warning mt-3 small">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+            <strong>Importante:</strong> Anote a chave manual em local seguro.
+            Se perder o celular, o admin pode desativar o 2FA para você.
+        </div>
+
+        <div class="card border-0 shadow-sm mt-3">
+            <div class="card-body p-3">
+                <div class="fw-semibold small mb-2">
+                    <i class="bi bi-phone me-1"></i> Como instalar o app autenticador:
+                </div>
+                <div class="small text-muted">
+                    <strong>Android:</strong> Google Play → buscar "Google Authenticator" ou "Authy"<br>
+                    <strong>iPhone:</strong> App Store → buscar "Google Authenticator" ou "Authy"
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -166,8 +166,13 @@ def create_app():
     @app.errorhandler(CSRFError)
     def handle_csrf_error(e):
         from flask import flash, url_for
+        # Se o erro veio da tela de login, não redireciona de volta pra lá
+        # (evita o loop de "sessão expirada" ao abrir o app no mobile)
+        referrer = request.referrer or ''
+        if '/login' in referrer or request.path == '/login':
+            return redirect(url_for('auth_bp.login'))
         flash('Sessao expirada ou requisicao invalida. Tente novamente.', 'warning')
-        return redirect(request.referrer or url_for('main_bp.index'))
+        return redirect(referrer or url_for('main_bp.index'))
 
     return app
 

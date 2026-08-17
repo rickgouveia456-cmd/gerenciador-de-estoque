@@ -7,9 +7,20 @@
         <h4 class="fw-bold mb-0">Valor Total em Estoque</h4>
         <p class="text-muted small mb-0">Calculado com base em quantidade x valor unitario do catalogo</p>
     </div>
-    <a href="{{ url_for('catalogo_bp.catalogo_insumos') }}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left me-1"></i>Voltar ao Catalogo
-    </a>
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+        <a href="{{ url_for('catalogo_bp.catalogo_insumos') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Voltar ao Catalogo
+        </a>
+        {% if usuario_atual and usuario_atual.perfil == 'admin' %}
+        <form method="POST" action="{{ url_for('admin_bp.limpar_valores_errados') }}"
+              onsubmit="return confirm('Isso vai remover valores unitários que parecem incorretos (mesmo valor em muitos itens). Continuar?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline-danger btn-sm">
+                <i class="bi bi-eraser me-1"></i>Limpar Valores Incorretos
+            </button>
+        </form>
+        {% endif %}
+    </div>
 </div>
 <div class="row g-3 mb-4">
     <div class="col-md-4">

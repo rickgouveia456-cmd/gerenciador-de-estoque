@@ -397,3 +397,53 @@ def backup_manual():
 
     # GET — mostra a página
     return render_template('backup.html')
+
+
+@admin_bp.route('/admin/limpar-valores-errados', methods=['POST'])
+@admin_required
+def limpar_valores_errados():
+    """Remove valor_unitario de itens cujo valor é igual para todos (provavelmente corrompido por importação errada).
+    Detecta automaticamente valores que aparecem em mais de 80% dos itens com valor preenchido."""
+    from sqlalchemy import func
+    from models import CatalogoInsumo
+
+    # Conta quantos itens têm cada valor_unitario
+    resultado = db.session.query(
+        Item.valor_unitario,
+        func.count(Item.id).label('qtd')
+    ).filter(
+        Item.valor_unitario != None,
+        Item.valor_unitario > 0
+    ).group_by(Item.valor_unitario).order_by(func.count(Item.id).desc()).all()
+
+    if not resultado:
+        flash('Nenhum item com valor cadastrado.', 'info')
+        return redirect(url_for('catalogo_bp.catalogo_valor_estoque'))
+
+    total_com_valor = sum(r.qtd for r in resultado)
+    limpos = 0
+
+    for row in resultado:
+        pct = row.qtd / total_com_valor if total_com_valor > 0 else 0
+        # Se um único valor representa mais de 50% de todos os itens, é suspeito
+        if pct > 0.5 and row.qtd > 10:
+            # Zera o valor_unitario apenas dos itens que NÃO têm correspondência
+            # exata no catálogo com esse mesmo valor (preserva os legítimos)
+            itens_afetados = Item.query.filter(
+                Item.valor_unitario == row.valor_unitario
+            ).all()
+            for it in itens_afetados:
+                # Verifica se existe no catálogo um insumo com esse nome E esse valor
+                catalogo_match = CatalogoInsumo.query.filter(
+                    db.func.lower(CatalogoInsumo.nome) == db.func.lower(it.nome),
+                    CatalogoInsumo.valor_unitario == row.valor_unitario,
+                    CatalogoInsumo.ativo == True
+                ).first()
+                if not catalogo_match:
+                    it.valor_unitario = None
+                    limpos += 1
+
+    db.session.commit()
+    flash(f'{limpos} item(ns) com valor incorreto removido(s). '
+          f'Os valores serão re-sincronizados a partir do catálogo.', 'success' if limpos > 0 else 'info')
+    return redirect(url_for('catalogo_bp.catalogo_valor_estoque'))

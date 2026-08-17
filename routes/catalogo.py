@@ -277,9 +277,13 @@ def api_catalogo_buscar():
 
 def _sincronizar_valor_itens(ins):
     """Propaga valor_unitario do catalogo para todos os itens com mesmo nome."""
-    if not ins.valor_unitario:
+    if not ins.valor_unitario or ins.valor_unitario <= 0:
         return
-    itens = Item.query.filter(Item.nome.ilike(ins.nome), Item.ativo == True).all()
+    # Busca itens com nome exatamente igual (case-insensitive)
+    itens = Item.query.filter(
+        db.func.lower(Item.nome) == db.func.lower(ins.nome),
+        Item.ativo == True
+    ).all()
     for it in itens:
         it.valor_unitario = ins.valor_unitario
     if itens:

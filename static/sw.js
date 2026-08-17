@@ -1,5 +1,5 @@
 // Logi-Prime Service Worker — cache de assets estáticos
-const CACHE_NAME = 'logiprime-v3';
+const CACHE_NAME = 'logiprime-v4';
 const STATIC_ASSETS = [
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
   'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css',
@@ -53,6 +53,12 @@ self.addEventListener('fetch', event => {
         });
       })
     );
+    return;
+  }
+
+  // Página de login — NUNCA cacheia (token CSRF deve ser sempre fresco)
+  if (url.pathname === '/login' || url.pathname.startsWith('/login')) {
+    event.respondWith(fetch(event.request));
     return;
   }
 

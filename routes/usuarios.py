@@ -26,12 +26,12 @@ def usuarios():
     todos = Usuario.query.order_by(Usuario.nome).all()
     # Agrupar por perfil
     grupos = OrderedDict([
-        ('admin',              {'label': '👑 Admin / Fundador',     'cor': '#7c3aed', 'usuarios': []}),
-        ('almoxarife',         {'label': '📦 Almoxarife',           'cor': '#0ea5e9', 'usuarios': []}),
-        ('mestre',             {'label': '🦺 Mestre de Obra',       'cor': '#f0a500', 'usuarios': []}),
-        ('tecnico_seguranca',  {'label': '🔒 Técnico de Segurança', 'cor': '#3b82f6', 'usuarios': []}),
-        ('analista',           {'label': '📊 Analista',             'cor': '#10b981', 'usuarios': []}),
-        ('colaborador',        {'label': '👔 Engenheiro',           'cor': '#64748b', 'usuarios': []}),
+        ('admin',             {'label': '👑 Admin / Fundador',     'label_curto': 'Admin',      'icone': '👑', 'cor': '#7c3aed', 'usuarios': []}),
+        ('almoxarife',        {'label': '📦 Almoxarife',           'label_curto': 'Almoxarife', 'icone': '📦', 'cor': '#0ea5e9', 'usuarios': []}),
+        ('mestre',            {'label': '🦺 Mestre de Obra',       'label_curto': 'Mestre',     'icone': '🦺', 'cor': '#f0a500', 'usuarios': []}),
+        ('tecnico_seguranca', {'label': '🔒 Técnico de Segurança', 'label_curto': 'Téc. Seg.',  'icone': '🔒', 'cor': '#3b82f6', 'usuarios': []}),
+        ('analista',          {'label': '📊 Analista',             'label_curto': 'Analista',   'icone': '📊', 'cor': '#10b981', 'usuarios': []}),
+        ('colaborador',       {'label': '👔 Engenheiro',           'label_curto': 'Engenheiro', 'icone': '👔', 'cor': '#64748b', 'usuarios': []}),
     ])
     for u in todos:
         perfil = u.perfil if u.perfil in grupos else 'colaborador'

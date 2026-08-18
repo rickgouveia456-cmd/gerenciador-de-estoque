@@ -235,6 +235,168 @@ class PermissaoExtra(db.Model):
     usuario = db.relationship('Usuario', backref='permissoes_extras')
 
 
+class FichaEPI(db.Model):
+    """Ficha formal de controle de EPI por colaborador."""
+    __tablename__ = 'ficha_epi'
+    id              = db.Column(db.Integer, primary_key=True)
+    colaborador     = db.Column(db.String(100), nullable=False)
+    funcao          = db.Column(db.String(100), nullable=True)
+    obra            = db.Column(db.String(100), nullable=True)
+    almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=False)
+    almoxarifado    = db.relationship('Almoxarifado', backref='fichas_epi')
+    status          = db.Column(db.String(20), default='ativa')   # ativa | encerrada
+    data_abertura   = db.Column(db.DateTime, default=agora)
+    data_encerramento = db.Column(db.DateTime, nullable=True)
+    criado_por      = db.Column(db.String(100), nullable=True)
+    itens           = db.relationship('ItemFichaEPI', backref='ficha', lazy=True,
+                                      cascade='all, delete-orphan')
+
+
+class ItemFichaEPI(db.Model):
+    """Linha de uma ficha de EPI: um EPI entregue a um colaborador."""
+    __tablename__ = 'item_ficha_epi'
+    id              = db.Column(db.Integer, primary_key=True)
+    ficha_id        = db.Column(db.Integer, db.ForeignKey('ficha_epi.id'), nullable=False)
+    descricao       = db.Column(db.String(200), nullable=False)
+    ca              = db.Column(db.String(30), nullable=True)
+    quantidade      = db.Column(db.Float, default=1)
+    tamanho         = db.Column(db.String(20), nullable=True)
+    data_entrega    = db.Column(db.DateTime, default=agora)
+    data_devolucao  = db.Column(db.DateTime, nullable=True)
+    motivo_devolucao = db.Column(db.String(200), nullable=True)
+    registrado_por  = db.Column(db.String(100), nullable=True)
+
+
+class CertificadoCA(db.Model):
+    """Certificado de Aprovação (CA) do Ministério do Trabalho para EPIs."""
+    __tablename__ = 'certificado_ca'
+    id              = db.Column(db.Integer, primary_key=True)
+    numero_ca       = db.Column(db.String(30), nullable=False)
+    nome_epi        = db.Column(db.String(200), nullable=False)
+    fabricante      = db.Column(db.String(150), nullable=True)
+    tipo            = db.Column(db.String(100), nullable=True)   # Capacete, Luva, Bota...
+    data_validade   = db.Column(db.DateTime, nullable=True)
+    data_emissao    = db.Column(db.DateTime, nullable=True)
+    ativo           = db.Column(db.Boolean, default=True)
+    almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=True)
+    almoxarifado    = db.relationship('Almoxarifado', backref='certificados_ca')
+    criado_por      = db.Column(db.String(100), nullable=True)
+    data_cadastro   = db.Column(db.DateTime, default=agora)
+
+    @property
+    def status(self):
+        from datetime import datetime
+        if not self.data_validade:
+            return 'sem_validade'
+        dias = (self.data_validade - datetime.now()).days
+        if dias < 0:
+            return 'vencido'
+        elif dias <= 90:
+            return 'a_vencer'
+        return 'valido'
+
+
+class MatrizEPI(db.Model):
+    """Matriz que relaciona função/cargo com EPIs obrigatórios."""
+    __tablename__ = 'matriz_epi'
+    id             = db.Column(db.Integer, primary_key=True)
+    funcao         = db.Column(db.String(100), nullable=False)
+    obra           = db.Column(db.String(100), nullable=True)
+    almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=True)
+    almoxarifado   = db.relationship('Almoxarifado', backref='matrizes_epi')
+    epis_obrigatorios = db.Column(db.Text, nullable=True)  # JSON: lista de nomes
+    norma          = db.Column(db.String(50), nullable=True)  # NR-6, NR-35...
+    criado_por     = db.Column(db.String(100), nullable=True)
+    data_cadastro  = db.Column(db.DateTime, default=agora)
+
+
+class Treinamento(db.Model):
+    """Treinamento de segurança registrado para colaboradores."""
+    __tablename__ = 'treinamento'
+    id              = db.Column(db.Integer, primary_key=True)
+    tipo            = db.Column(db.String(100), nullable=False)   # NR-10, NR-35, Brigada...
+    descricao       = db.Column(db.String(300), nullable=True)
+    data_realizacao = db.Column(db.DateTime, nullable=False)
+    validade_meses  = db.Column(db.Integer, nullable=True)
+    responsavel     = db.Column(db.String(100), nullable=True)    # instrutor
+    cargo_responsavel = db.Column(db.String(100), nullable=True)  # ex: Técnico em Segurança
+    registro_mte    = db.Column(db.String(30), nullable=True)     # MTE: 0115464
+    carga_horaria   = db.Column(db.Integer, nullable=True)        # horas
+    local           = db.Column(db.String(150), nullable=True)    # ex: Aracaju/SE
+    portaria        = db.Column(db.String(80), nullable=True)     # ex: Portaria nº 915 de 30/07/19
+    nr_referencia   = db.Column(db.String(30), nullable=True)     # ex: NR 35
+    almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=True)
+    almoxarifado    = db.relationship('Almoxarifado', backref='treinamentos')
+    criado_por      = db.Column(db.String(100), nullable=True)
+    data_cadastro   = db.Column(db.DateTime, default=agora)
+    participantes   = db.relationship('TreinamentoParticipante', backref='treinamento',
+                                      lazy=True, cascade='all, delete-orphan')
+
+    @property
+    def data_vencimento(self):
+        if not self.validade_meses:
+            return None
+        from dateutil.relativedelta import relativedelta
+        try:
+            return self.data_realizacao + relativedelta(months=self.validade_meses)
+        except Exception:
+            from datetime import timedelta
+            return self.data_realizacao + timedelta(days=self.validade_meses * 30)
+
+    @property
+    def status(self):
+        venc = self.data_vencimento
+        if not venc:
+            return 'sem_vencimento'
+        dias = (venc - datetime.now()).days
+        if dias < 0:
+            return 'vencido'
+        elif dias <= 90:
+            return 'a_vencer'
+        return 'valido'
+
+
+class TreinamentoParticipante(db.Model):
+    """Colaborador que participou de um treinamento."""
+    __tablename__ = 'treinamento_participante'
+    id              = db.Column(db.Integer, primary_key=True)
+    treinamento_id  = db.Column(db.Integer, db.ForeignKey('treinamento.id'), nullable=False)
+    colaborador     = db.Column(db.String(100), nullable=False)
+    cpf             = db.Column(db.String(20), nullable=True)
+    funcao          = db.Column(db.String(100), nullable=True)
+    concluiu        = db.Column(db.Boolean, default=True)
+    observacao      = db.Column(db.String(200), nullable=True)
+
+
+class HabilitacaoFuncionario(db.Model):
+    """Certificado/habilitação que habilita um funcionário para exercer uma função."""
+    __tablename__ = 'habilitacao_funcionario'
+    id              = db.Column(db.Integer, primary_key=True)
+    colaborador     = db.Column(db.String(100), nullable=False)
+    tipo            = db.Column(db.String(100), nullable=False)   # CNH, NR-10, NR-35, CREA...
+    numero          = db.Column(db.String(60), nullable=True)     # nº do certificado
+    emissor         = db.Column(db.String(150), nullable=True)    # SENAI, SENAC, MTE...
+    funcao_habilitada = db.Column(db.String(150), nullable=True)  # Ex: Trabalho em Altura
+    data_emissao    = db.Column(db.DateTime, nullable=True)
+    data_validade   = db.Column(db.DateTime, nullable=True)
+    almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=True)
+    almoxarifado    = db.relationship('Almoxarifado', backref='habilitacoes')
+    criado_por      = db.Column(db.String(100), nullable=True)
+    data_cadastro   = db.Column(db.DateTime, default=agora)
+    ativo           = db.Column(db.Boolean, default=True)
+
+    @property
+    def status(self):
+        if not self.data_validade:
+            return 'sem_vencimento'
+        dias = (self.data_validade - datetime.now()).days
+        if dias < 0:
+            return 'vencido'
+        elif dias <= 90:
+            return 'a_vencer'
+        return 'valido'
+
+
 class Kit(db.Model):
     """Kit de itens pré-definidos para retirada rápida."""
     id = db.Column(db.Integer, primary_key=True)

@@ -27,6 +27,8 @@ def index():
     # Mestre e técnico de segurança só acessam a tela de requisições
     # Engenheiro com pode_requisitar também é redirecionado para lá
     if u.perfil in ('mestre', 'tecnico_seguranca'):
+        if u.perfil == 'tecnico_seguranca':
+            return redirect(url_for('main_bp.tecnico_dashboard'))
         return redirect(url_for('requisicoes_bp.mestre_requisicoes'))
     if u.perfil == 'colaborador' and (
         u.pode_requisitar or
@@ -73,6 +75,62 @@ def index():
 
     return render_template('index.html', almoxarifados=almoxarifados, alertas=alertas,
                            stats=stats, ruptura=ruptura_dash)
+
+@main_bp.route('/tecnico/dashboard')
+@login_required
+def tecnico_dashboard():
+    from models import FichaEPI, ItemFichaEPI, RequisicaoMestre
+    from datetime import date
+    u = usuario_atual()
+    if u.perfil != 'tecnico_seguranca':
+        return redirect(url_for('main_bp.index'))
+
+    ids = u.almoxarifados_permitidos() or set()
+
+    # Requisições do técnico
+    reqs = RequisicaoMestre.query.filter_by(mestre_id=u.id).order_by(
+        RequisicaoMestre.data_criacao.desc()).all()
+    total_reqs   = len(reqs)
+    pendentes    = sum(1 for r in reqs if r.status == 'pendente')
+    aprovadas    = sum(1 for r in reqs if r.status in ('aprovada', 'parcial'))
+    entregues    = sum(1 for r in reqs if r.status == 'entregue')
+    recusadas    = sum(1 for r in reqs if r.status == 'recusada')
+    ultimas_reqs = reqs[:8]
+
+    # EPI — fichas ativas nos almoxarifados do técnico
+    q_fichas = FichaEPI.query
+    if ids:
+        q_fichas = q_fichas.filter(FichaEPI.almoxarifado_id.in_(ids))
+    fichas_ativas = q_fichas.filter_by(status='ativa').count()
+
+    # Devoluções de EPI em aberto
+    q_dev = ItemFichaEPI.query.join(FichaEPI).filter(
+        ItemFichaEPI.data_entrega != None,
+        ItemFichaEPI.data_devolucao == None
+    )
+    if ids:
+        q_dev = q_dev.filter(FichaEPI.almoxarifado_id.in_(ids))
+    devolucoes_abertas = q_dev.count()
+
+    # Entregas de EPI no mês atual
+    ini_mes = date.today().replace(day=1)
+    q_ent = ItemFichaEPI.query.join(FichaEPI).filter(
+        ItemFichaEPI.data_entrega >= ini_mes
+    )
+    if ids:
+        q_ent = q_ent.filter(FichaEPI.almoxarifado_id.in_(ids))
+    entregas_mes = q_ent.count()
+
+    return render_template('tecnico_dashboard.html',
+        total_reqs=total_reqs, pendentes=pendentes,
+        aprovadas=aprovadas, entregues=entregues, recusadas=recusadas,
+        ultimas_reqs=ultimas_reqs,
+        fichas_ativas=fichas_ativas,
+        devolucoes_abertas=devolucoes_abertas,
+        entregas_mes=entregas_mes,
+        now_date=date.today().strftime('%d/%m/%Y'),
+    )
+
 
 @main_bp.route('/almoxarifado/<int:id>')
 @login_required
@@ -438,6 +496,21 @@ def movimentacao_lote():
                 observacao=obs_linha,
                 item_id=it.id
             ))
+            # Registrar automaticamente na FichaEPI se for saída de EPI com colaborador
+            if tipo == 'saida' and it.categoria == 'epi' and colab:
+                try:
+                    from routes.epi_modulo import registrar_epi_na_ficha
+                    registrar_epi_na_ficha(
+                        colaborador=colab,
+                        almoxarifado_id=it.almoxarifado_id,
+                        descricao=it.nome,
+                        ca=ca_linha or it.ca,
+                        quantidade=qtd,
+                        tamanho=None,
+                        registrado_por=resp_linha or (u.nome if u else 'Sistema')
+                    )
+                except Exception as _e:
+                    logger.error(f'registrar_epi_na_ficha (lote): {_e}')
 
         if movs:
             db.session.add_all(movs)

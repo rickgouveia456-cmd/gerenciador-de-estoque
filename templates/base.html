@@ -116,45 +116,33 @@
             <span id="badge-notif-mestre" class="badge ms-1" style="background:var(--accent);color:#fff;display:none"></span>
         </a>
 
-        {% set tem_relatorio = usuario_atual.permissoes_extras | selectattr('permissao', 'equalto', 'ver_relatorios') | selectattr('ativo', 'equalto', true) | list %}
-        {% if tem_relatorio or usuario_atual.perfil == 'tecnico_seguranca' %}
+        {% if usuario_atual.perfil == 'tecnico_seguranca' %}
+        <span class="nav-section">Principal</span>
+        <a href="/tecnico/dashboard" class="nav-link {% if request.endpoint == 'main_bp.tecnico_dashboard' %}active{% endif %}">
+            <i class="bi bi-speedometer2 me-2"></i> Dashboard
+        </a>
         <span class="nav-section">Relatórios</span>
         <a href="/relatorios/consumo-por-pessoa" class="nav-link {% if request.endpoint == 'relatorios_bp.relatorio_consumo_pessoa' %}active{% endif %}">
             <i class="bi bi-people me-2"></i> Consumo por Pessoa
         </a>
-        <a href="/relatorios/ficha-epi" class="nav-link {% if request.endpoint == 'relatorios_bp.ficha_epi' %}active{% endif %}">
-            <i class="bi bi-file-earmark-person me-2"></i> Ficha de EPI
+        <span class="nav-section">EPI</span>
+        <a href="/epi" class="nav-link {% if request.endpoint and request.endpoint.startswith('epi_modulo_bp') %}active{% endif %}">
+            <i class="bi bi-shield-check me-2"></i> Módulo EPI
         </a>
+        {% else %}
+        {# Mestre — pode ter relatório se tiver permissão extra #}
+        {% set tem_relatorio = usuario_atual.permissoes_extras | selectattr('permissao', 'equalto', 'ver_relatorios') | list %}
+        {% if tem_relatorio %}
+        <span class="nav-section">Relatórios</span>
+        <a href="/relatorios/consumo-por-pessoa" class="nav-link {% if request.endpoint == 'relatorios_bp.relatorio_consumo_pessoa' %}active{% endif %}">
+            <i class="bi bi-people me-2"></i> Consumo por Pessoa
+        </a>
+        {% endif %}
         {% endif %}
 
         {% else %}
         <!-- SIDEBAR PARA ADMIN / ALMOXARIFE / COLABORADOR -->
         <span class="nav-section">Principal</span>
-        <a href="/" class="nav-link {% if request.endpoint == 'main_bp.index' %}active{% endif %}">
-            <i class="bi bi-speedometer2 me-2"></i> Dashboard
-        </a>
-        {% if usuario_atual and usuario_atual.perfil not in ('mestre', 'tecnico_seguranca') %}
-        <a href="/movimentacao/lote" class="nav-link {% if request.endpoint == 'main_bp.movimentacao_lote' %}active{% endif %}">
-            <i class="bi bi-arrow-left-right me-2"></i> Registro de Movimentação
-        </a>
-        {% endif %}
-        <a href="/relatorios/alertas" class="nav-link {% if request.endpoint == 'relatorios_bp.relatorio_alertas' %}active{% endif %}">
-            <i class="bi bi-bell me-2"></i> Alertas de Estoque
-            <span id="badge-alertas" class="badge bg-danger ms-1" style="display:none"></span>
-        </a>
-
-        {% if usuario_atual and (usuario_atual.perfil in ('admin', 'almoxarife') or usuario_atual.pode_requisitar) %}
-        <span class="nav-section">Requisições</span>
-        <a href="/mestre/requisicoes" class="nav-link {% if request.endpoint in ('requisicoes_bp.mestre_requisicoes','requisicoes_bp.mestre_requisicao_detalhe','requisicoes_bp.mestre_requisicao_editar','requisicoes_bp.mestre_requisicao_nova') %}active{% endif %}">
-            <i class="bi bi-clipboard-check me-2"></i> Requisições
-            <span id="badge-req-pendentes" class="badge bg-danger ms-1" style="display:none"></span>
-        </a>
-        {% if usuario_atual.perfil in ('admin', 'almoxarife') or usuario_atual.pode_requisitar %}
-        <a href="/mestre/requisicoes/nova" class="nav-link {% if request.endpoint == 'requisicoes_bp.mestre_requisicao_nova' %}active{% endif %}">
-            <i class="bi bi-plus-circle me-2"></i> Nova Requisição
-        </a>
-        {% endif %}
-        {% endif %}
         {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
         <a href="/colaboradores" class="nav-link {% if request.endpoint == 'colaboradores_bp.colaboradores' %}active{% endif %}">
             <i class="bi bi-person-badge me-2"></i> Colaboradores
@@ -245,8 +233,8 @@
         <a href="/relatorios/consumo-por-pessoa" class="nav-link {% if request.endpoint == 'relatorios_bp.relatorio_consumo_pessoa' %}active{% endif %}">
             <i class="bi bi-people me-2"></i> Consumo por Pessoa
         </a>
-        <a href="/relatorios/ficha-epi" class="nav-link {% if request.endpoint == 'relatorios_bp.ficha_epi' %}active{% endif %}">
-            <i class="bi bi-file-earmark-person me-2"></i> Ficha de EPI
+        <a href="/epi" class="nav-link {% if request.endpoint and request.endpoint.startswith('epi_modulo_bp') %}active{% endif %}">
+            <i class="bi bi-shield-check me-2"></i> Módulo EPI
         </a>
         {% if usuario_atual and usuario_atual.perfil == 'admin' %}
         <span class="nav-section">Administração</span>

@@ -75,6 +75,22 @@ def atualizar_status_epi(id):
             registrado_por=u.nome,
             tipo_evento='uso'
         ))
+        # Registrar automaticamente na FichaEPI
+        if responsavel:
+            try:
+                from routes.epi_modulo import registrar_epi_na_ficha
+                registrar_epi_na_ficha(
+                    colaborador=responsavel,
+                    almoxarifado_id=e.almoxarifado_id,
+                    descricao=e.nome,
+                    ca=None,
+                    quantidade=e.quantidade or 1,
+                    tamanho=e.tamanho,
+                    registrado_por=u.nome
+                )
+            except Exception as _ex:
+                import logging as _l
+                _l.getLogger(__name__).error(f'registrar_epi_na_ficha (ItemEPI): {_ex}')
     elif novo_status == 'manutencao':
         hist_aberto = HistoricoEPI.query.filter_by(
             item_epi_id=e.id, data_devolucao=None

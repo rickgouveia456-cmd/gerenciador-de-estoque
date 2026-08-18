@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — Técnico de Segurança{% endblock %}
+{% block page_title %}🦺 Dashboard{% endblock %}
+
+{% block content %}
+
+{# ── Cabeçalho de boas-vindas ── #}
+<div class="d-flex align-items-center gap-3 mb-4">
+    <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0"
+         style="width:52px;height:52px;background:var(--accent);font-size:1.3rem">
+        🦺
+    </div>
+    <div>
+        <h5 class="fw-bold mb-0">Olá, {{ usuario_atual.nome.split()[0] }}!</h5>
+        <span class="text-muted small">Técnico de Segurança · {{ now_date }}</span>
+    </div>
+</div>
+
+{# ── Cards de Requisições ── #}
+<p class="fw-semibold text-muted small text-uppercase mb-2" style="letter-spacing:.06em">
+    <i class="bi bi-clipboard-list me-1" style="color:var(--accent)"></i>Requisições
+</p>
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <a href="/mestre/requisicoes" class="text-decoration-none">
+            <div class="card border-0 shadow-sm text-center p-3 h-100"
+                 style="border-top:3px solid var(--accent)!important;transition:transform .15s"
+                 onmouseenter="this.style.transform='translateY(-3px)'"
+                 onmouseleave="this.style.transform=''">
+                <div class="fs-2 fw-bold" style="color:var(--accent)">{{ total_reqs }}</div>
+                <div class="small text-muted">Total</div>
+            </div>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="/mestre/requisicoes?status=pendente" class="text-decoration-none">
+            <div class="card border-0 shadow-sm text-center p-3 h-100"
+                 style="border-top:3px solid #d97706!important;transition:transform .15s"
+                 onmouseenter="this.style.transform='translateY(-3px)'"
+                 onmouseleave="this.style.transform=''">
+                <div class="fs-2 fw-bold text-warning">{{ pendentes }}</div>
+                <div class="small text-muted">Pendentes</div>
+            </div>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="/mestre/requisicoes?status=aprovada" class="text-decoration-none">
+            <div class="card border-0 shadow-sm text-center p-3 h-100"
+                 style="border-top:3px solid #2563eb!important;transition:transform .15s"
+                 onmouseenter="this.style.transform='translateY(-3px)'"
+                 onmouseleave="this.style.transform=''">
+                <div class="fs-2 fw-bold text-primary">{{ aprovadas }}</div>
+                <div class="small text-muted">Aprovadas</div>
+            </div>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="/mestre/requisicoes?status=entregue" class="text-decoration-none">
+            <div class="card border-0 shadow-sm text-center p-3 h-100"
+                 style="border-top:3px solid #059669!important;transition:transform .15s"
+                 onmouseenter="this.style.transform='translateY(-3px)'"
+                 onmouseleave="this.style.transform=''">
+                <div class="fs-2 fw-bold text-success">{{ entregues }}</div>
+                <div class="small text-muted">Entregues</div>
+            </div>
+        </a>
+    </div>
+</div>
+
+{# ── Cards de EPI ── #}
+<p class="fw-semibold text-muted small text-uppercase mb-2" style="letter-spacing:.06em">
+    <i class="bi bi-shield-check me-1" style="color:var(--accent)"></i>Módulo EPI
+</p>
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4">
+        <a href="/epi/fichas" class="text-decoration-none">
+            <div class="card border-0 shadow-sm text-center p-3 h-100"
+                 style="border-top:3px solid #059669!important;transition:transform .15s"
+                 onmouseenter="this.style.transform='translateY(-3px)'"
+                 onmouseleave="this.style.transform=''">
+                <div class="fs-2 fw-bold text-success">{{ fichas_ativas }}</div>
+                <div class="small text-muted">Fichas Ativas</div>
+            </div>
+        </a>
+    </div>
+    <div class="col-6 col-md-4">
+        <a href="/epi/devolucoes" class="text-decoration-none">
+            <div class="card border-0 shadow-sm text-center p-3 h-100"
+                 style="border-top:3px solid #d97706!important;transition:transform .15s"
+                 onmouseenter="this.style.transform='translateY(-3px)'"
+                 onmouseleave="this.style.transform=''">
+                <div class="fs-2 fw-bold text-warning">{{ devolucoes_abertas }}</div>
+                <div class="small text-muted">Devoluções em Aberto</div>
+            </div>
+        </a>
+    </div>
+    <div class="col-6 col-md-4">
+        <a href="/epi/fichas" class="text-decoration-none">
+            <div class="card border-0 shadow-sm text-center p-3 h-100"
+                 style="border-top:3px solid var(--accent)!important;transition:transform .15s"
+                 onmouseenter="this.style.transform='translateY(-3px)'"
+                 onmouseleave="this.style.transform=''">
+                <div class="fs-2 fw-bold" style="color:var(--accent)">{{ entregas_mes }}</div>
+                <div class="small text-muted">Entregas este mês</div>
+            </div>
+        </a>
+    </div>
+</div>
+
+{# ── Ações rápidas ── #}
+<div class="d-flex flex-wrap gap-2 mb-4">
+    <a href="/mestre/requisicoes/nova" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i> Nova Requisição
+    </a>
+    <a href="/epi/fichas/nova" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-file-earmark-plus me-1"></i> Nova Ficha EPI
+    </a>
+    <a href="/epi/devolucoes" class="btn btn-outline-warning btn-sm">
+        <i class="bi bi-arrow-return-left me-1"></i> Ver Devoluções
+    </a>
+    <a href="/relatorios/consumo-por-pessoa" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-people me-1"></i> Consumo por Pessoa
+    </a>
+</div>
+
+{# ── Últimas requisições ── #}
+{% if ultimas_reqs %}
+<div class="card border-0 shadow-sm">
+    <div class="card-header fw-bold d-flex justify-content-between align-items-center"
+         style="background:var(--primary-light)">
+        <span><i class="bi bi-clock-history me-2" style="color:var(--accent)"></i>Últimas Requisições</span>
+        <a href="/mestre/requisicoes" class="btn btn-sm btn-outline-secondary py-0">Ver todas</a>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover table-sm mb-0">
+            <thead>
+                <tr>
+                    <th>Protocolo</th>
+                    <th>Colaborador</th>
+                    <th>Almoxarifado</th>
+                    <th class="text-center">Itens</th>
+                    <th>Data</th>
+                    <th class="text-center">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in ultimas_reqs %}
+                <tr onclick="location.href='/mestre/requisicoes/{{ r.id }}'" style="cursor:pointer">
+                    <td><code class="small">{{ r.protocolo or '#' + r.id|string }}</code></td>
+                    <td class="fw-semibold small">{{ r.colaborador }}</td>
+                    <td class="small text-muted">{{ r.almoxarifado.nome if r.almoxarifado else '—' }}</td>
+                    <td class="text-center">
+                        <span class="badge rounded-pill bg-secondary">{{ r.itens|length }}</span>
+                    </td>
+                    <td class="small">{{ r.data_criacao.strftime('%d/%m/%Y') }}</td>
+                    <td class="text-center">
+                        {% if r.status == 'pendente' %}
+                        <span class="badge bg-warning text-dark">⏳ Pendente</span>
+                        {% elif r.status == 'aprovada' %}
+                        <span class="badge bg-primary">✅ Aprovada</span>
+                        {% elif r.status == 'parcial' %}
+                        <span class="badge bg-info text-dark">⚠️ Parcial</span>
+                        {% elif r.status == 'entregue' %}
+                        <span class="badge bg-success">📦 Entregue</span>
+                        {% elif r.status == 'recusada' %}
+                        <span class="badge bg-danger">❌ Recusada</span>
+                        {% else %}
+                        <span class="badge bg-secondary">{{ r.status }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="card border-0 shadow-sm">
+    <div class="text-center py-5 text-muted">
+        <i class="bi bi-clipboard fs-1 d-block mb-2" style="color:var(--accent)"></i>
+        <p class="mb-1 fw-semibold">Nenhuma requisição feita ainda.</p>
+        <a href="/mestre/requisicoes/nova" class="btn btn-primary btn-sm mt-2">
+            <i class="bi bi-plus-lg me-1"></i> Criar primeira requisição
+        </a>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

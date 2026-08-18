@@ -34,6 +34,7 @@ from routes.api import api_bp
 from routes.admin import admin_bp
 from routes.catalogo import catalogo_bp
 from routes.kits import kits_bp
+from routes.epi_modulo import epi_modulo_bp
 
 
 def configure_app(app):
@@ -75,7 +76,7 @@ def create_app():
     # Registrar todos os blueprints sem prefixo — mantém url_for() compativel
     for bp in [auth_bp, main_bp, relatorios_bp, ferramentas_bp, epis_bp,
                colaboradores_bp, usuarios_bp, requisicoes_bp, api_bp, admin_bp, catalogo_bp,
-               kits_bp]:
+               kits_bp, epi_modulo_bp]:
         app.register_blueprint(bp)
 
     # Filtro Jinja2 para quantidades

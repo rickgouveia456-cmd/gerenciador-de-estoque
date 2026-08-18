@@ -19,6 +19,11 @@ from core import (login_required, admin_required, almoxarife_required,
 logger = logging.getLogger(__name__)
 requisicoes_bp = Blueprint('requisicoes_bp', __name__)
 
+# Import lazy para evitar circular — chamado em runtime
+def _reg_epi(colaborador, almoxarifado_id, descricao, ca, quantidade, tamanho, registrado_por):
+    from routes.epi_modulo import registrar_epi_na_ficha
+    registrar_epi_na_ficha(colaborador, almoxarifado_id, descricao, ca, quantidade, tamanho, registrado_por)
+
 @requisicoes_bp.route('/mestre/requisicoes')
 @login_required
 def mestre_requisicoes():
@@ -321,6 +326,17 @@ def mestre_requisicao_entregar(id):
             observacao=f'Req. Mestre #{req.id} — Colaborador: {req.colaborador}',
             item_id=ri.item.id
         ))
+        # Registrar automaticamente na FichaEPI se for EPI
+        if ri.item.categoria == 'epi':
+            _reg_epi(
+                colaborador=req.colaborador,
+                almoxarifado_id=req.almoxarifado_id,
+                descricao=ri.item.nome,
+                ca=ri.item.ca,
+                quantidade=ri.quantidade,
+                tamanho=None,
+                registrado_por=u.nome
+            )
 
     req.status = 'entregue'
     req.data_entrega = agora()

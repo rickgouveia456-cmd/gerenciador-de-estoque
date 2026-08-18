@@ -22,6 +22,7 @@ CAT_LABEL  = {
 @catalogo_bp.route('/catalogo/insumos')
 @login_required
 def catalogo_insumos():
+    u     = usuario_atual()
     q     = request.args.get('q', '').strip()
     cat   = request.args.get('categoria', '')
     query = CatalogoInsumo.query.filter_by(ativo=True)
@@ -30,9 +31,33 @@ def catalogo_insumos():
     if cat:
         query = query.filter_by(categoria=cat)
     insumos = query.order_by(CatalogoInsumo.nome).all()
+
+    # Montar mapa nome_lower -> item do almoxarifado do usuário
+    # para mostrar quantidade e valor em estoque na coluna extra
+    mapa_estoque = {}  # nome_lower -> Item
+    alm_nome = None
+
+    if u.perfil == 'admin':
+        # Admin vê todos os almoxarifados — não filtra por um específico
+        pass
+    else:
+        ids_alm = u.almoxarifados_permitidos()
+        if ids_alm:
+            # Pega o almoxarifado principal do usuário como referência
+            alm_id_ref = u.almoxarifado_id or next(iter(ids_alm))
+            alm_ref = db.session.get(Almoxarifado, alm_id_ref)
+            if alm_ref:
+                alm_nome = alm_ref.nome
+                itens_alm = Item.query.filter_by(
+                    almoxarifado_id=alm_id_ref, ativo=True
+                ).all()
+                for it in itens_alm:
+                    mapa_estoque[it.nome.lower().strip()] = it
+
     return render_template('catalogo_insumos.html',
                            insumos=insumos, q=q, cat=cat,
-                           categorias=CATEGORIAS, cat_label=CAT_LABEL)
+                           categorias=CATEGORIAS, cat_label=CAT_LABEL,
+                           mapa_estoque=mapa_estoque, alm_nome=alm_nome)
 
 
 @catalogo_bp.route('/catalogo/insumos/novo', methods=['GET', 'POST'])

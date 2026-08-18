@@ -4,8 +4,13 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <div>
-        <h4 class="fw-bold mb-0">Catalogo de Insumos</h4>
-        <p class="text-muted small mb-0">Banco compartilhado — todos os almoxarifados podem consultar e importar</p>
+        <h4 class="fw-bold mb-0">Catálogo de Insumos</h4>
+        <p class="text-muted small mb-0">
+            Banco compartilhado — todos podem consultar
+            {% if alm_nome %}
+            · Mostrando estoque de <strong>{{ alm_nome }}</strong>
+            {% endif %}
+        </p>
     </div>
     <div class="d-flex gap-2 flex-wrap">
         {% if usuario_atual and usuario_atual.perfil in ('admin','almoxarife','analista') %}
@@ -20,13 +25,14 @@
         <a href="{{ url_for('catalogo_bp.catalogo_novo') }}" class="btn btn-primary btn-sm">
             <i class="bi bi-plus-lg me-1"></i>Novo Insumo
         </a>
-        </a>
         {% endif %}
     </div>
 </div>
+
 <form method="get" class="row g-2 mb-4">
     <div class="col-md-6">
-        <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm" placeholder="Buscar por nome...">
+        <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm"
+               placeholder="Buscar por nome...">
     </div>
     <div class="col-md-3">
         <select name="categoria" class="form-select form-select-sm">
@@ -47,7 +53,9 @@
         {% endif %}
     </div>
 </form>
+
 <p class="text-muted small mb-2">{{ insumos|length }} insumo(s) encontrado(s)</p>
+
 {% if insumos %}
 <div class="table-responsive">
     <table class="table table-hover table-sm align-middle">
@@ -59,21 +67,33 @@
                 <th class="text-center">Valor Unit.</th>
                 <th class="text-center">Categoria</th>
                 <th>CA</th>
-                <th>Descricao</th>
+                {% if alm_nome %}
+                <th class="text-center" style="background:#1e3a2f" title="Quantidade no seu almoxarifado">
+                    <i class="bi bi-archive me-1"></i>Qtd. {{ alm_nome | truncate(14, True) }}
+                </th>
+                <th class="text-center" style="background:#1e3a2f" title="Valor total em estoque">
+                    <i class="bi bi-currency-dollar me-1"></i>Valor Total
+                </th>
+                {% endif %}
                 {% if usuario_atual and usuario_atual.perfil in ('admin','almoxarife') %}
-                <th class="text-center">Acoes</th>
+                <th class="text-center">Ações</th>
                 {% endif %}
             </tr>
         </thead>
         <tbody>
             {% set cat_cores = {'epi':'warning','maquinario':'secondary','eletrica':'danger','hidraulica':'info','gas':'dark','geral':'light'} %}
             {% for ins in insumos %}
+            {% set item_alm = mapa_estoque.get(ins.nome.lower().strip()) %}
             <tr>
                 <td class="fw-semibold">{{ ins.nome }}</td>
                 <td class="text-muted small">{{ ins.codigo_ref or '—' }}</td>
-                <td class="text-center"><span class="badge bg-secondary">{{ ins.unidade }}</span></td>
+                <td class="text-center">
+                    <span class="badge bg-secondary">{{ ins.unidade }}</span>
+                </td>
                 <td class="text-center fw-semibold small text-success">
-                    {% if ins.valor_unitario %}R$ {{ '%.2f'|format(ins.valor_unitario)|replace('.', ',') }}{% else %}—{% endif %}
+                    {% if ins.valor_unitario %}
+                        R$ {{ '%.2f'|format(ins.valor_unitario)|replace('.', ',') }}
+                    {% else %}—{% endif %}
                 </td>
                 <td class="text-center">
                     <span class="badge bg-{{ cat_cores.get(ins.categoria,'light') }} text-dark">
@@ -81,7 +101,44 @@
                     </span>
                 </td>
                 <td class="small">{{ ins.ca or '—' }}</td>
-                <td class="small text-muted">{{ ins.descricao or '—' }}</td>
+
+                {% if alm_nome %}
+                {# Coluna: quantidade no almoxarifado do usuário #}
+                <td class="text-center">
+                    {% if item_alm %}
+                        <a href="/item/{{ item_alm.id }}" class="text-decoration-none">
+                            <span class="fw-bold {% if item_alm.status == 'critico' %}text-danger{% elif item_alm.status == 'alerta' %}text-warning{% else %}text-success{% endif %}">
+                                {{ item_alm.quantidade|fmt_qtd }} {{ item_alm.unidade }}
+                            </span>
+                            {% if item_alm.status == 'critico' %}
+                                <span class="badge bg-danger ms-1" style="font-size:0.6rem">Zerado</span>
+                            {% elif item_alm.status == 'alerta' %}
+                                <span class="badge bg-warning text-dark ms-1" style="font-size:0.6rem">Alerta</span>
+                            {% endif %}
+                        </a>
+                    {% else %}
+                        <span class="text-muted small">—</span>
+                    {% endif %}
+                </td>
+
+                {# Coluna: valor total em estoque (qtd x valor_unit) #}
+                <td class="text-center">
+                    {% if item_alm and item_alm.quantidade > 0 %}
+                        {% set vu = item_alm.valor_unitario or ins.valor_unitario %}
+                        {% if vu %}
+                            {% set vt = item_alm.quantidade * vu %}
+                            <span class="fw-semibold text-success small">
+                                R$ {{ '%.2f'|format(vt)|replace('.', ',') }}
+                            </span>
+                        {% else %}
+                            <span class="text-muted small" title="Sem valor unitário cadastrado">—</span>
+                        {% endif %}
+                    {% else %}
+                        <span class="text-muted small">—</span>
+                    {% endif %}
+                </td>
+                {% endif %}
+
                 {% if usuario_atual and usuario_atual.perfil in ('admin','almoxarife') %}
                 <td class="text-center">
                     <a href="{{ url_for('catalogo_bp.catalogo_editar', id=ins.id) }}"

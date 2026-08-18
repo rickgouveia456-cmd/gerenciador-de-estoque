@@ -143,7 +143,32 @@
         {% else %}
         <!-- SIDEBAR PARA ADMIN / ALMOXARIFE / COLABORADOR -->
         <span class="nav-section">Principal</span>
+        <a href="/" class="nav-link {% if request.endpoint == 'main_bp.index' %}active{% endif %}">
+            <i class="bi bi-speedometer2 me-2"></i> Dashboard
+        </a>
+        {% if usuario_atual and usuario_atual.perfil not in ('mestre', 'tecnico_seguranca') %}
+        <a href="/movimentacao/lote" class="nav-link {% if request.endpoint == 'main_bp.movimentacao_lote' %}active{% endif %}">
+            <i class="bi bi-arrow-left-right me-2"></i> Registro de Movimentação
+        </a>
+        {% endif %}
+        <a href="/relatorios/alertas" class="nav-link {% if request.endpoint == 'relatorios_bp.relatorio_alertas' %}active{% endif %}">
+            <i class="bi bi-bell me-2"></i> Alertas de Estoque
+            <span id="badge-alertas" class="badge bg-danger ms-1" style="display:none"></span>
+        </a>
+        {% if usuario_atual and (usuario_atual.perfil in ('admin', 'almoxarife') or usuario_atual.pode_requisitar) %}
+        <span class="nav-section">Requisições</span>
+        <a href="/mestre/requisicoes" class="nav-link {% if request.endpoint in ('requisicoes_bp.mestre_requisicoes','requisicoes_bp.mestre_requisicao_detalhe','requisicoes_bp.mestre_requisicao_editar','requisicoes_bp.mestre_requisicao_nova') %}active{% endif %}">
+            <i class="bi bi-clipboard-check me-2"></i> Requisições
+            <span id="badge-req-pendentes" class="badge bg-danger ms-1" style="display:none"></span>
+        </a>
+        {% if usuario_atual.perfil in ('admin', 'almoxarife') or usuario_atual.pode_requisitar %}
+        <a href="/mestre/requisicoes/nova" class="nav-link {% if request.endpoint == 'requisicoes_bp.mestre_requisicao_nova' %}active{% endif %}">
+            <i class="bi bi-plus-circle me-2"></i> Nova Requisição
+        </a>
+        {% endif %}
+        {% endif %}
         {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
+        <span class="nav-section">Equipe</span>
         <a href="/colaboradores" class="nav-link {% if request.endpoint == 'colaboradores_bp.colaboradores' %}active{% endif %}">
             <i class="bi bi-person-badge me-2"></i> Colaboradores
         </a>

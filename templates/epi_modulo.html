@@ -539,7 +539,15 @@
                         </div>
                         <div class="col-md-5">
                             <label class="form-label fw-semibold">Nome do EPI *</label>
-                            <input type="text" name="nome_epi" class="form-control" required placeholder="Ex: Capacete de Segurança">
+                            <div class="position-relative">
+                                <input type="text" name="nome_epi" id="inputNomeEpiCa"
+                                       class="form-control" required
+                                       placeholder="Ex: Capacete de Segurança"
+                                       autocomplete="off"
+                                       oninput="buscarEPICa(this)">
+                                <div id="sug_epi_ca" class="list-group position-absolute shadow"
+                                     style="z-index:3000;display:none;width:100%;max-height:200px;overflow-y:auto;top:100%;left:0"></div>
+                            </div>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-semibold">Tipo</label>
@@ -1358,19 +1366,22 @@ function confirmarDevolucao() {
     });
 }
 
-/* ── Nova Ficha — linhas dinâmicas de EPI ──────────────────────────── */
+/* ── Nova Ficha — linhas dinâmicas de EPI com autocomplete ─────────── */
 function adicionarLinhaEpi() {
     const idx = _linhaEpi++;
     const div = document.createElement('div');
     div.id = `epi_linha_${idx}`;
     div.className = 'row g-2 align-items-center mb-2 p-2 border rounded';
     div.innerHTML = `
-        <div class="col-12 col-md-5">
+        <div class="col-12 col-md-5 position-relative">
             <input type="text" name="desc_${idx}" class="form-control form-control-sm"
-                   placeholder="Descrição do EPI *" required>
+                   placeholder="Descrição do EPI *" required autocomplete="off"
+                   oninput="buscarEPI(this, ${idx})">
+            <div id="sug_epi_${idx}" class="list-group position-absolute shadow"
+                 style="z-index:3000;display:none;width:100%;max-height:200px;overflow-y:auto;top:100%;left:0"></div>
         </div>
         <div class="col-5 col-md-2">
-            <input type="text" name="ca_${idx}" class="form-control form-control-sm" placeholder="CA (opcional)">
+            <input type="text" name="ca_${idx}" id="ca_epi_${idx}" class="form-control form-control-sm" placeholder="CA (opcional)">
         </div>
         <div class="col-4 col-md-2">
             <input type="number" name="qtd_${idx}" class="form-control form-control-sm"
@@ -1387,10 +1398,45 @@ function adicionarLinhaEpi() {
         </div>
     `;
     document.getElementById('listaEpis').appendChild(div);
-    // Aviso se primeiro
     const aviso = document.getElementById('avisoSemEpis');
     if (aviso) aviso.style.display = 'none';
 }
+
+let _epiTimer = null;
+function buscarEPI(input, idx) {
+    clearTimeout(_epiTimer);
+    const q = input.value.trim();
+    const lista = document.getElementById(`sug_epi_${idx}`);
+    if (!lista) return;
+    if (q.length < 1) { lista.style.display = 'none'; return; }
+    _epiTimer = setTimeout(() => {
+        fetch(`/api/epis/buscar?q=${encodeURIComponent(q)}`)
+            .then(r => r.json())
+            .then(data => {
+                lista.innerHTML = '';
+                if (!data.length) { lista.style.display = 'none'; return; }
+                data.forEach(item => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'list-group-item list-group-item-action py-1 small';
+                    btn.innerHTML = `<i class="bi bi-shield-check me-2" style="color:var(--accent)"></i>${item.nome}`;
+                    btn.addEventListener('click', () => {
+                        input.value = item.nome;
+                        lista.style.display = 'none';
+                    });
+                    lista.appendChild(btn);
+                });
+                lista.style.display = 'block';
+            });
+    }, 200);
+}
+
+// Fechar sugestões EPI ao clicar fora
+document.addEventListener('click', e => {
+    document.querySelectorAll('[id^="sug_epi_"]').forEach(l => {
+        if (!l.contains(e.target)) l.style.display = 'none';
+    });
+});
 
 // Adicionar primeira linha automaticamente na Nova Ficha
 if (document.getElementById('listaEpis')) {
@@ -1436,6 +1482,42 @@ function setupAutocomplete(inputId, sugestoesId) {
 setupAutocomplete('inputColab',    'sugestoesColab');
 setupAutocomplete('inputColabCa',  'sugestoesColabCa');
 setupAutocomplete('inputColabHab', 'sugestoesColabHab');
+
+/* ── Autocomplete EPI no modal de Certificados CA ───────────────────── */
+let _caTimer = null;
+function buscarEPICa(input) {
+    clearTimeout(_caTimer);
+    const q = input.value.trim();
+    const lista = document.getElementById('sug_epi_ca');
+    if (!lista) return;
+    if (q.length < 1) { lista.style.display = 'none'; return; }
+    _caTimer = setTimeout(() => {
+        fetch(`/api/epis/buscar?q=${encodeURIComponent(q)}`)
+            .then(r => r.json())
+            .then(data => {
+                lista.innerHTML = '';
+                if (!data.length) { lista.style.display = 'none'; return; }
+                data.forEach(item => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'list-group-item list-group-item-action py-1 small';
+                    btn.innerHTML = `<i class="bi bi-shield-check me-2" style="color:var(--accent)"></i>${item.nome}`;
+                    btn.addEventListener('click', () => {
+                        input.value = item.nome;
+                        lista.style.display = 'none';
+                    });
+                    lista.appendChild(btn);
+                });
+                lista.style.display = 'block';
+            });
+    }, 200);
+}
+document.addEventListener('click', e => {
+    const l = document.getElementById('sug_epi_ca');
+    const inp = document.getElementById('inputNomeEpiCa');
+    if (l && inp && !l.contains(e.target) && !inp.contains(e.target))
+        l.style.display = 'none';
+});
 </script>
 {% endblock %}
 {% endblock %}

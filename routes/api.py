@@ -154,6 +154,77 @@ def api_colaboradores():
 
     return jsonify(nomes[:12])
 
+
+@api_bp.route('/api/epis/buscar')
+@login_required
+def api_epis_buscar():
+    """Autocomplete de EPIs — busca em ItemEPI, Item(categoria=epi) e CatalogoInsumo."""
+    from models import CatalogoInsumo, ItemFichaEPI
+    q = request.args.get('q', '').strip()
+    u = usuario_atual()
+    if not q or len(q) < 1:
+        return jsonify([])
+
+    is_pg = 'postgresql' in str(db.engine.url)
+    ilike = 'ILIKE' if is_pg else 'LIKE'
+    like = f'%{q}%'
+
+    resultados = set()
+
+    # 1. ItemEPI dos almoxarifados do usuário
+    if u.perfil == 'admin':
+        epis = ItemEPI.query.filter(
+            ItemEPI.nome.ilike(like), ItemEPI.ativo == True
+        ).order_by(ItemEPI.nome).limit(8).all()
+    else:
+        ids = u.almoxarifados_permitidos()
+        epis = ItemEPI.query.filter(
+            ItemEPI.nome.ilike(like),
+            ItemEPI.ativo == True,
+            ItemEPI.almoxarifado_id.in_(ids)
+        ).order_by(ItemEPI.nome).limit(8).all() if ids else []
+
+    for e in epis:
+        resultados.add(e.nome)
+
+    # 2. Item com categoria=epi
+    if u.perfil == 'admin':
+        itens = Item.query.filter(
+            Item.nome.ilike(like), Item.categoria == 'epi', Item.ativo == True
+        ).order_by(Item.nome).limit(6).all()
+    else:
+        ids = u.almoxarifados_permitidos()
+        itens = Item.query.filter(
+            Item.nome.ilike(like), Item.categoria == 'epi', Item.ativo == True,
+            Item.almoxarifado_id.in_(ids)
+        ).order_by(Item.nome).limit(6).all() if ids else []
+
+    for it in itens:
+        resultados.add(it.nome)
+
+    # 3. Catálogo de insumos com categoria=epi
+    cat_epis = CatalogoInsumo.query.filter(
+        CatalogoInsumo.nome.ilike(like),
+        CatalogoInsumo.categoria == 'epi',
+        CatalogoInsumo.ativo == True
+    ).order_by(CatalogoInsumo.nome).limit(6).all()
+    for c in cat_epis:
+        resultados.add(c.nome)
+
+    # 4. Histórico de descrições já usadas em fichas
+    try:
+        rows = db.session.execute(
+            db.text(f"SELECT DISTINCT descricao FROM item_ficha_epi WHERE descricao {ilike} :q ORDER BY descricao LIMIT 6"),
+            {'q': like}
+        ).fetchall()
+        for r in rows:
+            resultados.add(r[0])
+    except Exception:
+        pass
+
+    lista = sorted(resultados)[:15]
+    return jsonify([{'nome': n} for n in lista])
+
 # ── FROTA DE FERRAMENTAS ─────────────────────────────────────────────────────
 
 

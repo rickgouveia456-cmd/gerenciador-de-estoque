@@ -1,0 +1,57 @@
+<tr class="{% if item.status == 'critico' %}table-danger{% else %}table-warning{% endif %}"
+    data-busca="{{ item.nome | lower }} {{ item.codigo | lower }} {{ item.almoxarifado.nome | lower }}">
+    <td>
+        <strong>{{ item.nome }}</strong>
+        <br><small class="text-muted"><code>{{ item.codigo }}</code></small>
+    </td>
+    <td class="small">{{ item.almoxarifado.nome }}</td>
+    <td class="fw-bold {% if item.status == 'critico' %}text-danger{% else %}text-warning{% endif %}">
+        {{ item.quantidade }} {{ item.unidade }}
+    </td>
+    <td class="fw-bold text-danger">
+        {{ (item.estoque_minimo - item.quantidade) | round(2) }} {{ item.unidade }}
+    </td>
+    <td style="min-width:220px">
+        <div class="d-flex align-items-center gap-2">
+            <select class="form-select form-select-sm"
+                    onchange="atualizarStatus({{ item.id }}, this)"
+                    style="max-width:200px">
+                <option value="solicitar"        {% if item.status_compra == 'solicitar' or item.status_compra == 'pendente' %}selected{% endif %}>📋 SOLICITAR</option>
+                <option value="em_atraso"        {% if item.status_compra == 'em_atraso' %}selected{% endif %}>🔴 EM ATRASO</option>
+                <option value="programado"       {% if item.status_compra == 'programado' %}selected{% endif %}>📅 PROGRAMADO</option>
+                <option value="sem_saldo"        {% if item.status_compra == 'sem_saldo' %}selected{% endif %}>⚠️ SEM SALDO</option>
+                <option value="pedido"           {% if item.status_compra == 'pedido' or item.status_compra == 'pedido_efetuado' %}selected{% endif %}>🛒 PEDIDO</option>
+                <option value="suplementacao"    {% if item.status_compra == 'suplementacao' or item.status_compra == 'pedido_rota' %}selected{% endif %}>🔄 EM SUPLEMENTAÇÃO</option>
+            </select>
+        </div>
+    </td>
+    <td class="text-center">
+        {% if prev %}
+            <div>
+                {% if prev.urgencia == 'zerado' %}
+                    <span class="badge bg-dark px-2 py-1">⛔ Zerado</span>
+                    <div class="small text-muted mt-1">consumo: {{ prev.consumo_diario|fmt_qtd }} {{ item.unidade }}/dia</div>
+                {% elif prev.urgencia == 'critico' %}
+                    <span class="badge bg-danger px-2 py-1">🔴 ~{{ prev.dias_zero }}d p/ zerar</span>
+                    <div class="small text-muted mt-1">consumo: {{ prev.consumo_diario|fmt_qtd }} {{ item.unidade }}/dia</div>
+                {% elif prev.urgencia == 'alerta' %}
+                    <span class="badge bg-warning text-dark px-2 py-1">🟡 ~{{ prev.dias_zero }}d p/ zerar</span>
+                    <div class="small text-muted mt-1">consumo: {{ prev.consumo_diario|fmt_qtd }} {{ item.unidade }}/dia</div>
+                {% elif prev.urgencia == 'aviso' %}
+                    <span class="badge px-2 py-1" style="background:#f97316;color:#fff">🟠 ~{{ prev.dias }}d p/ mínimo</span>
+                    <div class="small text-muted mt-1">zera em ~{{ prev.dias_zero }}d</div>
+                {% else %}
+                    <span class="badge bg-secondary px-2 py-1">🟢 ~{{ prev.dias }}d p/ mínimo</span>
+                    <div class="small text-muted mt-1">zera em ~{{ prev.dias_zero }}d</div>
+                {% endif %}
+            </div>
+        {% else %}
+            <span class="text-muted small">—</span>
+        {% endif %}
+    </td>
+    <td>
+        <a href="/item/{{ item.id }}" class="btn btn-sm btn-primary">
+            <i class="bi bi-arrow-left-right me-1"></i> Dar Entrada
+        </a>
+    </td>
+</tr>

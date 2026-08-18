@@ -1,0 +1,106 @@
+﻿{% extends 'base.html' %}
+{% block title %}Catalogo de Insumos{% endblock %}
+{% block page_title %}Catalogo de Insumos{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold mb-0">Catalogo de Insumos</h4>
+        <p class="text-muted small mb-0">Banco compartilhado — todos os almoxarifados podem consultar e importar</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        {% if usuario_atual and usuario_atual.perfil in ('admin','almoxarife','analista') %}
+        <a href="{{ url_for('catalogo_bp.catalogo_valor_estoque') }}" class="btn btn-outline-success btn-sm">
+            <i class="bi bi-currency-dollar me-1"></i>Valor em Estoque
+        </a>
+        {% endif %}
+        {% if usuario_atual and usuario_atual.perfil in ('admin','almoxarife') %}
+        <a href="{{ url_for('catalogo_bp.catalogo_importar') }}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-upload me-1"></i>Importar Excel
+        </a>
+        <a href="{{ url_for('catalogo_bp.catalogo_novo') }}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>Novo Insumo
+        </a>
+        </a>
+        {% endif %}
+    </div>
+</div>
+<form method="get" class="row g-2 mb-4">
+    <div class="col-md-6">
+        <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm" placeholder="Buscar por nome...">
+    </div>
+    <div class="col-md-3">
+        <select name="categoria" class="form-select form-select-sm">
+            <option value="">Todas as categorias</option>
+            {% for c in categorias %}
+            <option value="{{ c }}" {% if c == cat %}selected{% endif %}>{{ cat_label[c] }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-3 d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm flex-fill" type="submit">
+            <i class="bi bi-search me-1"></i>Filtrar
+        </button>
+        {% if q or cat %}
+        <a href="{{ url_for('catalogo_bp.catalogo_insumos') }}" class="btn btn-outline-secondary btn-sm" title="Limpar">
+            <i class="bi bi-x-lg"></i>
+        </a>
+        {% endif %}
+    </div>
+</form>
+<p class="text-muted small mb-2">{{ insumos|length }} insumo(s) encontrado(s)</p>
+{% if insumos %}
+<div class="table-responsive">
+    <table class="table table-hover table-sm align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>Nome</th>
+                <th>Cod. Ref.</th>
+                <th class="text-center">Unidade</th>
+                <th class="text-center">Valor Unit.</th>
+                <th class="text-center">Categoria</th>
+                <th>CA</th>
+                <th>Descricao</th>
+                {% if usuario_atual and usuario_atual.perfil in ('admin','almoxarife') %}
+                <th class="text-center">Acoes</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% set cat_cores = {'epi':'warning','maquinario':'secondary','eletrica':'danger','hidraulica':'info','gas':'dark','geral':'light'} %}
+            {% for ins in insumos %}
+            <tr>
+                <td class="fw-semibold">{{ ins.nome }}</td>
+                <td class="text-muted small">{{ ins.codigo_ref or '—' }}</td>
+                <td class="text-center"><span class="badge bg-secondary">{{ ins.unidade }}</span></td>
+                <td class="text-center fw-semibold small text-success">
+                    {% if ins.valor_unitario %}R$ {{ '%.2f'|format(ins.valor_unitario)|replace('.', ',') }}{% else %}—{% endif %}
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-{{ cat_cores.get(ins.categoria,'light') }} text-dark">
+                        {{ cat_label.get(ins.categoria, ins.categoria) }}
+                    </span>
+                </td>
+                <td class="small">{{ ins.ca or '—' }}</td>
+                <td class="small text-muted">{{ ins.descricao or '—' }}</td>
+                {% if usuario_atual and usuario_atual.perfil in ('admin','almoxarife') %}
+                <td class="text-center">
+                    <a href="{{ url_for('catalogo_bp.catalogo_editar', id=ins.id) }}"
+                       class="btn btn-outline-secondary btn-sm py-0 px-1" title="Editar">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="alert alert-info">
+    Nenhum insumo encontrado.
+    {% if usuario_atual and usuario_atual.perfil in ('admin','almoxarife') %}
+    <a href="{{ url_for('catalogo_bp.catalogo_novo') }}" class="alert-link">Adicionar o primeiro</a>.
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

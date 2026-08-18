@@ -80,6 +80,11 @@
                    style="font-size:0.82rem">
                     <span><i class="bi bi-shield-check me-1"></i>EPIs</span>
                 </a>
+                <a href="/almoxarifado/{{ alm.id }}/kits"
+                   class="nav-link ps-4 py-1 {% if request.endpoint == 'kits_bp.kits' and request.view_args.get('alm_id') == alm.id %}active{% endif %}"
+                   style="font-size:0.82rem">
+                    <span><i class="bi bi-box2-heart me-1"></i>Kits</span>
+                </a>
             </div>
         </div>
         {% endfor %}
@@ -220,6 +225,11 @@
                    style="font-size:0.8rem">
                     <span><i class="bi bi-shield-check me-1"></i>EPIs / Uniformes</span>
                     <span class="badge rounded-pill bg-secondary" style="font-size:0.65rem">{{ c.get('epi', 0) }}</span>
+                </a>
+                <a href="/almoxarifado/{{ alm.id }}/kits"
+                   class="nav-link ps-5 py-1 {% if request.endpoint == 'kits_bp.kits' and request.view_args.get('alm_id') == alm.id %}active{% endif %}"
+                   style="font-size:0.8rem">
+                    <span><i class="bi bi-box2-heart me-1"></i>Kits</span>
                 </a>
             </div>
         </div>

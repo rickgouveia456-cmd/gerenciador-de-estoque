@@ -235,6 +235,28 @@ class PermissaoExtra(db.Model):
     usuario = db.relationship('Usuario', backref='permissoes_extras')
 
 
+class Kit(db.Model):
+    """Kit de itens pré-definidos para retirada rápida."""
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(200), nullable=False)
+    descricao = db.Column(db.String(500), nullable=True)
+    almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=False)
+    almoxarifado = db.relationship('Almoxarifado', backref='kits')
+    ativo = db.Column(db.Boolean, default=True)
+    criado_por = db.Column(db.String(100), nullable=True)
+    data_criacao = db.Column(db.DateTime, default=agora)
+    itens = db.relationship('KitItem', backref='kit', lazy=True, cascade='all, delete-orphan')
+
+
+class KitItem(db.Model):
+    """Item pertencente a um Kit."""
+    id = db.Column(db.Integer, primary_key=True)
+    kit_id = db.Column(db.Integer, db.ForeignKey('kit.id'), nullable=False)
+    item_id = db.Column(db.Integer, db.ForeignKey('item.id'), nullable=False)
+    item = db.relationship('Item')
+    quantidade = db.Column(db.Float, nullable=False)
+
+
 class CatalogoInsumo(db.Model):
     __tablename__ = 'catalogo_insumo'
     id = db.Column(db.Integer, primary_key=True)

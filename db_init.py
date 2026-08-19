@@ -591,7 +591,8 @@ def run_migrations():
                 """)
 
             # ── Colunas novas em treinamento (bancos existentes) ─────────────
-            safe_exec(conn, "ALTER TABLE treinamento ADD COLUMN cargo_responsavel VARCHAR(100)")            safe_exec(conn, "ALTER TABLE treinamento ADD COLUMN registro_mte VARCHAR(30)")
+            safe_exec(conn, "ALTER TABLE treinamento ADD COLUMN cargo_responsavel VARCHAR(100)")
+            safe_exec(conn, "ALTER TABLE treinamento ADD COLUMN registro_mte VARCHAR(30)")
             safe_exec(conn, "ALTER TABLE treinamento ADD COLUMN carga_horaria INTEGER")
             safe_exec(conn, "ALTER TABLE treinamento ADD COLUMN local VARCHAR(150)")
             safe_exec(conn, "ALTER TABLE treinamento ADD COLUMN portaria VARCHAR(80)")

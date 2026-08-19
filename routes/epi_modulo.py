@@ -458,35 +458,9 @@ def epi_devolucoes():
 @login_required
 def epi_treinamentos():
     u = usuario_atual()
-    ids = _alm_id_filtro(u)
-    q = Treinamento.query
-    if ids is not None:
-        q = q.filter(Treinamento.almoxarifado_id.in_(ids))
-
-    busca = request.args.get('q', '').strip()
-    tipo_f = request.args.get('tipo', '').strip()
-    if busca:
-        q = q.filter(Treinamento.tipo.ilike(f'%{busca}%'))
-    if tipo_f:
-        q = q.filter(Treinamento.tipo.ilike(f'%{tipo_f}%'))
-
-    treinamentos = q.order_by(Treinamento.data_realizacao.desc()).all()
     almoxarifados = _alms_do_usuario(u)
-
-    # Contagens para o painel interno
-    vencidos  = sum(1 for t in treinamentos if t.status == 'vencido')
-    a_vencer  = sum(1 for t in treinamentos if t.status == 'a_vencer')
-    validos   = sum(1 for t in treinamentos if t.status == 'valido')
-
-    tipos_nr = ['NR-10', 'NR-35', 'NR-18', 'NR-33', 'NR-06', 'Brigada de Incêndio',
-                'PCMAT', 'Integração SSO', 'Trabalho em Altura', 'Espaço Confinado',
-                'Eletricidade SEP', 'Primeiros Socorros', 'Outro']
-
     return render_template('epi_modulo.html', aba='treinamentos',
-        treinamentos=treinamentos, almoxarifados=almoxarifados,
-        busca=busca, tipo_filtro=tipo_f,
-        vencidos=vencidos, a_vencer=a_vencer, validos=validos,
-        tipos_nr=tipos_nr,
+        almoxarifados=almoxarifados,
         template_existe=_template_existe_no_banco(),
     )
 

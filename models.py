@@ -336,12 +336,8 @@ class Treinamento(db.Model):
     def data_vencimento(self):
         if not self.validade_meses:
             return None
-        from dateutil.relativedelta import relativedelta
-        try:
-            return self.data_realizacao + relativedelta(months=self.validade_meses)
-        except Exception:
-            from datetime import timedelta
-            return self.data_realizacao + timedelta(days=self.validade_meses * 30)
+        from datetime import timedelta
+        return self.data_realizacao + timedelta(days=self.validade_meses * 30)
 
     @property
     def status(self):

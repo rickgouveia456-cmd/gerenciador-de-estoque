@@ -1,6 +1,7 @@
 """Módulo EPI — Painel, Fichas de Entrega, Certificados CA, Matriz, Devoluções."""
 import json
 import io
+import os
 from datetime import datetime, date, timedelta
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file
 from extensions import db
@@ -13,6 +14,10 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
 epi_modulo_bp = Blueprint('epi_modulo_bp', __name__)
+
+# Caminho fixo onde o template PPTX é salvo
+_TEMPLATE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                               'certificado_template.pptx')
 
 _BLOQUEADOS = ('mestre',)
 
@@ -472,6 +477,7 @@ def epi_treinamentos():
         busca=busca, tipo_filtro=tipo_f,
         vencidos=vencidos, a_vencer=a_vencer, validos=validos,
         tipos_nr=tipos_nr,
+        template_existe=os.path.exists(_TEMPLATE_PATH),
     )
 
 
@@ -550,16 +556,65 @@ def epi_treinamento_novo():
     return redirect(url_for('epi_modulo_bp.epi_treinamentos'))
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# TEMPLATE PPTX — upload e status
+# ══════════════════════════════════════════════════════════════════════════════
+@epi_modulo_bp.route('/epi/template/upload', methods=['POST'])
+@login_required
+def epi_template_upload():
+    """Admin faz upload do template PPTX do certificado."""
+    u = usuario_atual()
+    if u.perfil not in ('admin', 'almoxarife'):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('epi_modulo_bp.epi_treinamentos'))
+
+    arquivo = request.files.get('template_pptx')
+    if not arquivo or not arquivo.filename:
+        flash('Nenhum arquivo enviado.', 'danger')
+        return redirect(url_for('epi_modulo_bp.epi_treinamentos'))
+
+    if not arquivo.filename.lower().endswith('.pptx'):
+        flash('Apenas arquivos .pptx são aceitos.', 'danger')
+        return redirect(url_for('epi_modulo_bp.epi_treinamentos'))
+
+    try:
+        arquivo.save(_TEMPLATE_PATH)
+        flash('Template de certificado atualizado com sucesso! '
+              'Agora os certificados serão gerados com o seu modelo.', 'success')
+    except Exception as e:
+        flash(f'Erro ao salvar template: {e}', 'danger')
+
+    return redirect(url_for('epi_modulo_bp.epi_treinamentos'))
+
+
+@epi_modulo_bp.route('/epi/template/remover', methods=['POST'])
+@login_required
+def epi_template_remover():
+    """Remove o template e volta para o gerador automático."""
+    u = usuario_atual()
+    if u.perfil not in ('admin', 'almoxarife'):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('epi_modulo_bp.epi_treinamentos'))
+    try:
+        if os.path.exists(_TEMPLATE_PATH):
+            os.remove(_TEMPLATE_PATH)
+            flash('Template removido. O certificado padrão será usado.', 'warning')
+        else:
+            flash('Nenhum template encontrado.', 'info')
+    except Exception as e:
+        flash(f'Erro ao remover: {e}', 'danger')
+    return redirect(url_for('epi_modulo_bp.epi_treinamentos'))
+
+
 @epi_modulo_bp.route('/epi/treinamentos/<int:tid>/certificado')
 @login_required
 def epi_treinamento_certificado(tid):
-    """Gera PPTX do certificado para todos os participantes do treinamento."""
     from certificado_pptx import gerar_certificado_pptx
     t = Treinamento.query.get_or_404(tid)
     if not t.participantes:
         flash('Nenhum participante cadastrado neste treinamento.', 'warning')
         return redirect(url_for('epi_modulo_bp.epi_treinamentos'))
-    buf = gerar_certificado_pptx(t.participantes, t)
+    buf = gerar_certificado_pptx(t.participantes, t, template_path=_TEMPLATE_PATH)
     nome_arq = f'Certificado_{t.tipo.replace(" ","_")}_{t.data_realizacao.strftime("%Y%m%d")}.pptx'
     return send_file(buf, as_attachment=True, download_name=nome_arq,
                      mimetype='application/vnd.openxmlformats-officedocument.presentationml.presentation')

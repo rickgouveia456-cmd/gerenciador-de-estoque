@@ -756,9 +756,17 @@
         <a href="/epi/treinamentos" class="btn btn-outline-secondary btn-sm"><i class="bi bi-x-lg"></i></a>
         {% endif %}
     </form>
-    {% if usuario_atual.perfil not in ('mestre',) %}
+{% if usuario_atual.perfil not in ('mestre',) %}
     <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalNovoTreinamento">
         <i class="bi bi-plus-lg me-1"></i> Novo Treinamento
+    </button>
+    <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#modalTemplate">
+        <i class="bi bi-file-earmark-ppt me-1"></i>
+        {% if template_existe %}
+        <span class="text-success">Template: Ativo</span>
+        {% else %}
+        Configurar Template
+        {% endif %}
     </button>
     {% endif %}
 </div>
@@ -919,6 +927,86 @@ function adicionarParticipante() {
 // Adicionar primeira linha automaticamente
 if (document.getElementById('listaParticipantesForm')) adicionarParticipante();
 </script>
+
+{# Modal Template PPTX #}
+<div class="modal fade" id="modalTemplate" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header text-white" style="background:var(--accent)">
+                <h6 class="modal-title fw-bold">
+                    <i class="bi bi-file-earmark-ppt me-2"></i>Template de Certificado
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                {% if template_existe %}
+                <div class="alert alert-success d-flex align-items-center gap-2 mb-3">
+                    <i class="bi bi-check-circle-fill fs-5"></i>
+                    <div>
+                        <strong>Template ativo!</strong> Os certificados estão sendo gerados com o seu modelo personalizado.
+                    </div>
+                </div>
+                {% else %}
+                <div class="alert alert-info d-flex align-items-center gap-2 mb-3">
+                    <i class="bi bi-info-circle-fill fs-5"></i>
+                    <div>Nenhum template configurado. Usando layout padrão.</div>
+                </div>
+                {% endif %}
+
+                <p class="text-muted small mb-3">
+                    Faça o upload do seu arquivo <strong>.pptx</strong> com o modelo do certificado.
+                    Coloque os marcadores abaixo nos campos que devem ser preenchidos automaticamente:
+                </p>
+
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm table-bordered small">
+                        <thead class="table-dark">
+                            <tr><th>Marcador</th><th>Será substituído por</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><code>{{NOME}}</code></td><td>Nome do colaborador</td></tr>
+                            <tr><td><code>{{CPF}}</code></td><td>CPF do colaborador</td></tr>
+                            <tr><td><code>{{FUNCAO}}</code></td><td>Função/cargo</td></tr>
+                            <tr><td><code>{{TREINAMENTO}}</code></td><td>Nome do treinamento</td></tr>
+                            <tr><td><code>{{NR}}</code></td><td>Norma Regulamentadora</td></tr>
+                            <tr><td><code>{{PORTARIA}}</code></td><td>Portaria</td></tr>
+                            <tr><td><code>{{CARGA}}</code></td><td>Carga horária (número)</td></tr>
+                            <tr><td><code>{{DATA}}</code></td><td>Data de realização</td></tr>
+                            <tr><td><code>{{LOCAL}}</code></td><td>Local (cidade)</td></tr>
+                            <tr><td><code>{{INSTRUTOR}}</code></td><td>Nome do instrutor</td></tr>
+                            <tr><td><code>{{CARGO_INSTRUTOR}}</code></td><td>Cargo do instrutor</td></tr>
+                            <tr><td><code>{{MTE}}</code></td><td>Registro MTE</td></tr>
+                            <tr><td><code>{{EMPRESA}}</code></td><td>Nome da empresa</td></tr>
+                            <tr><td><code>{{CNPJ}}</code></td><td>CNPJ da empresa</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <form method="POST" action="/epi/template/upload" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Selecionar arquivo .pptx</label>
+                        <input type="file" name="template_pptx" class="form-control"
+                               accept=".pptx" required>
+                        <div class="form-text">Máximo recomendado: 10MB</div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary btn-sm flex-fill">
+                            <i class="bi bi-upload me-1"></i> Fazer Upload
+                        </button>
+                        {% if template_existe %}
+                        <form action="/epi/template/remover" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-outline-danger btn-sm"
+                                    onclick="return confirm('Remover o template e voltar ao layout padrão?')">
+                                <i class="bi bi-trash me-1"></i> Remover
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 
 {# Modal Novo Treinamento #}
 <div class="modal fade" id="modalNovoTreinamento" tabindex="-1">

@@ -469,8 +469,13 @@ def gerar_certificado_pptx(
     cnpj='09.191.102/0001-06',
     local_emissao=None,
     data_formatada=None,
+    template_path=None,
 ):
-    """Gera PPTX com 2 slides por participante: Certificado + Conteúdo."""
+    """
+    Gera PPTX com 2 slides por participante: Certificado + Conteúdo.
+    Se template_path existir, usa ele como base substituindo marcadores.
+    Caso contrário, gera o layout automático.
+    """
     meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
              'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
     if not data_formatada:
@@ -480,6 +485,14 @@ def gerar_certificado_pptx(
         alm = treinamento.almoxarifado
         local_emissao = (alm.cidade or 'Local') if alm else 'Local'
 
+    # ── Usar template se disponível ───────────────────────────────────────
+    if template_path and __import__('os').path.exists(template_path):
+        return _gerar_com_template(
+            participantes, treinamento, empresa, cnpj,
+            local_emissao, data_formatada, template_path
+        )
+
+    # ── Gerador automático (fallback) ─────────────────────────────────────
     prs = Presentation()
     prs.slide_width  = Cm(33.87)
     prs.slide_height = Cm(19.05)
@@ -493,5 +506,133 @@ def gerar_certificado_pptx(
 
     buf = io.BytesIO()
     prs.save(buf)
+    buf.seek(0)
+    return buf
+
+
+def _gerar_com_template(participantes, treinamento, empresa, cnpj,
+                        local_emissao, data_formatada, template_path):
+    """
+    Usa o arquivo template.pptx como base.
+    Para cada participante duplica os slides do template
+    e substitui os marcadores {{NOME}}, {{CPF}}, etc.
+    """
+    from pptx import Presentation as _Prs
+    from pptx.util import Pt as _Pt
+    from copy import deepcopy
+    import lxml.etree as _etree
+
+    cfg = NR_CONFIG.get(treinamento.tipo, {})
+    nome_cert = treinamento.descricao or cfg.get('nome_cert', treinamento.tipo)
+    nr_ref    = treinamento.nr_referencia or cfg.get('nr', '')
+    portaria  = treinamento.portaria or cfg.get('portaria', '')
+    carga     = treinamento.carga_horaria or cfg.get('carga', '')
+    inst_nome  = treinamento.responsavel or ''
+    inst_cargo = treinamento.cargo_responsavel or ''
+    inst_mte   = treinamento.registro_mte or ''
+
+    # Monta o conteúdo programático como texto corrido
+    conteudo_txt = ''
+    for sec_titulo, itens in CONTEUDOS.get(treinamento.tipo, []):
+        conteudo_txt += f'{sec_titulo}\n'
+        for item in itens:
+            conteudo_txt += f'- {item}\n'
+        conteudo_txt += '\n'
+
+    # Abre o template
+    tpl = _Prs(template_path)
+    n_slides_tpl = len(tpl.slides)
+
+    # Cria apresentação de saída
+    prs_out = _Prs(template_path)
+    # Remove todos os slides da saída (vamos recriar)
+    # Mantemos referências ao XML dos slides do template
+    tpl_slides_xml = [deepcopy(s._element) for s in tpl.slides]
+    tpl_slides_rels = [s.part._rels for s in tpl.slides]
+
+    # Limpa slides da apresentação de saída
+    xml_slides = prs_out.slides._sldIdLst
+    for sld_id in list(xml_slides):
+        xml_slides.remove(sld_id)
+
+    participantes_ativos = [p for p in participantes if p.concluiu]
+
+    for part in participantes_ativos:
+        nome_p   = (part.colaborador or '').upper()
+        cpf_p    = part.cpf or ''
+        funcao_p = (part.funcao or '').upper()
+
+        # Monta o texto completo do parágrafo principal
+        texto_corpo = (
+            f'Certificamos que {nome_p}'
+            + (f', CPF: {cpf_p}' if cpf_p else '')
+            + f', na função {funcao_p}, participou do {nome_cert}, '
+            f'promovido pela empresa {empresa}'
+            + (f' \u2013 CNPJ: {cnpj}' if cnpj else '')
+            + (f', em conformidade com a {nr_ref}' if nr_ref else '')
+            + (f', da {portaria}' if portaria else '')
+            + (f', com carga horária de {int(carga):02d} horas' if carga else '')
+            + '.'
+        )
+
+        substituicoes = {
+            '{{NOME}}':         nome_p,
+            '{{CPF}}':          cpf_p,
+            '{{FUNCAO}}':       funcao_p,
+            '{{TREINAMENTO}}':  nome_cert,
+            '{{NR}}':           nr_ref,
+            '{{PORTARIA}}':     portaria,
+            '{{CARGA}}':        str(int(carga)) if carga else '',
+            '{{DATA}}':         data_formatada,
+            '{{LOCAL}}':        local_emissao,
+            '{{INSTRUTOR}}':    inst_nome,
+            '{{CARGO_INSTRUTOR}}': inst_cargo,
+            '{{MTE}}':          inst_mte,
+            '{{EMPRESA}}':      empresa,
+            '{{CNPJ}}':         cnpj,
+            '{{CONTEUDO}}':     conteudo_txt,
+            '{{TEXTO_CORPO}}':  texto_corpo,
+        }
+
+        # Adiciona cada slide do template substituindo os marcadores
+        for i, slide_tpl in enumerate(tpl.slides):
+            # Clona o slide
+            slide_xml = deepcopy(slide_tpl._element)
+
+            # Substitui todos os textos no XML
+            xml_str = _etree.tostring(slide_xml, encoding='unicode')
+            for marcador, valor in substituicoes.items():
+                xml_str = xml_str.replace(marcador, valor or '')
+            slide_xml = _etree.fromstring(xml_str)
+
+            # Adiciona o slide clonado à apresentação de saída
+            try:
+                layout = prs_out.slide_layouts[0]
+                new_slide = prs_out.slides.add_slide(layout)
+                # Substitui o XML do slide pelo clonado
+                sp_tree = new_slide.shapes._spTree
+                for child in list(sp_tree):
+                    sp_tree.remove(child)
+                for child in slide_xml.findall('.//{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}*'):
+                    pass
+                # Copia o spTree do slide clonado
+                src_sp_tree = slide_xml.find('.//{http://schemas.openxmlformats.org/presentationml/2006/main}cSld'
+                                             '/{http://schemas.openxmlformats.org/presentationml/2006/main}spTree')
+                if src_sp_tree is None:
+                    # tenta namespace alternativo
+                    src_sp_tree = slide_xml.find(
+                        './/{http://schemas.openxmlformats.org/presentationml/2006/main}spTree'
+                    )
+                if src_sp_tree is not None:
+                    for child in list(new_slide.shapes._spTree):
+                        new_slide.shapes._spTree.remove(child)
+                    for child in src_sp_tree:
+                        new_slide.shapes._spTree.append(deepcopy(child))
+            except Exception:
+                # Se falhar na manipulação XML, usa o slide como está
+                pass
+
+    buf = io.BytesIO()
+    prs_out.save(buf)
     buf.seek(0)
     return buf

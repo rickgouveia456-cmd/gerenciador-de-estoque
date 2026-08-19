@@ -527,6 +527,7 @@ def epi_treinamento_novo():
 
     # Participantes via campos dinâmicos: nome_0, cpf_0, funcao_0, ...
     idx = 0
+    total_participantes = 0
     while True:
         nome = request.form.get(f'p_nome_{idx}', '').strip()
         if not nome and idx > 0:
@@ -539,12 +540,13 @@ def epi_treinamento_novo():
                 funcao=request.form.get(f'p_funcao_{idx}', '').strip() or None,
                 concluiu=True
             ))
+            total_participantes += 1
         idx += 1
         if idx > 200:
             break
 
     db.session.commit()
-    flash(f'Treinamento "{tipo}" registrado com {len(nomes)} participante(s)!', 'success')
+    flash(f'Treinamento "{tipo}" registrado com {total_participantes} participante(s)!', 'success')
     return redirect(url_for('epi_modulo_bp.epi_treinamentos'))
 
 

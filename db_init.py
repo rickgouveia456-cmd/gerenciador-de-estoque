@@ -366,9 +366,223 @@ def run_migrations():
                     )
                 """)
 
+            # ── Tabelas do Módulo EPI (FichaEPI, CertificadoCA, MatrizEPI) ───────
+            if is_pg:
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS ficha_epi (
+                        id SERIAL PRIMARY KEY,
+                        colaborador VARCHAR(100) NOT NULL,
+                        funcao VARCHAR(100),
+                        obra VARCHAR(100),
+                        almoxarifado_id INTEGER NOT NULL REFERENCES almoxarifado(id),
+                        status VARCHAR(20) DEFAULT 'ativa',
+                        data_abertura TIMESTAMP,
+                        data_encerramento TIMESTAMP,
+                        criado_por VARCHAR(100)
+                    )
+                """)
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS item_ficha_epi (
+                        id SERIAL PRIMARY KEY,
+                        ficha_id INTEGER NOT NULL REFERENCES ficha_epi(id),
+                        descricao VARCHAR(200) NOT NULL,
+                        ca VARCHAR(30),
+                        quantidade FLOAT DEFAULT 1,
+                        tamanho VARCHAR(20),
+                        data_entrega TIMESTAMP,
+                        data_devolucao TIMESTAMP,
+                        motivo_devolucao VARCHAR(200),
+                        registrado_por VARCHAR(100)
+                    )
+                """)
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS certificado_ca (
+                        id SERIAL PRIMARY KEY,
+                        numero_ca VARCHAR(30) NOT NULL,
+                        nome_epi VARCHAR(200) NOT NULL,
+                        fabricante VARCHAR(150),
+                        tipo VARCHAR(100),
+                        data_validade TIMESTAMP,
+                        data_emissao TIMESTAMP,
+                        ativo BOOLEAN DEFAULT TRUE,
+                        almoxarifado_id INTEGER REFERENCES almoxarifado(id),
+                        criado_por VARCHAR(100),
+                        data_cadastro TIMESTAMP
+                    )
+                """)
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS matriz_epi (
+                        id SERIAL PRIMARY KEY,
+                        funcao VARCHAR(100) NOT NULL,
+                        obra VARCHAR(100),
+                        almoxarifado_id INTEGER REFERENCES almoxarifado(id),
+                        epis_obrigatorios TEXT,
+                        norma VARCHAR(50),
+                        criado_por VARCHAR(100),
+                        data_cadastro TIMESTAMP
+                    )
+                """)
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS treinamento (
+                        id SERIAL PRIMARY KEY,
+                        tipo VARCHAR(100) NOT NULL,
+                        descricao VARCHAR(300),
+                        data_realizacao TIMESTAMP NOT NULL,
+                        validade_meses INTEGER,
+                        responsavel VARCHAR(100),
+                        cargo_responsavel VARCHAR(100),
+                        registro_mte VARCHAR(30),
+                        carga_horaria INTEGER,
+                        local VARCHAR(150),
+                        portaria VARCHAR(80),
+                        nr_referencia VARCHAR(30),
+                        almoxarifado_id INTEGER REFERENCES almoxarifado(id),
+                        criado_por VARCHAR(100),
+                        data_cadastro TIMESTAMP
+                    )
+                """)
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS treinamento_participante (
+                        id SERIAL PRIMARY KEY,
+                        treinamento_id INTEGER NOT NULL REFERENCES treinamento(id),
+                        colaborador VARCHAR(100) NOT NULL,
+                        cpf VARCHAR(20),
+                        funcao VARCHAR(100),
+                        concluiu BOOLEAN DEFAULT TRUE,
+                        observacao VARCHAR(200)
+                    )
+                """)
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS habilitacao_funcionario (
+                        id SERIAL PRIMARY KEY,
+                        colaborador VARCHAR(100) NOT NULL,
+                        tipo VARCHAR(100) NOT NULL,
+                        numero VARCHAR(60),
+                        emissor VARCHAR(150),
+                        funcao_habilitada VARCHAR(150),
+                        data_emissao TIMESTAMP,
+                        data_validade TIMESTAMP,
+                        almoxarifado_id INTEGER REFERENCES almoxarifado(id),
+                        criado_por VARCHAR(100),
+                        data_cadastro TIMESTAMP,
+                        ativo BOOLEAN DEFAULT TRUE
+                    )
+                """)
+            else:
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS ficha_epi (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        colaborador VARCHAR(100) NOT NULL,
+                        funcao VARCHAR(100),
+                        obra VARCHAR(100),
+                        almoxarifado_id INTEGER NOT NULL REFERENCES almoxarifado(id),
+                        status VARCHAR(20) DEFAULT 'ativa',
+                        data_abertura DATETIME,
+                        data_encerramento DATETIME,
+                        criado_por VARCHAR(100)
+                    )
+                """)
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS item_ficha_epi (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        ficha_id INTEGER NOT NULL REFERENCES ficha_epi(id),
+                        descricao VARCHAR(200) NOT NULL,
+                        ca VARCHAR(30),
+                        quantidade FLOAT DEFAULT 1,
+                        tamanho VARCHAR(20),
+                        data_entrega DATETIME,
+                        data_devolucao DATETIME,
+                        motivo_devolucao VARCHAR(200),
+                        registrado_por VARCHAR(100)
+                    )
+                """)
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS certificado_ca (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        numero_ca VARCHAR(30) NOT NULL,
+                        nome_epi VARCHAR(200) NOT NULL,
+                        fabricante VARCHAR(150),
+                        tipo VARCHAR(100),
+                        data_validade DATETIME,
+                        data_emissao DATETIME,
+                        ativo BOOLEAN DEFAULT TRUE,
+                        almoxarifado_id INTEGER REFERENCES almoxarifado(id),
+                        criado_por VARCHAR(100),
+                        data_cadastro DATETIME
+                    )
+                """)
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS matriz_epi (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        funcao VARCHAR(100) NOT NULL,
+                        obra VARCHAR(100),
+                        almoxarifado_id INTEGER REFERENCES almoxarifado(id),
+                        epis_obrigatorios TEXT,
+                        norma VARCHAR(50),
+                        criado_por VARCHAR(100),
+                        data_cadastro DATETIME
+                    )
+                """)
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS treinamento (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        tipo VARCHAR(100) NOT NULL,
+                        descricao VARCHAR(300),
+                        data_realizacao DATETIME NOT NULL,
+                        validade_meses INTEGER,
+                        responsavel VARCHAR(100),
+                        cargo_responsavel VARCHAR(100),
+                        registro_mte VARCHAR(30),
+                        carga_horaria INTEGER,
+                        local VARCHAR(150),
+                        portaria VARCHAR(80),
+                        nr_referencia VARCHAR(30),
+                        almoxarifado_id INTEGER REFERENCES almoxarifado(id),
+                        criado_por VARCHAR(100),
+                        data_cadastro DATETIME
+                    )
+                """)
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS treinamento_participante (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        treinamento_id INTEGER NOT NULL REFERENCES treinamento(id),
+                        colaborador VARCHAR(100) NOT NULL,
+                        cpf VARCHAR(20),
+                        funcao VARCHAR(100),
+                        concluiu BOOLEAN DEFAULT TRUE,
+                        observacao VARCHAR(200)
+                    )
+                """)
+                safe_exec(conn, """
+                    CREATE TABLE IF NOT EXISTS habilitacao_funcionario (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        colaborador VARCHAR(100) NOT NULL,
+                        tipo VARCHAR(100) NOT NULL,
+                        numero VARCHAR(60),
+                        emissor VARCHAR(150),
+                        funcao_habilitada VARCHAR(150),
+                        data_emissao DATETIME,
+                        data_validade DATETIME,
+                        almoxarifado_id INTEGER REFERENCES almoxarifado(id),
+                        criado_por VARCHAR(100),
+                        data_cadastro DATETIME,
+                        ativo BOOLEAN DEFAULT TRUE
+                    )
+                """)
+
+            # ── Colunas novas em treinamento (bancos existentes) ─────────────
+            safe_exec(conn, "ALTER TABLE treinamento ADD COLUMN cargo_responsavel VARCHAR(100)")
+            safe_exec(conn, "ALTER TABLE treinamento ADD COLUMN registro_mte VARCHAR(30)")
+            safe_exec(conn, "ALTER TABLE treinamento ADD COLUMN carga_horaria INTEGER")
+            safe_exec(conn, "ALTER TABLE treinamento ADD COLUMN local VARCHAR(150)")
+            safe_exec(conn, "ALTER TABLE treinamento ADD COLUMN portaria VARCHAR(80)")
+            safe_exec(conn, "ALTER TABLE treinamento ADD COLUMN nr_referencia VARCHAR(30)")
+            # ── Colunas novas em treinamento_participante ─────────────────────
+            safe_exec(conn, "ALTER TABLE treinamento_participante ADD COLUMN cpf VARCHAR(20)")
+            safe_exec(conn, "ALTER TABLE treinamento_participante ADD COLUMN funcao VARCHAR(100)")
+
     except Exception as e:
         logger.error(f'Migração: {e}')
-
 
 
 def seed_data():

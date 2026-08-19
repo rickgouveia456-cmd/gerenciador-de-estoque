@@ -5,8 +5,6 @@ from pptx import Presentation
 from pptx.util import Pt, Cm, Emu
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
-from pptx.oxml.ns import qn
-from pptx.oxml import OxmlElement
 import lxml.etree as etree
 
 # ── Cores ────────────────────────────────────────────────────────────────────

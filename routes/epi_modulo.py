@@ -37,6 +37,16 @@ def _checar(u):
     return u.perfil not in _BLOQUEADOS
 
 
+def _template_existe_no_banco():
+    """Verifica se há template PPTX salvo no banco."""
+    try:
+        from models import ConfiguracaoSistema
+        cfg = ConfiguracaoSistema.query.filter_by(chave='certificado_template').first()
+        return cfg is not None and cfg.binario is not None
+    except Exception:
+        return os.path.exists(_TEMPLATE_PATH)
+
+
 def _alms_do_usuario(u):
     if u.perfil == 'admin':
         return Almoxarifado.query.all()
@@ -477,9 +487,8 @@ def epi_treinamentos():
         busca=busca, tipo_filtro=tipo_f,
         vencidos=vencidos, a_vencer=a_vencer, validos=validos,
         tipos_nr=tipos_nr,
-        template_existe=os.path.exists(_TEMPLATE_PATH),
+        template_existe=_template_existe_no_banco(),
     )
-
 
 @epi_modulo_bp.route('/epi/treinamentos/novo', methods=['POST'])
 @login_required
@@ -562,7 +571,7 @@ def epi_treinamento_novo():
 @epi_modulo_bp.route('/epi/template/upload', methods=['POST'])
 @login_required
 def epi_template_upload():
-    """Admin faz upload do template PPTX do certificado."""
+    """Admin faz upload do template PPTX do certificado — salvo no banco."""
     u = usuario_atual()
     if u.perfil not in ('admin', 'almoxarife'):
         flash('Acesso negado.', 'danger')
@@ -578,9 +587,22 @@ def epi_template_upload():
         return redirect(url_for('epi_modulo_bp.epi_treinamentos'))
 
     try:
-        arquivo.save(_TEMPLATE_PATH)
-        flash('Template de certificado atualizado com sucesso! '
-              'Agora os certificados serão gerados com o seu modelo.', 'success')
+        from models import ConfiguracaoSistema
+        conteudo = arquivo.read()
+        cfg = ConfiguracaoSistema.query.filter_by(chave='certificado_template').first()
+        if cfg:
+            cfg.binario = conteudo
+        else:
+            cfg = ConfiguracaoSistema(chave='certificado_template', binario=conteudo)
+            db.session.add(cfg)
+        db.session.commit()
+        # Salva também em disco como cache (para uso local)
+        try:
+            with open(_TEMPLATE_PATH, 'wb') as f:
+                f.write(conteudo)
+        except Exception:
+            pass
+        flash('Template de certificado atualizado com sucesso!', 'success')
     except Exception as e:
         flash(f'Erro ao salvar template: {e}', 'danger')
 
@@ -590,17 +612,20 @@ def epi_template_upload():
 @epi_modulo_bp.route('/epi/template/remover', methods=['POST'])
 @login_required
 def epi_template_remover():
-    """Remove o template e volta para o gerador automático."""
+    """Remove o template do banco e do disco."""
     u = usuario_atual()
     if u.perfil not in ('admin', 'almoxarife'):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('epi_modulo_bp.epi_treinamentos'))
     try:
+        from models import ConfiguracaoSistema
+        cfg = ConfiguracaoSistema.query.filter_by(chave='certificado_template').first()
+        if cfg:
+            db.session.delete(cfg)
+            db.session.commit()
         if os.path.exists(_TEMPLATE_PATH):
             os.remove(_TEMPLATE_PATH)
-            flash('Template removido. O certificado padrão será usado.', 'warning')
-        else:
-            flash('Nenhum template encontrado.', 'info')
+        flash('Template removido. O certificado padrão será usado.', 'warning')
     except Exception as e:
         flash(f'Erro ao remover: {e}', 'danger')
     return redirect(url_for('epi_modulo_bp.epi_treinamentos'))
@@ -610,11 +635,27 @@ def epi_template_remover():
 @login_required
 def epi_treinamento_certificado(tid):
     from certificado_pptx import gerar_certificado_pptx
+    from models import ConfiguracaoSistema
     t = Treinamento.query.get_or_404(tid)
     if not t.participantes:
         flash('Nenhum participante cadastrado neste treinamento.', 'warning')
         return redirect(url_for('epi_modulo_bp.epi_treinamentos'))
-    buf = gerar_certificado_pptx(t.participantes, t, template_path=_TEMPLATE_PATH)
+
+    # Tenta usar template do banco primeiro; fallback para disco
+    template_path = None
+    cfg = ConfiguracaoSistema.query.filter_by(chave='certificado_template').first()
+    if cfg and cfg.binario:
+        # Salva temporariamente em disco para o python-pptx ler
+        try:
+            with open(_TEMPLATE_PATH, 'wb') as f:
+                f.write(cfg.binario)
+            template_path = _TEMPLATE_PATH
+        except Exception:
+            template_path = _TEMPLATE_PATH if os.path.exists(_TEMPLATE_PATH) else None
+    elif os.path.exists(_TEMPLATE_PATH):
+        template_path = _TEMPLATE_PATH
+
+    buf = gerar_certificado_pptx(t.participantes, t, template_path=template_path)
     if buf is None:
         flash('Template inválido. Usando layout padrão.', 'warning')
         buf = gerar_certificado_pptx(t.participantes, t)

@@ -364,6 +364,15 @@ class TreinamentoParticipante(db.Model):
     observacao      = db.Column(db.String(200), nullable=True)
 
 
+class ConfiguracaoSistema(db.Model):
+    """Configurações gerais do sistema — chave/valor com suporte a binário."""
+    __tablename__ = 'configuracao_sistema'
+    id      = db.Column(db.Integer, primary_key=True)
+    chave   = db.Column(db.String(100), unique=True, nullable=False)
+    valor   = db.Column(db.Text, nullable=True)        # para textos
+    binario = db.Column(db.LargeBinary, nullable=True) # para arquivos (PPTX, etc.)
+
+
 class HabilitacaoFuncionario(db.Model):
     """Certificado/habilitação que habilita um funcionário para exercer uma função."""
     __tablename__ = 'habilitacao_funcionario'

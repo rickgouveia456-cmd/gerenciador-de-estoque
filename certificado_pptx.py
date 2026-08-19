@@ -237,33 +237,31 @@ def _diagonais_topo_esq(slide):
 
 def _setas_canto_dir(slide, W, H):
     """
-    Replica as setas sobrepostas roxo + laranja do canto inferior direito.
-    No original: bloco laranja de base + 2 setas (shapes de pentagon/arrow)
-    Simulado com retângulos + triângulos rotacionados.
+    Logo Stanza — fundo laranja + 2 chevrons roxos (dois '>' deitados = o Z).
+    Cada chevron é formado por um paralelogramo.
     """
-    # Bloco laranja base
+    # Bloco laranja de fundo (base)
     _rect(slide, W - Cm(9.5), H - Cm(5.8), Cm(9.5), Cm(5.8), LARANJA)
 
-    # Seta roxa grande (arrow right shape = tipo 13 no pptx)
+    # Paralelogramo superior roxo escuro (chevron 1 — maior)
+    # shape 60 = paralelogramo no MSO
     try:
-        s_roxo = slide.shapes.add_shape(13, W - Cm(8.5), H - Cm(7.2), Cm(5.5), Cm(4.8))
-        s_roxo.fill.solid(); s_roxo.fill.fore_color.rgb = ROXO
-        s_roxo.line.fill.background()
-        s_roxo.rotation = 45
+        p1 = slide.shapes.add_shape(60, W - Cm(8.8), H - Cm(7.0), Cm(6.0), Cm(3.0))
+        p1.fill.solid(); p1.fill.fore_color.rgb = ROXO
+        p1.line.fill.background()
     except Exception:
-        _rect(slide, W - Cm(8.5), H - Cm(7.0), Cm(5), Cm(4.5), ROXO, rotation=30)
+        _rect(slide, W - Cm(8.8), H - Cm(6.8), Cm(5.8), Cm(2.8), ROXO, rotation=-12)
 
-    # Seta roxa clara menor
+    # Paralelogramo inferior roxo claro (chevron 2 — menor, deslocado)
     try:
-        s_roxo2 = slide.shapes.add_shape(13, W - Cm(7.0), H - Cm(5.8), Cm(4.0), Cm(3.5))
-        s_roxo2.fill.solid(); s_roxo2.fill.fore_color.rgb = ROXO_CLARO
-        s_roxo2.line.fill.background()
-        s_roxo2.rotation = 45
+        p2 = slide.shapes.add_shape(60, W - Cm(7.2), H - Cm(5.6), Cm(5.2), Cm(2.4))
+        p2.fill.solid(); p2.fill.fore_color.rgb = ROXO_CLARO
+        p2.line.fill.background()
     except Exception:
-        _rect(slide, W - Cm(7.0), H - Cm(5.5), Cm(3.8), Cm(3.2), ROXO_CLARO, rotation=30)
+        _rect(slide, W - Cm(7.2), H - Cm(5.4), Cm(5.0), Cm(2.2), ROXO_CLARO, rotation=-12)
 
-    # Cobertura laranja frontal
-    _rect(slide, W - Cm(5.5), H - Cm(4.5), Cm(4.5), Cm(4.0), LARANJA, rotation=0)
+    # Cobertura laranja — recobre o lado esquerdo das setas
+    _rect(slide, W - Cm(9.5), H - Cm(3.5), Cm(2.0), Cm(3.5), LARANJA)
 
 
 def _logo_sst(slide, cx, cy, raio):

@@ -1,19 +1,25 @@
 """Gerador de Certificado de Treinamento em PPTX — Padrão Stanza."""
 import io
+import math
 from pptx import Presentation
-from pptx.util import Inches, Pt, Emu
+from pptx.util import Pt, Cm, Emu
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
-from pptx.util import Cm
+from pptx.oxml.ns import qn
+from pptx.oxml import OxmlElement
+import lxml.etree as etree
 
-# Cores padrão Stanza
-LARANJA  = RGBColor(0xFF, 0x6B, 0x00)   # laranja Stanza
-ROXO     = RGBColor(0x5B, 0x0F, 0x91)   # roxo logo
+# ── Cores ────────────────────────────────────────────────────────────────────
+LARANJA  = RGBColor(0xFF, 0x6B, 0x00)
+ROXO     = RGBColor(0x5C, 0x2D, 0x91)
+VERDE    = RGBColor(0x00, 0x7A, 0x33)
 PRETO    = RGBColor(0x00, 0x00, 0x00)
 BRANCO   = RGBColor(0xFF, 0xFF, 0xFF)
-CINZA_SC = RGBColor(0x40, 0x40, 0x40)
+CINZA    = RGBColor(0x40, 0x40, 0x40)
+ROXO_CLARO = RGBColor(0x7B, 0x2F, 0xBE)
+BEGE     = RGBColor(0xF5, 0xF0, 0xE8)  # fundo levemente bege
 
-# Conteúdos programáticos por NR (extensível)
+# Conteúdos programáticos por NR
 CONTEUDOS = {
     'NR-18': [
         ('ASPECTOS DE SEGURANÇA DO TRABALHO:', [
@@ -25,13 +31,13 @@ CONTEUDOS = {
             'Noções sobre o Programa de Gerenciamento de Riscos (PGR)',
             'Noções de Ergonomia',
         ]),
-        ('NORMAS E PROCEDIMENTOS DE SEGURANÇA:', [
+        ('NORMAS E PROCEDIMENTOS DE SEGURANÇA', [
             'Noções sobre Acidentes de Trabalho e Afastamentos',
             'Noções sobre NR 5 (CIPA)',
             'Procedimentos de Segurança em Caso de Acidentes',
         ]),
         ('FATOR PESSOAL E RELAÇÕES HUMANAS NO TRABALHO:', [
-            'Respeito aos colegas, superior hierárquico e procedimentos internos de segurança',
+            'Respeito aos colegas, superior hierárquico e aos procedimentos internos de segurança',
             'Responsabilidade quanto aos recursos materiais disponibilizados para seu labor',
             'Função do setor de segurança do trabalho no atendimento e apoio ao trabalhador',
         ]),
@@ -44,7 +50,7 @@ CONTEUDOS = {
             'Sistemas, equipamentos e procedimentos de proteção coletiva',
             'EPI para trabalho em altura: seleção, inspeção, conservação e limitação de uso',
             'Acidentes típicos em trabalhos em altura',
-            'Condutas em situações de emergência, incluindo noções de técnicas de resgate e primeiros socorros',
+            'Condutas em situações de emergência, incluindo noções de resgate e primeiros socorros',
         ]),
     ],
     'NR-33': [
@@ -85,12 +91,11 @@ CONTEUDOS = {
             'Princípios de segurança na utilização de máquinas e ferramentas',
             'Operação com segurança de máquinas e ferramentas',
             'Inspeção e manutenção com segurança',
-            'Sistema de bloqueio de funcionamento durante manutenção',
+            'Sistema de bloqueio durante manutenção',
             'Manual de operação do fabricante',
             'Riscos mecânicos, elétricos e outros relevantes',
             'Método de trabalho seguro e Permissão de Trabalho',
-            'Noções sobre acidentes, doenças e medidas de controle (EPC/EPI)',
-            'Sinalização de segurança e procedimentos de emergência',
+            'Noções sobre acidentes e medidas de controle (EPC/EPI)',
         ]),
     ],
     'Brigada de Incêndio': [
@@ -117,7 +122,6 @@ CONTEUDOS = {
     ],
 }
 
-# Configurações por tipo de treinamento
 NR_CONFIG = {
     'NR-18': {
         'nome_cert': 'Treinamento de Integração em Saúde e Segurança no Trabalho',
@@ -129,7 +133,7 @@ NR_CONFIG = {
     'NR-35': {
         'nome_cert': 'Treinamento de Trabalho em Altura',
         'nr': 'NR 35',
-        'portaria': 'Portaria MTb 3214/78 do Ministério do Trabalho',
+        'portaria': 'Portaria nº 915 de 30/07/19',
         'carga': 8,
         'validade': 24,
     },
@@ -155,7 +159,7 @@ NR_CONFIG = {
         'validade': 24,
     },
     'NR-18 Ferramentas': {
-        'nome_cert': 'Treinamento para Uso de Ferramentas (Soprador, Furadeira, Rompedor, Martelete)',
+        'nome_cert': 'Treinamento para Uso de Ferramentas',
         'nr': 'NR 18',
         'portaria': 'Portaria MTb 3214/78',
         'carga': 2,
@@ -178,76 +182,157 @@ NR_CONFIG = {
 }
 
 
-def _add_textbox(slide, left, top, width, height, text, font_size=12,
-                 bold=False, color=PRETO, align=PP_ALIGN.LEFT, italic=False,
-                 word_wrap=True):
-    txBox = slide.shapes.add_textbox(left, top, width, height)
-    tf = txBox.text_frame
-    tf.word_wrap = word_wrap
+def _set_shape_color(shape, r, g, b, linha=False):
+    """Define cor de preenchimento e remove borda."""
+    shape.fill.solid()
+    shape.fill.fore_color.rgb = RGBColor(r, g, b)
+    if not linha:
+        shape.line.fill.background()
+
+
+def _add_rect(slide, left, top, width, height, r, g, b, rotation=0):
+    shape = slide.shapes.add_shape(1, left, top, width, height)
+    _set_shape_color(shape, r, g, b)
+    if rotation:
+        shape.rotation = rotation
+    return shape
+
+
+def _add_line_diag(slide, left, top, width, height, r, g, b, width_pt=1.5):
+    """Adiciona linha via shape de linha."""
+    from pptx.util import Pt as _Pt
+    from pptx.enum.shapes import MSO_SHAPE_TYPE
+    line = slide.shapes.add_shape(9, left, top, width, height)  # rounded rect fallback
+    # Usa connector ao invés
+    connector = slide.shapes.add_connector(1, left, top, left+width, top+height)
+    connector.line.color.rgb = RGBColor(r, g, b)
+    connector.line.width = _Pt(width_pt)
+    return connector
+
+
+def _decoracao_canto_inferior_direito(slide, W, H):
+    """Replica as setas sobrepostas roxas+laranja do canto inferior direito."""
+    # Bloco laranja base (triângulo/trapézio simulado com retângulo rotacionado)
+    # Retângulo laranja
+    s1 = slide.shapes.add_shape(1, W - Cm(9), H - Cm(5.5), Cm(9), Cm(5.5))
+    s1.fill.solid(); s1.fill.fore_color.rgb = LARANJA
+    s1.line.fill.background()
+
+    # Retângulo roxo sobreposição (seta grande)
+    s2 = slide.shapes.add_shape(1, W - Cm(7.5), H - Cm(6), Cm(5), Cm(4))
+    s2.fill.solid(); s2.fill.fore_color.rgb = ROXO
+    s2.line.fill.background()
+    s2.rotation = -15
+
+    # Retângulo roxo claro menor (seta pequena)
+    s3 = slide.shapes.add_shape(1, W - Cm(6), H - Cm(4.5), Cm(3.5), Cm(2.8))
+    s3.fill.solid(); s3.fill.fore_color.rgb = ROXO_CLARO
+    s3.line.fill.background()
+    s3.rotation = -15
+
+    # Retângulo laranja frente (borda laranja na seta)
+    s4 = slide.shapes.add_shape(1, W - Cm(5.5), H - Cm(4), Cm(4), Cm(3.5))
+    s4.fill.solid(); s4.fill.fore_color.rgb = LARANJA
+    s4.line.fill.background()
+    s4.rotation = -15
+
+
+def _linhas_diagonais_topo_esq(slide):
+    """Replica as 3 linhas diagonais roxas no canto superior esquerdo."""
+    from pptx.util import Pt as _Pt
+    offsets = [0, Cm(0.35), Cm(0.7)]
+    for i, off in enumerate(offsets):
+        try:
+            conn = slide.shapes.add_connector(
+                1,
+                Cm(0.3) + off, Cm(0.8),
+                Cm(2.2) + off, Cm(3.2)
+            )
+            conn.line.color.rgb = ROXO
+            conn.line.width = _Pt(1.5)
+        except Exception:
+            pass
+
+
+def _logo_seguranca_trabalho(slide):
+    """Desenha o símbolo de Segurança do Trabalho com círculo verde + cruz."""
+    from pptx.util import Pt as _Pt
+    cx = Cm(1.8)
+    cy_center = Cm(17.5)
+    r = Cm(1.4)
+
+    # Círculo externo verde escuro (borda)
+    circ_ext = slide.shapes.add_shape(9, cx - r, cy_center - r, r*2, r*2)
+    circ_ext.fill.solid(); circ_ext.fill.fore_color.rgb = VERDE
+    circ_ext.line.color.rgb = VERDE
+    circ_ext.line.width = _Pt(1)
+
+    # Círculo interno branco
+    ri = Cm(1.1)
+    circ_int = slide.shapes.add_shape(9, cx - ri, cy_center - ri, ri*2, ri*2)
+    circ_int.fill.solid(); circ_int.fill.fore_color.rgb = BRANCO
+    circ_int.line.fill.background()
+
+    # Cruz verde
+    # Vertical
+    cv = slide.shapes.add_shape(1, cx - Cm(0.18), cy_center - Cm(0.7), Cm(0.36), Cm(1.4))
+    cv.fill.solid(); cv.fill.fore_color.rgb = VERDE
+    cv.line.fill.background()
+    # Horizontal
+    ch = slide.shapes.add_shape(1, cx - Cm(0.7), cy_center - Cm(0.18), Cm(1.4), Cm(0.36))
+    ch.fill.solid(); ch.fill.fore_color.rgb = VERDE
+    ch.line.fill.background()
+
+    # Texto "SEGURANÇA DO TRABALHO" em arco (simplificado como textbox curvo)
+    tb = slide.shapes.add_textbox(cx - r - Cm(0.1), cy_center + Cm(0.9), r*2 + Cm(0.2), Cm(0.5))
+    tf = tb.text_frame
     p = tf.paragraphs[0]
-    p.alignment = align
+    p.alignment = PP_ALIGN.CENTER
     run = p.add_run()
-    run.text = text
-    run.font.size = Pt(font_size)
-    run.font.bold = bold
-    run.font.italic = italic
-    run.font.color.rgb = color
-    return txBox
+    run.text = 'SEGURANÇA DO TRABALHO'
+    run.font.size = Pt(4.5)
+    run.font.bold = True
+    run.font.color.rgb = BRANCO
 
 
 def _slide_certificado(prs, participante, treinamento, empresa, cnpj, local_emissao, data_formatada):
-    """Gera um slide de certificado no padrão Stanza."""
-    from pptx.util import Inches, Pt, Cm
-    from pptx.dml.color import RGBColor
-    from pptx.enum.text import PP_ALIGN
-
-    slide_layout = prs.slide_layouts[6]  # blank
-    slide = prs.slides.add_slide(slide_layout)
-
+    """Gera slide de certificado fiel ao modelo Stanza."""
+    slide = prs.slides.add_slide(prs.slide_layouts[6])  # blank
     W = prs.slide_width
     H = prs.slide_height
 
-    # Fundo branco (default)
+    # ── Fundo levemente bege/creme (igual ao modelo) ──────────────────────
+    bg = slide.shapes.add_shape(1, 0, 0, W, H)
+    bg.fill.solid(); bg.fill.fore_color.rgb = BEGE
+    bg.line.fill.background()
 
-    # ── Faixa laranja diagonal (decorativa) — topo esquerdo ──
-    # Simulado com retângulos inclinados
-    from pptx.util import Emu
-    from pptx.oxml.ns import qn
-    import lxml.etree as etree
+    # ── Faixa laranja estreita no rodapé ──────────────────────────────────
+    rodape = slide.shapes.add_shape(1, 0, H - Cm(0.3), W, Cm(0.3))
+    rodape.fill.solid(); rodape.fill.fore_color.rgb = LARANJA
+    rodape.line.fill.background()
 
-    # Bloco laranja canto superior esquerdo
-    shape_tl = slide.shapes.add_shape(
-        1,  # MSO_SHAPE_TYPE.RECTANGLE
-        Cm(0), Cm(0), Cm(5), Cm(0.8)
-    )
-    shape_tl.fill.solid()
-    shape_tl.fill.fore_color.rgb = LARANJA
-    shape_tl.line.fill.background()
+    # ── Decoração canto inferior direito (setas roxo+laranja) ─────────────
+    _decoracao_canto_inferior_direito(slide, W, H)
 
-    # Bloco roxo canto inferior direito
-    shape_br = slide.shapes.add_shape(
-        1, W - Cm(8), H - Cm(3), Cm(8), Cm(3)
-    )
-    shape_br.fill.solid()
-    shape_br.fill.fore_color.rgb = ROXO
-    shape_br.line.fill.background()
+    # ── Linhas diagonais roxas canto superior esquerdo ────────────────────
+    _linhas_diagonais_topo_esq(slide)
 
-    # Bloco laranja sobre o roxo
-    shape_or = slide.shapes.add_shape(
-        1, W - Cm(6), H - Cm(2.5), Cm(6), Cm(2.5)
-    )
-    shape_or.fill.solid()
-    shape_or.fill.fore_color.rgb = LARANJA
-    shape_or.line.fill.background()
+    # ── Logo Segurança do Trabalho (canto inferior esquerdo) ──────────────
+    _logo_seguranca_trabalho(slide)
 
-    # ── Título CERTIFICADO ──
-    _add_textbox(slide,
-        Cm(1), Cm(1.2), W - Cm(2), Cm(1.8),
-        'CERTIFICADO',
-        font_size=36, bold=True, color=PRETO, align=PP_ALIGN.CENTER
-    )
+    # ── Título CERTIFICADO ────────────────────────────────────────────────
+    tb_titulo = slide.shapes.add_textbox(Cm(3), Cm(1.5), W - Cm(6), Cm(2))
+    tf = tb_titulo.text_frame
+    p = tf.paragraphs[0]
+    p.alignment = PP_ALIGN.CENTER
+    run = p.add_run()
+    run.text = 'CERTIFICADO'
+    run.font.size = Pt(36)
+    run.font.bold = True
+    run.font.color.rgb = PRETO
+    run.font.name = 'Calibri'
 
-    # ── Texto principal ──
+    # ── Texto principal ───────────────────────────────────────────────────
     cfg = NR_CONFIG.get(treinamento.tipo, {})
     nome_cert = treinamento.descricao or cfg.get('nome_cert', treinamento.tipo)
     nr_ref    = treinamento.nr_referencia or cfg.get('nr', '')
@@ -257,217 +342,255 @@ def _slide_certificado(prs, participante, treinamento, empresa, cnpj, local_emis
     cpf_p     = participante.cpf or ''
     funcao_p  = (participante.funcao or '').upper()
 
-    texto_cert = (
-        f"Certificamos que {nome_p}"
-        + (f", CPF: {cpf_p}" if cpf_p else '')
-        + f", na função {funcao_p}, participou do {nome_cert}, "
-        f"promovido pela empresa {empresa}"
-        + (f" – CNPJ: {cnpj}" if cnpj else '')
-        + f", em conformidade com a {nr_ref}"
-        + (f", da {portaria}" if portaria else '')
-        + (f", com carga horária de {carga:02d} horas." if carga else '.')
-    )
-
-    # Caixa de texto principal
-    txBox = slide.shapes.add_textbox(Cm(1.5), Cm(3.2), W - Cm(3), Cm(6))
-    tf = txBox.text_frame
+    tb_corpo = slide.shapes.add_textbox(Cm(2), Cm(4.0), W - Cm(11), Cm(8))
+    tf = tb_corpo.text_frame
     tf.word_wrap = True
-    p = tf.paragraphs[0]
-    p.alignment = PP_ALIGN.JUSTIFY
 
-    # Texto com partes em negrito
-    def add_part(p, text, bold=False, font_size=13, color=PRETO):
+    def _run(p, text, bold=False, size=13.5):
         run = p.add_run()
         run.text = text
-        run.font.size = Pt(font_size)
+        run.font.size = Pt(size)
         run.font.bold = bold
-        run.font.color.rgb = color
+        run.font.color.rgb = PRETO
+        run.font.name = 'Calibri'
 
-    add_part(p, 'Certificamos que ')
-    add_part(p, nome_p, bold=True)
+    p = tf.paragraphs[0]
+    p.alignment = PP_ALIGN.JUSTIFY
+    p.space_after = Pt(4)
+
+    _run(p, 'Certificamos que ')
+    _run(p, nome_p, bold=True)
     if cpf_p:
-        add_part(p, ', CPF: ')
-        add_part(p, cpf_p, bold=True)
-    add_part(p, ', na função ')
-    add_part(p, funcao_p, bold=True)
-    add_part(p, f', participou do ')
-    add_part(p, nome_cert, bold=True)
-    add_part(p, ', promovido pela empresa ')
-    add_part(p, empresa, bold=True)
+        _run(p, ', CPF: ')
+        _run(p, cpf_p, bold=True)
+    _run(p, ', na função ')
+    _run(p, funcao_p, bold=True)
+    _run(p, ', participou do ')
+    _run(p, nome_cert, bold=True)
+    _run(p, ', promovido pela empresa ')
+    _run(p, empresa, bold=True)
     if cnpj:
-        add_part(p, ' – CNPJ: ')
-        add_part(p, cnpj, bold=True)
-    add_part(p, f', em conformidade com a ')
-    add_part(p, nr_ref, bold=True)
+        _run(p, ' \u2013 CNPJ: ')
+        _run(p, cnpj, bold=True)
+    _run(p, ', em conformidade com a ')
+    if nr_ref:
+        _run(p, nr_ref, bold=False)
     if portaria:
-        add_part(p, f', da {portaria}')
+        _run(p, f', da {portaria}')
     if carga:
-        add_part(p, f', com carga horária de ')
-        add_part(p, f'{carga:02d} horas', bold=True)
-    add_part(p, '.')
+        _run(p, ', com carga horária de ')
+        _run(p, f'{carga:02d} horas', bold=False)
+    _run(p, '.')
 
-    # ── Data ──
-    _add_textbox(slide,
-        Cm(1.5), Cm(10.2), Cm(12), Cm(1),
-        f'{local_emissao}, {data_formatada}.',
-        font_size=12, italic=True, color=PRETO
-    )
+    # ── Data ──────────────────────────────────────────────────────────────
+    tb_data = slide.shapes.add_textbox(Cm(2), Cm(12.0), Cm(12), Cm(1.2))
+    tf = tb_data.text_frame
+    p = tf.paragraphs[0]
+    p.alignment = PP_ALIGN.LEFT
+    run = p.add_run()
+    run.text = f'{local_emissao}, {data_formatada}.'
+    run.font.size = Pt(12)
+    run.font.italic = True
+    run.font.color.rgb = PRETO
+    run.font.name = 'Calibri'
 
-    # ── Assinaturas ──
-    # Instrutor
+    # ── Linha de assinatura Instrutor ─────────────────────────────────────
     inst_nome  = treinamento.responsavel or ''
     inst_cargo = treinamento.cargo_responsavel or 'Técnico em Segurança do Trabalho'
     inst_mte   = treinamento.registro_mte or ''
 
-    txInst = slide.shapes.add_textbox(Cm(1.5), Cm(12.0), Cm(9), Cm(2.5))
-    tf = txInst.text_frame
+    # Linha horizontal instrutor
+    try:
+        conn = slide.shapes.add_connector(1, Cm(2.5), Cm(13.8), Cm(8.5), Cm(13.8))
+        conn.line.color.rgb = PRETO
+        from pptx.util import Pt as _Pt
+        conn.line.width = _Pt(0.75)
+    except Exception:
+        pass
+
+    tb_inst = slide.shapes.add_textbox(Cm(2), Cm(14.0), Cm(7), Cm(2.5))
+    tf = tb_inst.text_frame
     tf.word_wrap = True
-    for i, linha in enumerate([
-        '______________________________',
-        'Instrutor',
-        inst_nome,
-        inst_cargo,
-        (f'MTE: {inst_mte}' if inst_mte else ''),
-    ]):
-        if i == 0:
-            p = tf.paragraphs[0]
-        else:
-            p = tf.add_paragraph()
+    linhas_inst = [
+        ('Instrutor', True, 10),
+        (inst_nome, False, 9),
+        (inst_cargo, False, 9),
+        (f'MTE: {inst_mte}' if inst_mte else '', False, 9),
+    ]
+    for i, (txt, bold, sz) in enumerate(linhas_inst):
+        if not txt:
+            continue
+        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
         p.alignment = PP_ALIGN.CENTER
         run = p.add_run()
-        run.text = linha
-        run.font.size = Pt(10 if i > 0 else 11)
-        run.font.bold = (i == 1)
+        run.text = txt
+        run.font.size = Pt(sz)
+        run.font.bold = bold
         run.font.color.rgb = PRETO
+        run.font.name = 'Calibri'
 
-    # Colaborador
-    txColab = slide.shapes.add_textbox(Cm(12), Cm(12.0), Cm(9), Cm(2.5))
-    tf = txColab.text_frame
-    tf.word_wrap = True
-    for i, linha in enumerate(['______________________________', 'Colaborador', nome_p]):
-        if i == 0:
-            p = tf.paragraphs[0]
-        else:
-            p = tf.add_paragraph()
-        p.alignment = PP_ALIGN.CENTER
-        run = p.add_run()
-        run.text = linha
-        run.font.size = Pt(10 if i > 0 else 11)
-        run.font.bold = (i == 1)
-        run.font.color.rgb = PRETO
+    # Linha horizontal colaborador
+    try:
+        conn2 = slide.shapes.add_connector(1, Cm(11), Cm(13.8), Cm(17), Cm(13.8))
+        conn2.line.color.rgb = PRETO
+        conn2.line.width = _Pt(0.75)
+    except Exception:
+        pass
 
-    # ── Logo "stanza" texto (como no modelo) ──
-    _add_textbox(slide,
-        W // 2 - Cm(4), H - Cm(2.2), Cm(8), Cm(1.5),
-        'stanza',
-        font_size=28, bold=True, color=LARANJA, align=PP_ALIGN.CENTER
-    )
+    tb_colab = slide.shapes.add_textbox(Cm(11), Cm(14.0), Cm(7), Cm(1.2))
+    tf = tb_colab.text_frame
+    p = tf.paragraphs[0]
+    p.alignment = PP_ALIGN.CENTER
+    run = p.add_run()
+    run.text = 'Colaborador'
+    run.font.size = Pt(10)
+    run.font.bold = True
+    run.font.color.rgb = PRETO
+    run.font.name = 'Calibri'
+
+    # ── Logo stanza (texto laranja centralizado) ──────────────────────────
+    tb_logo = slide.shapes.add_textbox(W//2 - Cm(4), H - Cm(3.5), Cm(8), Cm(1.8))
+    tf = tb_logo.text_frame
+    p = tf.paragraphs[0]
+    p.alignment = PP_ALIGN.CENTER
+    run = p.add_run()
+    run.text = 'stanza'
+    run.font.size = Pt(30)
+    run.font.bold = True
+    run.font.color.rgb = LARANJA
+    run.font.name = 'Calibri'
 
     return slide
 
 
 def _slide_conteudo(prs, tipo_treinamento):
-    """Gera slide de conteúdo programático."""
-    slide_layout = prs.slide_layouts[6]
-    slide = prs.slides.add_slide(slide_layout)
+    """Gera slide de conteúdo programático fiel ao modelo Stanza."""
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
     W = prs.slide_width
     H = prs.slide_height
 
-    # Fundo branco + decoração roxo/laranja
-    shape_br = slide.shapes.add_shape(1, W - Cm(8), H - Cm(3), Cm(8), Cm(3))
-    shape_br.fill.solid()
-    shape_br.fill.fore_color.rgb = ROXO
-    shape_br.line.fill.background()
+    # Fundo bege
+    bg = slide.shapes.add_shape(1, 0, 0, W, H)
+    bg.fill.solid(); bg.fill.fore_color.rgb = BEGE
+    bg.line.fill.background()
 
-    shape_or = slide.shapes.add_shape(1, W - Cm(6), H - Cm(2.5), Cm(6), Cm(2.5))
-    shape_or.fill.solid()
-    shape_or.fill.fore_color.rgb = LARANJA
-    shape_or.line.fill.background()
+    # Faixa laranja rodapé
+    rodape = slide.shapes.add_shape(1, 0, H - Cm(0.3), W, Cm(0.3))
+    rodape.fill.solid(); rodape.fill.fore_color.rgb = LARANJA
+    rodape.line.fill.background()
 
-    # Título
-    _add_textbox(slide,
-        Cm(1), Cm(0.8), W - Cm(6), Cm(1.8),
-        'CONTEÚDO PROGRAMÁTICO',
-        font_size=28, bold=True, color=PRETO, align=PP_ALIGN.LEFT
-    )
+    # Decoração canto inferior direito
+    _decoracao_canto_inferior_direito(slide, W, H)
+
+    # Linhas diagonais
+    _linhas_diagonais_topo_esq(slide)
+
+    # Círculo Segurança do Trabalho (canto superior direito no modelo do conteúdo)
+    from pptx.util import Pt as _Pt
+    cx2 = W - Cm(2.5)
+    cy2 = Cm(2.2)
+    r2 = Cm(1.6)
+    circ_e = slide.shapes.add_shape(9, cx2 - r2, cy2 - r2, r2*2, r2*2)
+    circ_e.fill.solid(); circ_e.fill.fore_color.rgb = VERDE
+    circ_e.line.fill.background()
+    ri2 = Cm(1.2)
+    circ_i = slide.shapes.add_shape(9, cx2 - ri2, cy2 - ri2, ri2*2, ri2*2)
+    circ_i.fill.solid(); circ_i.fill.fore_color.rgb = BRANCO
+    circ_i.line.fill.background()
+    cv2 = slide.shapes.add_shape(1, cx2 - Cm(0.2), cy2 - Cm(0.8), Cm(0.4), Cm(1.6))
+    cv2.fill.solid(); cv2.fill.fore_color.rgb = VERDE; cv2.line.fill.background()
+    ch2 = slide.shapes.add_shape(1, cx2 - Cm(0.8), cy2 - Cm(0.2), Cm(1.6), Cm(0.4))
+    ch2.fill.solid(); ch2.fill.fore_color.rgb = VERDE; ch2.line.fill.background()
+
+    # Título CONTEÚDO PROGRAMÁTICO
+    tb_tit = slide.shapes.add_textbox(Cm(2), Cm(0.8), W - Cm(7), Cm(2.2))
+    tf = tb_tit.text_frame
+    p = tf.paragraphs[0]
+    p.alignment = PP_ALIGN.LEFT
+    run = p.add_run()
+    run.text = 'CONTEÚDO PROGRAMÁTICO'
+    run.font.size = Pt(32)
+    run.font.bold = True
+    run.font.color.rgb = PRETO
+    run.font.name = 'Calibri'
+
+    # Linha separadora vertical (barra laranja fina à esquerda do conteúdo)
+    barra = slide.shapes.add_shape(1, Cm(1.8), Cm(3.5), Cm(0.12), H - Cm(5))
+    barra.fill.solid(); barra.fill.fore_color.rgb = LARANJA
+    barra.line.fill.background()
 
     # Conteúdo
-    conteudo = CONTEUDOS.get(tipo_treinamento, [])
-    if not conteudo:
-        # Fallback genérico
-        conteudo = [('Conteúdo programático:', [
+    conteudo = CONTEUDOS.get(tipo_treinamento, [
+        ('Conteúdo programático:', [
             'Aspectos de segurança do trabalho',
             'Riscos e medidas preventivas',
             'EPI e EPC aplicáveis',
             'Procedimentos de emergência',
-        ])]
+        ])
+    ])
 
-    top = Cm(3.0)
-    for titulo, itens in conteudo:
+    top = Cm(3.4)
+    for secao_titulo, itens in conteudo:
         # Título da seção
-        txSec = slide.shapes.add_textbox(Cm(1), top, W - Cm(8), Cm(0.7))
-        tf = txSec.text_frame
+        tb_sec = slide.shapes.add_textbox(Cm(2.2), top, W - Cm(10), Cm(0.65))
+        tf = tb_sec.text_frame
         p = tf.paragraphs[0]
         run = p.add_run()
-        run.text = titulo
+        run.text = secao_titulo
         run.font.size = Pt(11)
         run.font.bold = True
         run.font.color.rgb = PRETO
-        top += Cm(0.75)
+        run.font.name = 'Calibri'
+        top += Cm(0.7)
 
         for item in itens:
-            txItem = slide.shapes.add_textbox(Cm(1.2), top, W - Cm(8), Cm(0.55))
-            tf = txItem.text_frame
+            tb_item = slide.shapes.add_textbox(Cm(2.2), top, W - Cm(10), Cm(0.55))
+            tf = tb_item.text_frame
             p = tf.paragraphs[0]
             run = p.add_run()
             run.text = f'- {item}'
             run.font.size = Pt(10)
-            run.font.color.rgb = CINZA_SC
-            top += Cm(0.55)
+            run.font.color.rgb = PRETO
+            run.font.name = 'Calibri'
+            top += Cm(0.52)
 
-        top += Cm(0.3)
+        top += Cm(0.35)
 
-    # Logo stanza no rodapé
-    _add_textbox(slide,
-        W // 2 - Cm(4), H - Cm(2.2), Cm(8), Cm(1.5),
-        'stanza',
-        font_size=28, bold=True, color=LARANJA, align=PP_ALIGN.CENTER
-    )
+    # Logo stanza rodapé
+    tb_logo = slide.shapes.add_textbox(W//2 - Cm(4), H - Cm(3.2), Cm(8), Cm(1.6))
+    tf = tb_logo.text_frame
+    p = tf.paragraphs[0]
+    p.alignment = PP_ALIGN.CENTER
+    run = p.add_run()
+    run.text = 'stanza'
+    run.font.size = Pt(28)
+    run.font.bold = True
+    run.font.color.rgb = LARANJA
+    run.font.name = 'Calibri'
 
     return slide
 
 
 def gerar_certificado_pptx(
-    participantes,      # lista de TreinamentoParticipante
-    treinamento,        # objeto Treinamento
-    empresa='STANZA ENGENHARIA E CONSTRUÇÕES LTDA',
-    cnpj='08.343.492/0133-70',
+    participantes,
+    treinamento,
+    empresa='STANZA INCORPORAÇÃO E CONSTRUÇÃO LTDA',
+    cnpj='09.191.102/0001-06',
     local_emissao=None,
     data_formatada=None,
 ):
-    """
-    Gera um PPTX com 2 slides por participante:
-      Slide 1 — Certificado
-      Slide 2 — Conteúdo Programático
-
-    Retorna BytesIO com o arquivo pronto para send_file.
-    """
-    from datetime import date as _date
-    import locale
-
+    """Gera PPTX com 2 slides por participante: Certificado + Conteúdo."""
+    meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+             'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
     if not data_formatada:
-        # Formatar data em português
-        meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
-                 'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
         d = treinamento.data_realizacao
         data_formatada = f'{d.day:02d} de {meses[d.month-1]} de {d.year}'
-
     if not local_emissao:
         alm = treinamento.almoxarifado
         local_emissao = (alm.cidade or 'Local') if alm else 'Local'
 
-    # Apresentação landscape 33.87 x 19.05 cm (padrão widescreen 16:9)
     prs = Presentation()
+    # Landscape 33.87 x 19.05 cm (16:9 widescreen)
     prs.slide_width  = Cm(33.87)
     prs.slide_height = Cm(19.05)
 

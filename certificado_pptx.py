@@ -513,14 +513,11 @@ def gerar_certificado_pptx(
 def _gerar_com_template(participantes, treinamento, empresa, cnpj,
                         local_emissao, data_formatada, template_path):
     """
-    Usa o arquivo template.pptx como base.
-    Para cada participante duplica os slides do template
-    e substitui os marcadores {{NOME}}, {{CPF}}, etc.
+    Abre o template.pptx, para cada participante duplica os slides
+    e substitui os marcadores {{...}} nos textos.
     """
     from pptx import Presentation as _Prs
-    from pptx.util import Pt as _Pt
     from copy import deepcopy
-    import lxml.etree as _etree
 
     cfg = NR_CONFIG.get(treinamento.tipo, {})
     nome_cert = treinamento.descricao or cfg.get('nome_cert', treinamento.tipo)
@@ -531,108 +528,106 @@ def _gerar_com_template(participantes, treinamento, empresa, cnpj,
     inst_cargo = treinamento.cargo_responsavel or ''
     inst_mte   = treinamento.registro_mte or ''
 
-    # Monta o conteúdo programático como texto corrido
+    # Monta conteúdo programático como texto corrido
     conteudo_txt = ''
     for sec_titulo, itens in CONTEUDOS.get(treinamento.tipo, []):
-        conteudo_txt += f'{sec_titulo}\n'
+        conteudo_txt += sec_titulo + '\n'
         for item in itens:
             conteudo_txt += f'- {item}\n'
         conteudo_txt += '\n'
 
-    # Abre o template
-    tpl = _Prs(template_path)
-    n_slides_tpl = len(tpl.slides)
-
-    # Cria apresentação de saída
-    prs_out = _Prs(template_path)
-    # Remove todos os slides da saída (vamos recriar)
-    # Mantemos referências ao XML dos slides do template
-    tpl_slides_xml = [deepcopy(s._element) for s in tpl.slides]
-    tpl_slides_rels = [s.part._rels for s in tpl.slides]
-
-    # Limpa slides da apresentação de saída
-    xml_slides = prs_out.slides._sldIdLst
-    for sld_id in list(xml_slides):
-        xml_slides.remove(sld_id)
-
     participantes_ativos = [p for p in participantes if p.concluiu]
 
-    for part in participantes_ativos:
+    # Cria a apresentação de saída a partir do template
+    prs = _Prs(template_path)
+
+    # Guarda os slides originais do template
+    tpl_slides = list(prs.slides)
+    n_tpl = len(tpl_slides)
+
+    if n_tpl == 0:
+        # Template vazio — fallback para gerador automático
+        return None
+
+    # Para cada participante adicional (além do primeiro), duplica os slides do template
+    for i, part in enumerate(participantes_ativos):
+        if i == 0:
+            continue  # primeiro participante usa os slides já existentes
+        # Duplica cada slide do template
+        for j in range(n_tpl):
+            tpl_slide = tpl_slides[j]
+            # Copia o slide
+            xml_copy = deepcopy(tpl_slide._element)
+            # Adiciona à apresentação
+            try:
+                slide_layout = prs.slide_layouts[0]
+                new_slide = prs.slides.add_slide(slide_layout)
+                sp = new_slide.shapes._spTree
+                # Remove shapes padrão do layout
+                for el in list(sp):
+                    sp.remove(el)
+                # Copia os elementos do slide original
+                for el in list(xml_copy):
+                    sp.append(deepcopy(el))
+            except Exception:
+                pass
+
+    # Agora substitui os marcadores em cada slide
+    all_slides = list(prs.slides)
+    for idx_part, part in enumerate(participantes_ativos):
         nome_p   = (part.colaborador or '').upper()
         cpf_p    = part.cpf or ''
         funcao_p = (part.funcao or '').upper()
 
-        # Monta o texto completo do parágrafo principal
-        texto_corpo = (
-            f'Certificamos que {nome_p}'
-            + (f', CPF: {cpf_p}' if cpf_p else '')
-            + f', na função {funcao_p}, participou do {nome_cert}, '
-            f'promovido pela empresa {empresa}'
-            + (f' \u2013 CNPJ: {cnpj}' if cnpj else '')
-            + (f', em conformidade com a {nr_ref}' if nr_ref else '')
-            + (f', da {portaria}' if portaria else '')
-            + (f', com carga horária de {int(carga):02d} horas' if carga else '')
-            + '.'
-        )
-
-        substituicoes = {
-            '{{NOME}}':         nome_p,
-            '{{CPF}}':          cpf_p,
-            '{{FUNCAO}}':       funcao_p,
-            '{{TREINAMENTO}}':  nome_cert,
-            '{{NR}}':           nr_ref,
-            '{{PORTARIA}}':     portaria,
-            '{{CARGA}}':        str(int(carga)) if carga else '',
-            '{{DATA}}':         data_formatada,
-            '{{LOCAL}}':        local_emissao,
-            '{{INSTRUTOR}}':    inst_nome,
+        subs = {
+            '{{NOME}}':            nome_p,
+            '{{CPF}}':             cpf_p,
+            '{{FUNCAO}}':          funcao_p,
+            '{{TREINAMENTO}}':     nome_cert,
+            '{{NR}}':              nr_ref,
+            '{{PORTARIA}}':        portaria,
+            '{{CARGA}}':           str(int(carga)) if carga else '',
+            '{{DATA}}':            data_formatada,
+            '{{LOCAL}}':           local_emissao,
+            '{{INSTRUTOR}}':       inst_nome,
             '{{CARGO_INSTRUTOR}}': inst_cargo,
-            '{{MTE}}':          inst_mte,
-            '{{EMPRESA}}':      empresa,
-            '{{CNPJ}}':         cnpj,
-            '{{CONTEUDO}}':     conteudo_txt,
-            '{{TEXTO_CORPO}}':  texto_corpo,
+            '{{MTE}}':             inst_mte,
+            '{{EMPRESA}}':         empresa,
+            '{{CNPJ}}':            cnpj,
+            '{{CONTEUDO}}':        conteudo_txt,
         }
 
-        # Adiciona cada slide do template substituindo os marcadores
-        for i, slide_tpl in enumerate(tpl.slides):
-            # Clona o slide
-            slide_xml = deepcopy(slide_tpl._element)
-
-            # Substitui todos os textos no XML
-            xml_str = _etree.tostring(slide_xml, encoding='unicode')
-            for marcador, valor in substituicoes.items():
-                xml_str = xml_str.replace(marcador, valor or '')
-            slide_xml = _etree.fromstring(xml_str)
-
-            # Adiciona o slide clonado à apresentação de saída
-            try:
-                layout = prs_out.slide_layouts[0]
-                new_slide = prs_out.slides.add_slide(layout)
-                # Substitui o XML do slide pelo clonado
-                sp_tree = new_slide.shapes._spTree
-                for child in list(sp_tree):
-                    sp_tree.remove(child)
-                for child in slide_xml.findall('.//{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}*'):
-                    pass
-                # Copia o spTree do slide clonado
-                src_sp_tree = slide_xml.find('.//{http://schemas.openxmlformats.org/presentationml/2006/main}cSld'
-                                             '/{http://schemas.openxmlformats.org/presentationml/2006/main}spTree')
-                if src_sp_tree is None:
-                    # tenta namespace alternativo
-                    src_sp_tree = slide_xml.find(
-                        './/{http://schemas.openxmlformats.org/presentationml/2006/main}spTree'
-                    )
-                if src_sp_tree is not None:
-                    for child in list(new_slide.shapes._spTree):
-                        new_slide.shapes._spTree.remove(child)
-                    for child in src_sp_tree:
-                        new_slide.shapes._spTree.append(deepcopy(child))
-            except Exception:
-                # Se falhar na manipulação XML, usa o slide como está
-                pass
+        # Slides deste participante
+        start = idx_part * n_tpl
+        end   = start + n_tpl
+        for slide in all_slides[start:end]:
+            _substituir_marcadores(slide, subs)
 
     buf = io.BytesIO()
-    prs_out.save(buf)
+    prs.save(buf)
     buf.seek(0)
     return buf
+
+
+def _substituir_marcadores(slide, subs):
+    """Substitui marcadores {{...}} em todos os textos do slide."""
+    for shape in slide.shapes:
+        if not shape.has_text_frame:
+            continue
+        for para in shape.text_frame.paragraphs:
+            # Primeiro verifica se o parágrafo inteiro contém o marcador
+            texto_full = ''.join(r.text for r in para.runs)
+            tem_marcador = any(m in texto_full for m in subs)
+            if not tem_marcador:
+                continue
+
+            # Substitui consolidando os runs
+            novo_texto = texto_full
+            for marcador, valor in subs.items():
+                novo_texto = novo_texto.replace(marcador, valor or '')
+
+            # Aplica no primeiro run e limpa os demais
+            if para.runs:
+                para.runs[0].text = novo_texto
+                for run in para.runs[1:]:
+                    run.text = ''

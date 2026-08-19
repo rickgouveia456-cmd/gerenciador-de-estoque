@@ -615,6 +615,9 @@ def epi_treinamento_certificado(tid):
         flash('Nenhum participante cadastrado neste treinamento.', 'warning')
         return redirect(url_for('epi_modulo_bp.epi_treinamentos'))
     buf = gerar_certificado_pptx(t.participantes, t, template_path=_TEMPLATE_PATH)
+    if buf is None:
+        flash('Template inválido. Usando layout padrão.', 'warning')
+        buf = gerar_certificado_pptx(t.participantes, t)
     nome_arq = f'Certificado_{t.tipo.replace(" ","_")}_{t.data_realizacao.strftime("%Y%m%d")}.pptx'
     return send_file(buf, as_attachment=True, download_name=nome_arq,
                      mimetype='application/vnd.openxmlformats-officedocument.presentationml.presentation')

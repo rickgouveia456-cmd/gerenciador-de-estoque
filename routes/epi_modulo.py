@@ -265,26 +265,11 @@ def epi_item_devolver(ficha_id, item_id):
 @login_required
 def epi_certificados():
     u = usuario_atual()
-    ids = _alm_id_filtro(u)
-    q = CertificadoCA.query.filter_by(ativo=True)
-    if ids is not None:
-        q = q.filter(CertificadoCA.almoxarifado_id.in_(ids))
-
-    busca = request.args.get('q', '').strip()
-    if busca:
-        q = q.filter(
-            db.or_(CertificadoCA.numero_ca.ilike(f'%{busca}%'),
-                   CertificadoCA.nome_epi.ilike(f'%{busca}%'))
-        )
-    cas = q.order_by(CertificadoCA.nome_epi).all()
     almoxarifados = _alms_do_usuario(u)
-
-    # Colaboradores para gerador de Excel
-    colaboradores = Colaborador.query.filter_by(ativo=True).order_by(Colaborador.nome).all()
-
     return render_template('epi_modulo.html', aba='certificados',
-        cas=cas, busca=busca, almoxarifados=almoxarifados,
-        colaboradores=colaboradores,
+        almoxarifados=almoxarifados,
+        busca='',
+        cas=[],
     )
 
 
@@ -659,50 +644,9 @@ def epi_treinamento_deletar(tid):
 @login_required
 def epi_habilitacoes():
     u = usuario_atual()
-    ids = _alm_id_filtro(u)
-    q = HabilitacaoFuncionario.query.filter_by(ativo=True)
-    if ids is not None:
-        q = q.filter(HabilitacaoFuncionario.almoxarifado_id.in_(ids))
-
-    busca  = request.args.get('q', '').strip()
-    status_f = request.args.get('status', '').strip()
-    if busca:
-        q = q.filter(
-            db.or_(
-                HabilitacaoFuncionario.colaborador.ilike(f'%{busca}%'),
-                HabilitacaoFuncionario.tipo.ilike(f'%{busca}%'),
-            )
-        )
-
-    habs = q.order_by(
-        HabilitacaoFuncionario.colaborador,
-        HabilitacaoFuncionario.data_validade
-    ).all()
-
-    # Filtrar por status depois de calcular (property)
-    if status_f:
-        habs = [h for h in habs if h.status == status_f]
-
-    vencidas  = sum(1 for h in habs if h.status == 'vencido')
-    a_vencer  = sum(1 for h in habs if h.status == 'a_vencer')
-    validas   = sum(1 for h in habs if h.status == 'valido')
-
     almoxarifados = _alms_do_usuario(u)
-    colaboradores = Colaborador.query.filter_by(ativo=True).order_by(Colaborador.nome).all()
-
-    tipos_hab = ['NR-10 (Eletricidade)', 'NR-10 SEP', 'NR-35 (Trabalho em Altura)',
-                 'NR-33 (Espaço Confinado)', 'NR-18', 'CNH A', 'CNH B', 'CNH C',
-                 'CNH D', 'CNH E', 'CREA', 'CRM', 'CRO', 'ART',
-                 'Operador de Empilhadeira', 'Operador de Guindaste',
-                 'Operador de Andaime', 'Brigada de Incêndio', 'Primeiros Socorros',
-                 'Habilitação Elétrica', 'Outro']
-
     return render_template('epi_modulo.html', aba='habilitacoes',
-        habs=habs, almoxarifados=almoxarifados, colaboradores=colaboradores,
-        busca=busca, status_filtro=status_f,
-        vencidas=vencidas, a_vencer=a_vencer, validas=validas,
-        tipos_hab=tipos_hab,
-        now=datetime.now(),
+        almoxarifados=almoxarifados,
     )
 
 

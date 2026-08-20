@@ -867,10 +867,50 @@ def run_migrations_valor_unitario():
                     else:
                         try: conn.rollback()
                         except Exception: pass
+            # Ampliar codigo_ref de 50 para 100 chars
+            if is_pg:
+                safe('ALTER TABLE catalogo_insumo ALTER COLUMN codigo_ref TYPE VARCHAR(100)')
             safe('ALTER TABLE catalogo_insumo ADD COLUMN valor_unitario FLOAT')
             safe('ALTER TABLE item ADD COLUMN valor_unitario FLOAT')
     except Exception as e:
         logger.error(f'Migracao valor_unitario: {e}')
+
+
+def run_migrations_indices():
+    """Cria índices nas colunas mais consultadas para acelerar o sistema."""
+    try:
+        from sqlalchemy import text
+        with db.engine.connect() as conn:
+            is_pg = 'postgresql' in str(db.engine.url)
+
+            def safe_idx(sql):
+                try:
+                    if is_pg: conn.execute(text('SAVEPOINT idx'))
+                    conn.execute(text(sql))
+                    if is_pg: conn.execute(text('RELEASE SAVEPOINT idx'))
+                    conn.commit()
+                except Exception:
+                    if is_pg:
+                        try: conn.execute(text('ROLLBACK TO SAVEPOINT idx')); conn.execute(text('RELEASE SAVEPOINT idx'))
+                        except Exception: pass
+                    else:
+                        try: conn.rollback()
+                        except Exception: pass
+
+            # Índices nas tabelas mais acessadas
+            safe_idx('CREATE INDEX IF NOT EXISTS idx_item_almox_ativo ON item(almoxarifado_id, ativo)')
+            safe_idx('CREATE INDEX IF NOT EXISTS idx_item_categoria ON item(categoria)')
+            safe_idx('CREATE INDEX IF NOT EXISTS idx_ferramenta_almox_ativo ON ferramenta(almoxarifado_id, ativo)')
+            safe_idx('CREATE INDEX IF NOT EXISTS idx_item_epi_almox_ativo ON item_epi(almoxarifado_id, ativo)')
+            safe_idx('CREATE INDEX IF NOT EXISTS idx_movimentacao_item ON movimentacao(item_id)')
+            safe_idx('CREATE INDEX IF NOT EXISTS idx_movimentacao_data ON movimentacao(data)')
+            safe_idx('CREATE INDEX IF NOT EXISTS idx_requisicao_mestre_status ON requisicao_mestre(status)')
+            safe_idx('CREATE INDEX IF NOT EXISTS idx_requisicao_mestre_alm ON requisicao_mestre(almoxarifado_id)')
+            safe_idx('CREATE INDEX IF NOT EXISTS idx_ficha_epi_alm_status ON ficha_epi(almoxarifado_id, status)')
+            safe_idx('CREATE INDEX IF NOT EXISTS idx_colaborador_nome ON colaborador(nome)')
+            logger.info('Índices criados/verificados.')
+    except Exception as e:
+        logger.error(f'Índices: {e}')
 
 def inicializar_banco():
     """Roda migrações, cria tabelas e seed — executado uma única vez."""
@@ -882,6 +922,7 @@ def inicializar_banco():
         classificar_categorias_itens()
         migrar_itens_para_epi()
         seed_ferramentas_estrutura_auto()
+        run_migrations_indices()
     except Exception as e:
         logger.error(f'Inicialização do banco: {e}')
 

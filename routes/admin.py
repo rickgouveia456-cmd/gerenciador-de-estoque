@@ -566,3 +566,106 @@ def limpar_catalogo():
     db.session.commit()
     flash(f'✅ {total} registros do catálogo removidos com sucesso!', 'success')
     return redirect(url_for('catalogo_bp.catalogo_insumos'))
+
+
+@admin_bp.route('/admin/diagnostico-catalogo')
+@admin_required
+def diagnostico_catalogo():
+    """Mostra nomes dos itens do estoque vs catálogo para diagnóstico."""
+    from models import CatalogoInsumo
+    # Pega todos os almoxarifados com "estrutura" no nome
+    alms = Almoxarifado.query.filter(Almoxarifado.nome.ilike('%estrutura%')).all()
+    resultado = []
+    for alm in alms:
+        itens = Item.query.filter_by(almoxarifado_id=alm.id, ativo=True).all()
+        sem_valor = [it for it in itens if not it.valor_unitario]
+        com_valor = [it for it in itens if it.valor_unitario]
+        resultado.append({
+            'alm': alm,
+            'sem_valor': sem_valor[:50],  # primeiros 50
+            'com_valor': com_valor[:20],
+            'total': len(itens),
+        })
+    
+    # HTML simples para visualizar
+    html = '<h2>Diagnóstico Catálogo vs Estoque</h2>'
+    for r in resultado:
+        html += f'<h3>{r["alm"].nome} — {r["total"]} itens</h3>'
+        html += f'<p><b>Com valor ({len(r["com_valor"])}):</b></p><ul>'
+        for it in r['com_valor']:
+            html += f'<li>{it.nome} | R${it.valor_unitario}</li>'
+        html += '</ul>'
+        html += f'<p><b>Sem valor (primeiros 50 de {len(r["sem_valor"])}):</b></p><ul>'
+        for it in r['sem_valor']:
+            html += f'<li>{it.nome} ({it.codigo})</li>'
+        html += '</ul>'
+    
+    return html
+
+
+@admin_bp.route('/admin/sincronizar-catalogo-estoque', methods=['POST'])
+@admin_required
+def sincronizar_catalogo_estoque():
+    """
+    Sincronização inteligente: tenta matching por nome exato e por código_ref.
+    Para cada item do catálogo com valor, tenta encontrar item no estoque:
+    1. Nome exato (ilike)
+    2. Nome sem acentos/case
+    3. Código do catálogo == código do item no estoque
+    """
+    from models import CatalogoInsumo
+    import unicodedata
+
+    def normalizar(texto):
+        if not texto:
+            return ''
+        texto = texto.upper().strip()
+        texto = unicodedata.normalize('NFKD', texto)
+        texto = ''.join(c for c in texto if not unicodedata.combining(c))
+        return texto
+
+    catalogo = CatalogoInsumo.query.filter(
+        CatalogoInsumo.ativo == True,
+        CatalogoInsumo.valor_unitario != None
+    ).all()
+
+    atualizados = 0
+    nao_encontrados = []
+
+    for ins in catalogo:
+        # Tenta 1: nome exato ilike
+        itens = Item.query.filter(
+            Item.nome.ilike(ins.nome),
+            Item.ativo == True
+        ).all()
+
+        # Tenta 2: por código de referência
+        if not itens and ins.codigo_ref:
+            itens = Item.query.filter(
+                Item.codigo.ilike(ins.codigo_ref),
+                Item.ativo == True
+            ).all()
+
+        # Tenta 3: normalização (remove acentos, uppercase, espacos extras)
+        if not itens:
+            nome_norm = normalizar(ins.nome)
+            todos = Item.query.filter(Item.ativo == True).all()
+            itens = [it for it in todos if normalizar(it.nome) == nome_norm]
+
+        if itens:
+            for it in itens:
+                if it.valor_unitario != ins.valor_unitario:
+                    it.valor_unitario = ins.valor_unitario
+                    atualizados += 1
+        else:
+            nao_encontrados.append(ins.nome)
+
+    db.session.commit()
+
+    nao_enc_str = ', '.join(nao_encontrados[:10])
+    msg = f'✅ {atualizados} itens atualizados.'
+    if nao_encontrados:
+        msg += f' ({len(nao_encontrados)} sem correspondência: {nao_enc_str}...)'
+
+    flash(msg, 'success' if atualizados > 0 else 'warning')
+    return redirect(url_for('catalogo_bp.catalogo_valor_estoque'))

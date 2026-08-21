@@ -114,6 +114,14 @@
                         <i class="bi bi-cloud-download me-1"></i> Importar Infra QLP
                     </button>
                 </form>
+                {% if usuario_atual and usuario_atual.perfil == 'admin' %}
+                <form action="/admin/seed-colaboradores-estrutura-2026" method="POST" class="d-inline"
+                      onsubmit="return confirm('Adicionar colaboradores da estrutura 2026?')">
+                    <button class="btn btn-outline-warning btn-sm">
+                        <i class="bi bi-people-fill me-1"></i> Importar Estrutura 2026
+                    </button>
+                </form>
+                {% endif %}
                 {% endif %}
             </div>
         </div>

@@ -118,18 +118,55 @@ def create_app():
 
         alms = sorted(alms, key=lambda a: (a.cidade or 'zzz', a.obra or 'zzz', a.nome))
 
+        # ── Contadores em UMA única query por tabela ──────────────────────
         sidebar_contadores = {}
-        for alm in alms:
-            n_ferr = Ferramenta.query.filter_by(almoxarifado_id=alm.id, ativo=True).count()
-            n_epi = ItemEPI.query.filter_by(almoxarifado_id=alm.id, ativo=True).count()
-            n_itens = Item.query.filter_by(almoxarifado_id=alm.id, ativo=True).count()
-            itens_ok = Item.query.filter_by(almoxarifado_id=alm.id, ativo=True).filter(
-                Item.quantidade > Item.estoque_minimo
-            ).count()
-            pct_saude = round(itens_ok / n_itens * 100) if n_itens > 0 else 100
-            sidebar_contadores[alm.id] = {
-                'ferr': n_ferr, 'epi': n_epi, 'itens': n_itens, 'pct': pct_saude
-            }
+        if alms:
+            alm_ids = [a.id for a in alms]
+
+            from sqlalchemy import func, case
+            # Ferramentas ativas
+            ferr_counts = dict(db.session.query(
+                Ferramenta.almoxarifado_id,
+                func.count(Ferramenta.id)
+            ).filter(
+                Ferramenta.almoxarifado_id.in_(alm_ids),
+                Ferramenta.ativo == True
+            ).group_by(Ferramenta.almoxarifado_id).all())
+
+            # EPIs ativos
+            epi_counts = dict(db.session.query(
+                ItemEPI.almoxarifado_id,
+                func.count(ItemEPI.id)
+            ).filter(
+                ItemEPI.almoxarifado_id.in_(alm_ids),
+                ItemEPI.ativo == True
+            ).group_by(ItemEPI.almoxarifado_id).all())
+
+            # Itens: total e OK (acima do mínimo) — tudo em 1 query
+            itens_stats = db.session.query(
+                Item.almoxarifado_id,
+                func.count(Item.id).label('total'),
+                func.sum(
+                    case((Item.quantidade > Item.estoque_minimo, 1), else_=0)
+                ).label('ok')
+            ).filter(
+                Item.almoxarifado_id.in_(alm_ids),
+                Item.ativo == True
+            ).group_by(Item.almoxarifado_id).all()
+
+            itens_total = {r.almoxarifado_id: r.total for r in itens_stats}
+            itens_ok    = {r.almoxarifado_id: (r.ok or 0) for r in itens_stats}
+
+            for alm in alms:
+                n_itens = itens_total.get(alm.id, 0)
+                n_ok    = itens_ok.get(alm.id, 0)
+                pct     = round(n_ok / n_itens * 100) if n_itens > 0 else 100
+                sidebar_contadores[alm.id] = {
+                    'ferr': ferr_counts.get(alm.id, 0),
+                    'epi':  epi_counts.get(alm.id, 0),
+                    'itens': n_itens,
+                    'pct': pct,
+                }
 
         return dict(sidebar_alms=alms, usuario_atual=u, sidebar_contadores=sidebar_contadores)
 

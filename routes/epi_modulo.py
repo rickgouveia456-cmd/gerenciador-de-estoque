@@ -182,6 +182,16 @@ def epi_ficha_nova():
                 almoxarifados=almoxarifados, colaboradores=colaboradores,
                 form_data=request.form)
 
+        # Verificar se já existe ficha ativa para este colaborador neste almoxarifado
+        ficha_existente = FichaEPI.query.filter_by(
+            colaborador=colaborador,
+            almoxarifado_id=alm_id,
+            status='ativa'
+        ).first()
+        if ficha_existente:
+            flash(f'{colaborador} já possui uma ficha ativa. Novos EPIs são adicionados à ficha existente.', 'info')
+            return redirect(url_for('epi_modulo_bp.epi_ficha_detalhe', ficha_id=ficha_existente.id))
+
         ficha = FichaEPI(
             colaborador=colaborador, funcao=funcao, obra=obra,
             almoxarifado_id=alm_id, criado_por=u.nome,
@@ -228,7 +238,19 @@ def epi_ficha_detalhe(ficha_id):
 @login_required
 def epi_ficha_encerrar(ficha_id):
     u = usuario_atual()
+    if not _checar(u):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('epi_modulo_bp.epi_fichas'))
     ficha = FichaEPI.query.get_or_404(ficha_id)
+    # Verifica se há EPIs ainda em uso (sem devolução)
+    epis_em_uso = [it for it in ficha.itens if it.data_entrega and not it.data_devolucao]
+    if epis_em_uso:
+        flash(
+            f'⚠️ Não é possível encerrar: {len(epis_em_uso)} EPI(s) ainda em uso sem devolução registrada. '
+            'Registre a devolução antes de encerrar a ficha.',
+            'warning'
+        )
+        return redirect(url_for('epi_modulo_bp.epi_ficha_detalhe', ficha_id=ficha_id))
     ficha.status = 'encerrada'
     ficha.data_encerramento = agora()
     db.session.commit()

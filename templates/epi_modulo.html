@@ -196,14 +196,7 @@
                             <a href="/epi/fichas/{{ f.id }}/exportar" class="btn btn-sm btn-success" title="Exportar Excel">
                                 <i class="bi bi-file-earmark-excel"></i>
                             </a>
-                            {% if f.status == 'ativa' and usuario_atual.perfil not in ('mestre',) %}
-                            <form action="/epi/fichas/{{ f.id }}/encerrar" method="POST"
-                                  onsubmit="return confirm('Encerrar ficha de {{ f.colaborador }}?')">
-                                <button class="btn btn-sm btn-outline-warning" title="Encerrar">
-                                    <i class="bi bi-x-circle"></i>
-                                </button>
-                            </form>
-                            {% endif %}
+
                         </div>
                     </td>
                 </tr>

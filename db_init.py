@@ -871,6 +871,7 @@ def run_migrations_valor_unitario():
             if is_pg:
                 safe('ALTER TABLE catalogo_insumo ALTER COLUMN codigo_ref TYPE VARCHAR(100)')
             safe('ALTER TABLE catalogo_insumo ADD COLUMN valor_unitario FLOAT')
+            safe('ALTER TABLE catalogo_insumo ADD COLUMN almoxarifado_id INTEGER REFERENCES almoxarifado(id)')
             safe('ALTER TABLE item ADD COLUMN valor_unitario FLOAT')
     except Exception as e:
         logger.error(f'Migracao valor_unitario: {e}')

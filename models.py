@@ -437,3 +437,5 @@ class CatalogoInsumo(db.Model):
     data_cadastro = db.Column(db.DateTime, default=agora)
     valor_unitario = db.Column(db.Float, nullable=True)  # preco unitario de referencia
     criado_por = db.Column(db.String(100), nullable=True)
+    almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=True)
+    almoxarifado    = db.relationship('Almoxarifado', backref='catalogo_insumos')

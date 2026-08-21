@@ -555,3 +555,14 @@ def sincronizar_valores_catalogo():
         'success' if atualizados > 0 else 'warning'
     )
     return redirect(url_for('catalogo_bp.catalogo_valor_estoque'))
+
+@admin_bp.route('/admin/limpar-catalogo', methods=['POST'])
+@admin_required
+def limpar_catalogo():
+    """Rota TEMPORÁRIA — apaga todos os registros do catálogo de insumos."""
+    from models import CatalogoInsumo
+    total = CatalogoInsumo.query.count()
+    CatalogoInsumo.query.delete()
+    db.session.commit()
+    flash(f'✅ {total} registros do catálogo removidos com sucesso!', 'success')
+    return redirect(url_for('catalogo_bp.catalogo_insumos'))

@@ -39,6 +39,10 @@ def catalogo_insumos():
         query = query.filter(CatalogoInsumo.nome.ilike(f'%{q}%'))
     if cat:
         query = query.filter_by(categoria=cat)
+    alm_id_filtro = request.args.get('alm', type=int)
+    if alm_id_filtro:
+        query = query.filter(CatalogoInsumo.almoxarifado_id == alm_id_filtro)
+
     insumos = query.order_by(CatalogoInsumo.nome).all()
 
     # Montar mapa nome_lower -> item do almoxarifado do usuário
@@ -63,31 +67,48 @@ def catalogo_insumos():
                 for it in itens_alm:
                     mapa_estoque[it.nome.lower().strip()] = it
 
+    if u.perfil == 'admin':
+        almoxarifados_lista = Almoxarifado.query.order_by(Almoxarifado.nome).all()
+    else:
+        ids_alm2 = u.almoxarifados_permitidos()
+        almoxarifados_lista = Almoxarifado.query.filter(Almoxarifado.id.in_(ids_alm2)).order_by(Almoxarifado.nome).all() if ids_alm2 else []
+
     return render_template('catalogo_insumos.html',
                            insumos=insumos, q=q, cat=cat,
                            categorias=CATEGORIAS, cat_label=CAT_LABEL,
-                           mapa_estoque=mapa_estoque, alm_nome=alm_nome)
+                           mapa_estoque=mapa_estoque, alm_nome=alm_nome,
+                           almoxarifados_lista=almoxarifados_lista,
+                           alm_id_filtro=alm_id_filtro)
 
 
 @catalogo_bp.route('/catalogo/insumos/novo', methods=['GET', 'POST'])
 @almoxarife_required
 def catalogo_novo():
     u = usuario_atual()
+    if u.perfil == 'admin':
+        almoxarifados = Almoxarifado.query.order_by(Almoxarifado.nome).all()
+    else:
+        ids = u.almoxarifados_permitidos()
+        almoxarifados = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).order_by(Almoxarifado.nome).all() if ids else []
+
     if request.method == 'POST':
         nome = request.form.get('nome', '').strip()
         if not nome:
             flash('Nome e obrigatorio.', 'danger')
             return render_template('catalogo_form.html', insumo=None,
                                    categorias=CATEGORIAS, cat_label=CAT_LABEL,
-                                   form_data=request.form)
+                                   almoxarifados=almoxarifados, form_data=request.form)
+        alm_id = request.form.get('almoxarifado_id', type=int) or None
         existente = CatalogoInsumo.query.filter(
-            CatalogoInsumo.nome.ilike(nome), CatalogoInsumo.ativo == True
+            CatalogoInsumo.nome.ilike(nome),
+            CatalogoInsumo.ativo == True,
+            CatalogoInsumo.almoxarifado_id == alm_id
         ).first()
         if existente:
-            flash(f'Ja existe um insumo com o nome "{existente.nome}" no catalogo.', 'warning')
+            flash(f'Ja existe um insumo com o nome "{existente.nome}" neste catalogo.', 'warning')
             return render_template('catalogo_form.html', insumo=None,
                                    categorias=CATEGORIAS, cat_label=CAT_LABEL,
-                                   form_data=request.form)
+                                   almoxarifados=almoxarifados, form_data=request.form)
         try:
             valor = float(request.form.get('valor_unitario', '').replace(',', '.') or 0) or None
         except (ValueError, AttributeError):
@@ -100,16 +121,17 @@ def catalogo_novo():
             ca=request.form.get('ca', '').strip() or None,
             descricao=request.form.get('descricao', '').strip() or None,
             valor_unitario=valor,
+            almoxarifado_id=alm_id,
             criado_por=u.nome if u else None,
         )
         db.session.add(ins)
         db.session.commit()
-        # Sincronizar valor com itens ja cadastrados com mesmo nome
         _sincronizar_valor_itens(ins)
         flash(f'Insumo "{ins.nome}" adicionado ao catalogo!', 'success')
         return redirect(url_for('catalogo_bp.catalogo_insumos'))
     return render_template('catalogo_form.html', insumo=None,
-                           categorias=CATEGORIAS, cat_label=CAT_LABEL, form_data={})
+                           categorias=CATEGORIAS, cat_label=CAT_LABEL,
+                           almoxarifados=almoxarifados, form_data={})
 
 
 @catalogo_bp.route('/catalogo/insumos/<int:id>/editar', methods=['GET', 'POST'])
@@ -212,7 +234,12 @@ def catalogo_importar():
         except Exception as e:
             flash(f'Erro ao processar arquivo: {e}', 'danger')
         return redirect(url_for('catalogo_bp.catalogo_insumos'))
-    return render_template('catalogo_importar.html')
+    if u.perfil == 'admin':
+        almoxarifados = Almoxarifado.query.order_by(Almoxarifado.nome).all()
+    else:
+        ids = u.almoxarifados_permitidos()
+        almoxarifados = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).order_by(Almoxarifado.nome).all() if ids else []
+    return render_template('catalogo_importar.html', almoxarifados=almoxarifados)
 
 
 @catalogo_bp.route('/catalogo/insumos/modelo-excel')

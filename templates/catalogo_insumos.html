@@ -37,6 +37,19 @@
     </div>
 </div>
 
+<!-- Filtro por almoxarifado -->
+<div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+    <span class="small text-muted fw-semibold">Filtrar por almoxarifado:</span>
+    <a href="/catalogo/insumos" class="btn btn-sm {% if not alm_id_filtro %}btn-secondary{% else %}btn-outline-secondary{% endif %}">
+        Todos
+    </a>
+    {% for alm in almoxarifados_lista %}
+    <a href="/catalogo/insumos?alm={{ alm.id }}" class="btn btn-sm {% if alm_id_filtro == alm.id %}btn-secondary{% else %}btn-outline-secondary{% endif %}">
+        {{ alm.nome | truncate(20, True) }}
+    </a>
+    {% endfor %}
+</div>
+
 <form method="get" class="row g-2 mb-4">
     <div class="col-md-6">
         <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm"

@@ -32,6 +32,16 @@
                         <label class="form-label fw-semibold">Arquivo Excel <span class="text-danger">*</span></label>
                         <input type="file" name="arquivo" class="form-control" accept=".xlsx,.xls" required>
                     </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">Vincular ao Almoxarifado</label>
+                        <select name="almoxarifado_id" class="form-select">
+                            <option value="">— Compartilhado (todos) —</option>
+                            {% for alm in almoxarifados %}
+                            <option value="{{ alm.id }}">{{ alm.nome }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Selecione para que os insumos importados sejam exclusivos deste almoxarifado</div>
+                    </div>
                     <div class="d-flex gap-2 flex-wrap">
                         <button type="submit" class="btn btn-primary">
                             <i class="bi bi-upload me-1"></i>Importar

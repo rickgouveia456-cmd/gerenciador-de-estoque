@@ -6,10 +6,6 @@
     <div class="col-md-8">
         <div class="card border-0 shadow-sm">
             <div class="card-body p-4">
-                <p class="text-muted small mb-4">
-                    <i class="bi bi-info-circle me-1"></i>
-                    Insumos cadastrados aqui ficam disponiveis para todos os almoxarifados usarem como modelo.
-                </p>
                 <form method="post">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
@@ -18,6 +14,22 @@
                         <input type="text" name="nome" class="form-control" required
                                value="{{ insumo.nome if insumo else (form_data.get('nome', '')) }}"
                                placeholder="Ex: Capacete de Seguranca Classe A">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Almoxarifado</label>
+                        <select name="almoxarifado_id" class="form-select">
+                            <option value="">— Compartilhado (todos os almoxarifados) —</option>
+                            {% for alm in almoxarifados %}
+                            <option value="{{ alm.id }}"
+                                {% if insumo and insumo.almoxarifado_id == alm.id %}selected
+                                {% elif form_data.get('almoxarifado_id')|int == alm.id %}selected
+                                {% endif %}>
+                                {{ alm.nome }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Deixe vazio para que fique visível a todos os almoxarifados</div>
                     </div>
 
                     <div class="row g-3 mb-3">

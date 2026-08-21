@@ -161,7 +161,9 @@ def almoxarifado(id):
                 return redirect(url_for('main_bp.index'))
     # Mostrar todos os itens (ativos e desativados) para permitir reativação
     itens = Item.query.filter_by(almoxarifado_id=id).order_by(Item.ativo.desc(), Item.nome).all()
-    return render_template('almoxarifado.html', almoxarifado=alm, itens=itens)
+    todos_almoxarifados = Almoxarifado.query.order_by(Almoxarifado.nome).all() if u.perfil == 'admin' else []
+    return render_template('almoxarifado.html', almoxarifado=alm, itens=itens,
+                           todos_almoxarifados=todos_almoxarifados)
 
 @main_bp.route('/item/<int:id>')
 @login_required
@@ -388,6 +390,99 @@ def deletar_itens_lote(alm_id):
     db.session.commit()
 
     flash(f'{len(itens)} item(ns) removido(s) com sucesso.', 'warning')
+    return redirect(url_for('main_bp.almoxarifado', id=alm_id))
+
+
+@main_bp.route('/almoxarifado/<int:alm_id>/transferir-lote', methods=['POST'])
+@admin_required
+def transferir_itens_lote(alm_id):
+    """Admin transfere itens para outro almoxarifado OU exclui permanentemente."""
+    ids_str = request.form.getlist('item_ids')
+    acao    = request.form.get('acao', '')          # 'transferir' | 'excluir'
+    dest_id = request.form.get('destino_id', type=int)
+
+    if not ids_str:
+        flash('Nenhum item selecionado.', 'warning')
+        return redirect(url_for('main_bp.almoxarifado', id=alm_id))
+
+    try:
+        ids = [int(i) for i in ids_str]
+    except ValueError:
+        flash('Seleção inválida.', 'danger')
+        return redirect(url_for('main_bp.almoxarifado', id=alm_id))
+
+    itens = Item.query.filter(
+        Item.id.in_(ids),
+        Item.almoxarifado_id == alm_id
+    ).all()
+
+    if not itens:
+        flash('Nenhum item encontrado na seleção.', 'warning')
+        return redirect(url_for('main_bp.almoxarifado', id=alm_id))
+
+    if acao == 'transferir':
+        if not dest_id:
+            flash('Selecione o almoxarifado de destino.', 'danger')
+            return redirect(url_for('main_bp.almoxarifado', id=alm_id))
+        dest = Almoxarifado.query.get_or_404(dest_id)
+        if dest_id == alm_id:
+            flash('O destino deve ser diferente do almoxarifado atual.', 'danger')
+            return redirect(url_for('main_bp.almoxarifado', id=alm_id))
+
+        u = usuario_atual()
+        transferidos = 0
+        for it in itens:
+            # Verifica se já existe item com mesmo código no destino
+            existente = Item.query.filter_by(
+                codigo=it.codigo, almoxarifado_id=dest_id
+            ).first()
+            if existente:
+                # Soma a quantidade ao item existente
+                existente.quantidade = round(existente.quantidade + it.quantidade, 4)
+                db.session.add(Movimentacao(
+                    tipo='entrada',
+                    quantidade=it.quantidade,
+                    responsavel=u.nome,
+                    observacao=f'Transferido de {it.almoxarifado.nome} (item id={it.id})',
+                    item_id=existente.id
+                ))
+                # Remove o item original com cascade nas movimentações
+                Movimentacao.query.filter_by(item_id=it.id).delete()
+                db.session.delete(it)
+            else:
+                # Move o item para o destino
+                it.almoxarifado_id = dest_id
+                db.session.add(Movimentacao(
+                    tipo='entrada',
+                    quantidade=it.quantidade,
+                    responsavel=u.nome,
+                    observacao=f'Transferido de {it.almoxarifado.nome if it.almoxarifado else alm_id}',
+                    item_id=it.id
+                ))
+            transferidos += 1
+
+        db.session.commit()
+        flash(f'✅ {transferidos} item(ns) transferido(s) para "{dest.nome}"!', 'success')
+
+    elif acao == 'excluir':
+        u = usuario_atual()
+        excluidos = 0
+        for it in itens:
+            # Hard delete — remove movimentações primeiro (cascade pode não funcionar em todos os casos)
+            Movimentacao.query.filter_by(item_id=it.id).delete()
+            # Remove itens de requisições vinculadas
+            from models import RequisicaoMestreItem, KitItem
+            RequisicaoMestreItem.query.filter_by(item_id=it.id).delete()
+            KitItem.query.filter_by(item_id=it.id).delete()
+            db.session.delete(it)
+            excluidos += 1
+
+        db.session.commit()
+        flash(f'🗑️ {excluidos} item(ns) excluído(s) permanentemente!', 'warning')
+
+    else:
+        flash('Ação inválida.', 'danger')
+
     return redirect(url_for('main_bp.almoxarifado', id=alm_id))
 
 # ── MOVIMENTAÇÃO EM LOTE ─────────────────────────────────────────────────────

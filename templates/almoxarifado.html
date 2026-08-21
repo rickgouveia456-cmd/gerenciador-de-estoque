@@ -24,6 +24,11 @@
         <button id="btnModoSelecao" class="btn btn-outline-danger btn-sm" onclick="toggleModoSelecao()" title="Selecionar itens para excluir">
             <i class="bi bi-check2-square me-1"></i> Selecionar
         </button>
+        {% if usuario_atual.perfil == 'admin' %}
+        <button id="btnModoAdmin" class="btn btn-outline-warning btn-sm" onclick="toggleModoAdmin()" title="Transferir ou excluir itens (admin)">
+            <i class="bi bi-arrow-left-right me-1"></i> Transferir / Excluir
+        </button>
+        {% endif %}
         <form action="/almoxarifado/{{ almoxarifado.id }}/deletar" method="POST"
               onsubmit="return confirm('Deletar este almoxarifado e todos os seus itens?')">
             <button class="btn btn-outline-danger btn-sm">
@@ -247,6 +252,16 @@
 
 </form>{# fim formLote #}
 
+{# Formulário admin — transferir ou excluir definitivo #}
+{% if usuario_atual.perfil == 'admin' %}
+<form id="formAdmin" action="/almoxarifado/{{ almoxarifado.id }}/transferir-lote" method="POST">
+    {# Os checkboxes serão copiados via JS #}
+    <input type="hidden" name="acao" id="acaoAdmin" value="">
+    <input type="hidden" name="destino_id" id="destinoAdmin" value="">
+    <!-- campos item_ids serão inseridos via JS -->
+</form>
+{% endif %}
+
 <!-- Barra flutuante de ação em lote -->
 <div id="barraLote" style="
     display:none;
@@ -274,6 +289,70 @@
         </div>
     </div>
 </div>
+
+{# Modal Admin — Transferir ou Excluir #}
+{% if usuario_atual.perfil == 'admin' %}
+<div class="modal fade" id="modalAdmin" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header text-white" style="background:#1e293b">
+                <h6 class="modal-title fw-bold">
+                    <i class="bi bi-shield-lock me-2"></i>
+                    Ação Admin — <span id="qtdSelecionadaAdmin">0</span> item(ns)
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" onclick="cancelarModoAdmin()"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">Escolha o que deseja fazer com os itens selecionados:</p>
+
+                <!-- Opção 1: Transferir -->
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body">
+                        <h6 class="fw-bold mb-2">
+                            <i class="bi bi-arrow-left-right me-2 text-primary"></i>Transferir para outro almoxarifado
+                        </h6>
+                        <p class="text-muted small mb-2">Os itens serão movidos mantendo o histórico de movimentações.</p>
+                        <select id="selectDestino" class="form-select form-select-sm mb-2">
+                            <option value="">Selecione o destino...</option>
+                            {% for alm in todos_almoxarifados %}
+                            {% if alm.id != almoxarifado.id %}
+                            <option value="{{ alm.id }}">{{ alm.nome }}</option>
+                            {% endif %}
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="btn btn-primary btn-sm w-100"
+                                onclick="executarAcaoAdmin('transferir')">
+                            <i class="bi bi-arrow-right me-1"></i> Transferir
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Opção 2: Excluir permanentemente -->
+                <div class="card border-danger shadow-sm" style="border-width:2px!important">
+                    <div class="card-body">
+                        <h6 class="fw-bold mb-2 text-danger">
+                            <i class="bi bi-trash3 me-2"></i>Excluir permanentemente
+                        </h6>
+                        <p class="text-muted small mb-2">
+                            ⚠️ Os itens serão <strong>deletados do banco</strong> incluindo todo o histórico de movimentações. Esta ação <strong>não pode ser desfeita</strong>.
+                        </p>
+                        <button type="button" class="btn btn-danger btn-sm w-100"
+                                onclick="executarAcaoAdmin('excluir')">
+                            <i class="bi bi-trash3 me-1"></i> Excluir Permanentemente
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm"
+                        data-bs-dismiss="modal" onclick="cancelarModoAdmin()">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 {% block scripts %}
 <script>
@@ -400,6 +479,128 @@ function confirmarExclusaoLote() {
     if (confirm(`Deseja desativar ${plural}? Esta ação pode ser revertida pelo admin.`)) {
         document.getElementById('formLote').submit();
     }
+}
+
+/* ── Modo Admin (Transferir / Excluir definitivo) ── */
+let _modoAdmin = false;
+
+function toggleModoAdmin() {
+    _modoAdmin = !_modoAdmin;
+    const btn = document.getElementById('btnModoAdmin');
+
+    // Reusar as mesmas colunas de checkbox do modo seleção
+    document.getElementById('thCheckAll').style.display = _modoAdmin ? '' : 'none';
+    document.querySelectorAll('.td-check').forEach(td => {
+        td.style.display = _modoAdmin ? '' : 'none';
+    });
+    document.querySelectorAll('.check-mobile').forEach(el => {
+        el.style.display = _modoAdmin ? '' : 'none';
+    });
+
+    if (_modoAdmin) {
+        btn.classList.remove('btn-outline-warning');
+        btn.classList.add('btn-warning');
+        btn.innerHTML = '<i class="bi bi-x-square me-1"></i> Cancelar';
+        // Trocar a barra flutuante para mostrar botão Admin
+        document.getElementById('barraLote').style.display = 'none';
+    } else {
+        btn.classList.remove('btn-warning');
+        btn.classList.add('btn-outline-warning');
+        btn.innerHTML = '<i class="bi bi-arrow-left-right me-1"></i> Transferir / Excluir';
+        desmarcarTodos();
+        document.getElementById('barraLote').style.display = 'none';
+    }
+}
+
+function cancelarModoAdmin() {
+    _modoAdmin = false;
+    const btn = document.getElementById('btnModoAdmin');
+    if (btn) {
+        btn.classList.remove('btn-warning');
+        btn.classList.add('btn-outline-warning');
+        btn.innerHTML = '<i class="bi bi-arrow-left-right me-1"></i> Transferir / Excluir';
+    }
+    document.getElementById('thCheckAll').style.display = 'none';
+    document.querySelectorAll('.td-check').forEach(td => { td.style.display = 'none'; });
+    document.querySelectorAll('.check-mobile').forEach(el => { el.style.display = 'none'; });
+    desmarcarTodos();
+}
+
+// Sobrescrever atualizarContador para suportar modo admin
+const _atualizarContadorOriginal = atualizarContador;
+function atualizarContador() {
+    const total = document.querySelectorAll('.item-check:checked, .item-check-mobile:checked').length;
+    const barra = document.getElementById('barraLote');
+    const contador = document.getElementById('contadorSelecionados');
+    const label = document.getElementById('labelSelecionados');
+
+    contador.textContent = total;
+    label.textContent = total === 1 ? 'item selecionado' : 'itens selecionados';
+
+    if (total > 0 && _modoSelecao) {
+        barra.style.display = '';
+    } else if (total > 0 && _modoAdmin) {
+        // Mostrar barra com botão admin
+        barra.style.display = '';
+        // Trocar botão da barra
+        const btnBarra = barra.querySelector('button.btn-danger');
+        if (btnBarra) {
+            btnBarra.textContent = '';
+            btnBarra.innerHTML = '<i class="bi bi-arrow-left-right me-1"></i>Escolher Ação';
+            btnBarra.onclick = abrirModalAdmin;
+        }
+    } else {
+        barra.style.display = 'none';
+    }
+
+    const checkAll = document.getElementById('checkAll');
+    if (checkAll) {
+        const total_visiveis = document.querySelectorAll(
+            '#tbodyItens tr:not([style*="display: none"]) .item-check'
+        ).length;
+        checkAll.indeterminate = total > 0 && total < total_visiveis;
+        checkAll.checked = total_visiveis > 0 && total >= total_visiveis;
+    }
+}
+
+function abrirModalAdmin() {
+    const total = document.querySelectorAll('.item-check:checked, .item-check-mobile:checked').length;
+    if (total === 0) return;
+    document.getElementById('qtdSelecionadaAdmin').textContent = total;
+    new bootstrap.Modal(document.getElementById('modalAdmin')).show();
+}
+
+function executarAcaoAdmin(acao) {
+    const checkboxes = document.querySelectorAll('.item-check:checked, .item-check-mobile:checked');
+    if (checkboxes.length === 0) return;
+
+    if (acao === 'transferir') {
+        const destino = document.getElementById('selectDestino').value;
+        if (!destino) { alert('Selecione o almoxarifado de destino!'); return; }
+        if (!confirm(`Transferir ${checkboxes.length} item(ns) para o almoxarifado selecionado?`)) return;
+        document.getElementById('destinoAdmin').value = destino;
+    } else if (acao === 'excluir') {
+        if (!confirm(`⚠️ ATENÇÃO: Excluir PERMANENTEMENTE ${checkboxes.length} item(ns)?\n\nEsta ação NÃO pode ser desfeita. Todo o histórico de movimentações será apagado.`)) return;
+    }
+
+    // Preencher o form admin com os item_ids
+    const form = document.getElementById('formAdmin');
+    document.getElementById('acaoAdmin').value = acao;
+
+    // Remover inputs antigos
+    form.querySelectorAll('input[name="item_ids"]').forEach(el => el.remove());
+
+    // Adicionar novos
+    checkboxes.forEach(cb => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'item_ids';
+        input.value = cb.value;
+        form.appendChild(input);
+    });
+
+    bootstrap.Modal.getInstance(document.getElementById('modalAdmin')).hide();
+    form.submit();
 }
 </script>
 {% endblock %}

@@ -521,3 +521,37 @@ def backup_manual():
 
     # GET — mostra a página
     return render_template('backup.html')
+
+@admin_bp.route('/admin/sincronizar-valores', methods=['POST'])
+@admin_required
+def sincronizar_valores_catalogo():
+    """Propaga valor_unitario do catalogo para todos os itens do estoque pelo nome."""
+    from models import CatalogoInsumo
+    catalogo = CatalogoInsumo.query.filter(
+        CatalogoInsumo.ativo == True,
+        CatalogoInsumo.valor_unitario != None
+    ).all()
+
+    atualizados = 0
+    nao_encontrados = 0
+
+    for ins in catalogo:
+        itens = Item.query.filter(
+            Item.nome.ilike(ins.nome),
+            Item.ativo == True
+        ).all()
+        if itens:
+            for it in itens:
+                if it.valor_unitario != ins.valor_unitario:
+                    it.valor_unitario = ins.valor_unitario
+                    atualizados += 1
+        else:
+            nao_encontrados += 1
+
+    db.session.commit()
+    flash(
+        f'✅ Sincronização concluída! {atualizados} itens atualizados. '
+        f'({nao_encontrados} insumos sem correspondência no estoque)',
+        'success' if atualizados > 0 else 'warning'
+    )
+    return redirect(url_for('catalogo_bp.catalogo_valor_estoque'))

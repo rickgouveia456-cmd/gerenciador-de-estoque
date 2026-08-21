@@ -7,9 +7,17 @@
         <h4 class="fw-bold mb-0">Valor Total em Estoque</h4>
         <p class="text-muted small mb-0">Calculado com base em quantidade x valor unitario do catalogo</p>
     </div>
-    <a href="{{ url_for('catalogo_bp.catalogo_insumos') }}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left me-1"></i>Voltar ao Catalogo
-    </a>
+    <div class="d-flex gap-2">
+        <form action="/admin/sincronizar-valores" method="POST" class="d-inline">
+            <button type="submit" class="btn btn-sm btn-warning fw-semibold"
+                    onclick="return confirm('Sincronizar valores do catálogo para todos os itens do estoque?')">
+                <i class="bi bi-arrow-repeat me-1"></i> Sincronizar Valores
+            </button>
+        </form>
+        <a href="{{ url_for('catalogo_bp.catalogo_insumos') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Voltar ao Catalogo
+        </a>
+    </div>
 </div>
 <div class="row g-3 mb-4">
     <div class="col-md-4">

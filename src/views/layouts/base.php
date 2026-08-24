@@ -89,22 +89,80 @@ if ($u) {
     <?php endif; ?>
   </nav>
 
-  <!-- Almoxarifados -->
+  <!-- Almoxarifados com sublinks -->
   <?php if (!empty($sidebarAlms)): ?>
-  <div class="nav-section">Almoxarifados</div>
+  <?php
+  // Agrupar por cidade
+  $cidadeGrupos = [];
+  foreach($sidebarAlms as $alm) {
+      $cidade = $alm['cidade'] ?: 'Sem Cidade';
+      $cidadeGrupos[$cidade][] = $alm;
+  }
+  ?>
+  <?php foreach($cidadeGrupos as $cidade => $almsGrupo): ?>
+  <div class="nav-section d-flex align-items-center gap-1">
+    <i class="bi bi-geo-alt-fill" style="color:var(--accent);font-size:0.7rem"></i>
+    <span><?= strtoupper(h($cidade)) ?></span>
+  </div>
   <nav class="nav flex-column">
-    <?php foreach ($sidebarAlms as $alm): ?>
-    <a href="/almoxarifado/<?= $alm['id'] ?>" class="nav-link <?= (($activeAlmId ?? 0) == $alm['id']) ? 'active' : '' ?>">
-      <i class="bi bi-box-seam me-2"></i>
-      <span class="text-truncate"><?= h($alm['nome']) ?></span>
-    </a>
+    <?php foreach($almsGrupo as $alm):
+      $isActiveAlm = (($activeAlmId ?? 0) == $alm['id']);
+      // Contadores
+      $stN = db()->prepare("SELECT COUNT(*) FROM item WHERE almoxarifado_id=? AND ativo=1"); $stN->execute([$alm['id']]); $nInsumos = (int)$stN->fetchColumn();
+      $stF = db()->prepare("SELECT COUNT(*) FROM ferramenta WHERE almoxarifado_id=? AND ativo=1"); $stF->execute([$alm['id']]); $nFerr = (int)$stF->fetchColumn();
+      $stE = db()->prepare("SELECT COUNT(*) FROM item_epi WHERE almoxarifado_id=? AND ativo=1"); $stE->execute([$alm['id']]); $nEpis = (int)$stE->fetchColumn();
+      // Saude do almoxarifado
+      $stOK = db()->prepare("SELECT COUNT(*) FROM item WHERE almoxarifado_id=? AND ativo=1 AND quantidade > estoque_minimo"); $stOK->execute([$alm['id']]); $nOK = (int)$stOK->fetchColumn();
+      $pct = $nInsumos > 0 ? round($nOK/$nInsumos*100) : 100;
+      $pctColor = $pct>=80?'#22c55e':($pct>=50?'#f59e0b':'#ef4444');
+      // Estado expandido
+      $expanded = $isActiveAlm;
+    ?>
+    <div class="alm-nav-item">
+      <!-- Header do almoxarifado -->
+      <div class="d-flex align-items-center" style="padding:0 12px">
+        <a href="/almoxarifado/<?= $alm['id'] ?>"
+           class="nav-link flex-grow-1 <?= $isActiveAlm?'active':'' ?>"
+           style="padding:6px 4px 6px 0">
+          <i class="bi bi-building me-1" style="font-size:0.8rem"></i>
+          <span class="text-truncate" style="font-size:0.82rem"><?= h($alm['nome']) ?></span>
+        </a>
+        <span style="font-size:0.72rem;color:<?= $pctColor ?>;font-weight:600;flex-shrink:0"><?= $pct ?>%</span>
+        <button class="btn btn-xs border-0 ms-1 p-0 alm-toggle"
+                onclick="toggleAlm(<?= $alm['id'] ?>)"
+                style="color:var(--text-muted);font-size:0.8rem;width:20px;line-height:1"
+                id="btn-alm-<?= $alm['id'] ?>">
+          <i class="bi bi-chevron-<?= $expanded?'up':'down' ?>"></i>
+        </button>
+      </div>
+      <!-- Sublinks -->
+      <div id="sub-alm-<?= $alm['id'] ?>" style="<?= $expanded?'':'display:none' ?>;padding-left:16px">
+        <a href="/almoxarifado/<?= $alm['id'] ?>" class="nav-link py-1 d-flex justify-content-between align-items-center" style="font-size:0.78rem">
+          <span><i class="bi bi-boxes me-1"></i>Insumos</span>
+          <span class="badge bg-secondary rounded-pill"><?= $nInsumos ?></span>
+        </a>
+        <a href="/ferramentas?alm=<?= $alm['id'] ?>" class="nav-link py-1 d-flex justify-content-between align-items-center" style="font-size:0.78rem">
+          <span><i class="bi bi-tools me-1"></i>Ferramentas</span>
+          <span class="badge bg-secondary rounded-pill"><?= $nFerr ?></span>
+        </a>
+        <a href="/epis?alm=<?= $alm['id'] ?>" class="nav-link py-1 d-flex justify-content-between align-items-center" style="font-size:0.78rem">
+          <span><i class="bi bi-shield-check me-1"></i>EPIs / Uniformes</span>
+          <span class="badge bg-secondary rounded-pill"><?= $nEpis ?></span>
+        </a>
+        <a href="#" class="nav-link py-1 d-flex justify-content-between align-items-center text-muted" style="font-size:0.78rem">
+          <span><i class="bi bi-box2-heart me-1"></i>Kits</span>
+          <span class="badge bg-light text-muted rounded-pill border" style="font-size:0.65rem">em breve</span>
+        </a>
+      </div>
+    </div>
     <?php endforeach; ?>
-    <?php if ($u['perfil'] === 'admin'): ?>
-    <a href="/almoxarifado/novo" class="nav-link text-success">
+    <?php if($u['perfil']==='admin'): ?>
+    <a href="/almoxarifado/novo" class="nav-link text-success" style="font-size:0.82rem">
       <i class="bi bi-plus-circle me-2"></i>Novo Almoxarifado
     </a>
     <?php endif; ?>
   </nav>
+  <?php endforeach; ?>
   <?php endif; ?>
 
   <!-- Modulos -->
@@ -236,5 +294,41 @@ if ($u) {
         integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmO7O+NDXAz6RBf5Nk7hKikBMTN7"
         crossorigin="anonymous"></script>
 <script src="/assets/js/app.js"></script>
-</body>
+<script>
+// Sidebar almoxarifado toggle
+function toggleAlm(id) {
+  const sub = document.getElementById('sub-alm-' + id);
+  const btn = document.getElementById('btn-alm-' + id);
+  if (!sub) return;
+  const isOpen = sub.style.display !== 'none';
+  sub.style.display = isOpen ? 'none' : '';
+  if (btn) btn.innerHTML = isOpen
+    ? '<i class="bi bi-chevron-down"></i>'
+    : '<i class="bi bi-chevron-up"></i>';
+  // Salvar estado
+  try {
+    const states = JSON.parse(sessionStorage.getItem('almStates') || '{}');
+    states[id] = !isOpen;
+    sessionStorage.setItem('almStates', JSON.stringify(states));
+  } catch(e) {}
+}
+// Restaurar estados salvos
+(function() {
+  try {
+    const states = JSON.parse(sessionStorage.getItem('almStates') || '{}');
+    Object.entries(states).forEach(([id, open]) => {
+      const sub = document.getElementById('sub-alm-' + id);
+      const btn = document.getElementById('btn-alm-' + id);
+      if (!sub) return;
+      // Nao sobrescrever o ativo (ja esta expandido pelo PHP)
+      if (!sub.closest('.alm-nav-item')?.querySelector('.nav-link.active')) {
+        sub.style.display = open ? '' : 'none';
+        if (btn) btn.innerHTML = open
+          ? '<i class="bi bi-chevron-up"></i>'
+          : '<i class="bi bi-chevron-down"></i>';
+      }
+    });
+  } catch(e) {}
+})();
+</script></body>
 </html>

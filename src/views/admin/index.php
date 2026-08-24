@@ -7,5 +7,5 @@
 <div class="row g-3">
   <div class="col-md-4"><a href="/usuarios" class="card p-3 text-decoration-none text-dark card-stat d-flex flex-row align-items-center gap-3"><div class="rounded-3 p-2" style="background:var(--info-light)"><i class="bi bi-person-gear fs-4 text-info"></i></div><div><div class="fw-semibold">Usuários</div><div class="text-muted small">Gerenciar acessos</div></div></a></div>
   <div class="col-md-4"><a href="/admin/reativar_itens" class="card p-3 text-decoration-none text-dark card-stat d-flex flex-row align-items-center gap-3"><div class="rounded-3 p-2" style="background:var(--warning-light)"><i class="bi bi-arrow-counterclockwise fs-4 text-warning"></i></div><div><div class="fw-semibold">Itens Desativados</div><div class="text-muted small">Reativar ou excluir</div></div></a></div>
-  <div class="col-md-4"><a href="/admin/backup" class="card p-3 text-decoration-none text-dark card-stat d-flex flex-row align-items-center gap-3"><div class="rounded-3 p-2" style="background:var(--success-light)"><i class="bi bi-cloud-download fs-4 text-success"></i></div><div><div class="fw-semibold">Backup</div><div class="text-muted small">Exportar banco de dados</div></div></a></div>
+
 </div>

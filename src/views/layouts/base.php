@@ -292,26 +292,15 @@ if ($u) {
 <script>
 // Sidebar almoxarifado toggle
 function toggleAlm(id) {
-  const sidebar = document.getElementById('sidebar');
-  // Travar scroll antes de qualquer mudanca no DOM
-  if (sidebar) sidebar.style.overflow = 'hidden';
-  const scrollY = sidebar ? sidebar.scrollTop : 0;
-
   const sub = document.getElementById('sub-alm-' + id);
-  const btn = document.getElementById('btn-alm-' + id);
+  const ico = document.getElementById('ico-alm-' + id);
   if (!sub) return;
-  const isOpen = sub.style.display !== 'none';
-  sub.style.display = isOpen ? 'none' : '';
-  if (btn) btn.innerHTML = isOpen
-    ? '<i class="bi bi-chevron-down"></i>'
-    : '<i class="bi bi-chevron-up"></i>';
-
-  // Restaurar scroll e desbloquear overflow
-  if (sidebar) {
-    sidebar.scrollTop = scrollY;
-    sidebar.style.overflow = '';
+  const isOpen = sub.style.maxHeight && sub.style.maxHeight !== '0px';
+  // Usar max-height: 0 vs 200px — sem reflow de scroll
+  sub.style.maxHeight = isOpen ? '0' : '200px';
+  if (ico) {
+    ico.className = isOpen ? 'bi bi-chevron-down' : 'bi bi-chevron-up';
   }
-
   try {
     const states = JSON.parse(sessionStorage.getItem('almStates') || '{}');
     states[id] = !isOpen;

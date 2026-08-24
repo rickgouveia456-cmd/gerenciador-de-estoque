@@ -4,6 +4,7 @@
   <div class="d-flex gap-2">
     <a href="/catalogo/valor_estoque" class="btn btn-sm btn-outline-success"><i class="bi bi-currency-dollar me-1"></i>Valor em Estoque</a>
     <?php if(in_array($u['perfil'],['admin','almoxarife'])): ?>
+    <a href="/catalogo/importar" class="btn btn-sm btn-outline-secondary"><i class="bi bi-upload me-1"></i>Importar</a>
     <a href="/catalogo/novo" class="btn btn-sm btn-primary"><i class="bi bi-plus me-1"></i>Novo</a>
     <?php endif; ?>
   </div>

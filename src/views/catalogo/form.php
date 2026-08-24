@@ -1,3 +1,7 @@
+<div class="mb-3 d-flex gap-2">
+  <a href="/catalogo" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Voltar</a>
+  <a href="/catalogo/importar" class="btn btn-sm btn-outline-info"><i class="bi bi-upload me-1"></i>Importar vários via Excel</a>
+</div>
 <div class="mb-3"><a href="/catalogo" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Voltar</a></div>
 <?php $isNew=!isset($ins)||!$ins;$action=$isNew?'/catalogo/novo':"/catalogo/{$ins['id']}/editar"; ?>
 <div class="row justify-content-center"><div class="col-md-8">

@@ -339,3 +339,17 @@ hr { border-color: var(--border); }
 }
 .sidebar::-webkit-scrollbar { width: 4px; }
 .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* ── Fix texto preto em elementos que herdam branco do Bootstrap ── */
+.badge.bg-secondary { background: #e2e8f0 !important; color: #1e293b !important; }
+.badge.bg-light     { background: #f8fafc !important; color: #1e293b !important; }
+.sidebar .nav-link  { color: var(--text-muted) !important; }
+.sidebar .nav-link:hover { color: var(--text) !important; }
+.sidebar .nav-link.active { color: var(--accent) !important; }
+.sidebar .nav-section { color: var(--text-secondary) !important; }
+.form-label { color: var(--text) !important; }
+.form-text  { color: var(--text-muted) !important; }
+.card-header { color: var(--text) !important; }
+.table { color: var(--text) !important; }
+.text-muted { color: var(--text-muted) !important; }
+label { color: var(--text); }

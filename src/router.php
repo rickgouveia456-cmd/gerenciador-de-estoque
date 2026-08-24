@@ -135,6 +135,12 @@ $routes = [
     // API extras
     ['GET', '#^/api/itens$#',          'api/itens.php',          []],
     ['GET', '#^/api/almoxarifados$#',  'api/almoxarifados.php',  []],
+
+    // Kits
+    ['GET',      '#^/almoxarifado/(\d+)/kits$#',                    'kits/index.php',   ['alm_id']],
+    ['GET|POST', '#^/almoxarifado/(\d+)/kits/novo$#',               'kits/novo.php',    ['alm_id']],
+    ['GET|POST', '#^/almoxarifado/(\d+)/kits/(\d+)/editar$#',       'kits/editar.php',  ['alm_id','kit_id']],
+    ['POST',     '#^/almoxarifado/(\d+)/kits/(\d+)/excluir$#',      'kits/excluir.php', ['alm_id','kit_id']],
     // Healthcheck
     ['GET', '#^/healthz$#', 'api/healthz.php', []],
 ];

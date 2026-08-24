@@ -111,6 +111,7 @@ if ($u) {
       $stN = db()->prepare("SELECT COUNT(*) FROM item WHERE almoxarifado_id=? AND ativo=1"); $stN->execute([$alm['id']]); $nInsumos = (int)$stN->fetchColumn();
       $stF = db()->prepare("SELECT COUNT(*) FROM ferramenta WHERE almoxarifado_id=? AND ativo=1"); $stF->execute([$alm['id']]); $nFerr = (int)$stF->fetchColumn();
       $stE = db()->prepare("SELECT COUNT(*) FROM item_epi WHERE almoxarifado_id=? AND ativo=1"); $stE->execute([$alm['id']]); $nEpis = (int)$stE->fetchColumn();
+      $stKT = db()->prepare("SELECT COUNT(*) FROM kit WHERE almoxarifado_id=? AND ativo=1"); $stKT->execute([$alm['id']]); $nKits = (int)$stKT->fetchColumn();
       // Saude do almoxarifado
       $stOK = db()->prepare("SELECT COUNT(*) FROM item WHERE almoxarifado_id=? AND ativo=1 AND quantidade > estoque_minimo"); $stOK->execute([$alm['id']]); $nOK = (int)$stOK->fetchColumn();
       $pct = $nInsumos > 0 ? round($nOK/$nInsumos*100) : 100;
@@ -149,9 +150,9 @@ if ($u) {
           <span><i class="bi bi-shield-check me-1"></i>EPIs / Uniformes</span>
           <span class="badge bg-secondary rounded-pill"><?= $nEpis ?></span>
         </a>
-        <a href="#" class="nav-link py-1 d-flex justify-content-between align-items-center text-muted" style="font-size:0.78rem">
+        <a href="/almoxarifado/<?= $alm['id'] ?>/kits" class="nav-link py-1 d-flex justify-content-between align-items-center" style="font-size:0.78rem">
           <span><i class="bi bi-box2-heart me-1"></i>Kits</span>
-          <span class="badge bg-light text-muted rounded-pill border" style="font-size:0.65rem">em breve</span>
+          <span class="badge bg-secondary rounded-pill"><?= $nKits ?></span>
         </a>
       </div>
     </div>
@@ -169,12 +170,6 @@ if ($u) {
   <?php if (in_array($u['perfil'], ['admin','almoxarife','analista','tecnico_seguranca'])): ?>
   <div class="nav-section">Módulos</div>
   <nav class="nav flex-column">
-    <a href="/ferramentas" class="nav-link <?= ($activeMenu ?? '') === 'ferramentas' ? 'active' : '' ?>">
-      <i class="bi bi-tools me-2"></i>Ferramentas
-    </a>
-    <a href="/epis" class="nav-link <?= ($activeMenu ?? '') === 'epis' ? 'active' : '' ?>">
-      <i class="bi bi-shield-check me-2"></i>EPIs
-    </a>
     <a href="/epi_modulo" class="nav-link <?= ($activeMenu ?? '') === 'epi_modulo' ? 'active' : '' ?>">
       <i class="bi bi-person-badge me-2"></i>Módulo EPI
     </a>
@@ -297,6 +292,8 @@ if ($u) {
 <script>
 // Sidebar almoxarifado toggle
 function toggleAlm(id) {
+  const sidebar = document.getElementById('sidebar');
+  const scrollY = sidebar ? sidebar.scrollTop : 0;
   const sub = document.getElementById('sub-alm-' + id);
   const btn = document.getElementById('btn-alm-' + id);
   if (!sub) return;
@@ -305,7 +302,7 @@ function toggleAlm(id) {
   if (btn) btn.innerHTML = isOpen
     ? '<i class="bi bi-chevron-down"></i>'
     : '<i class="bi bi-chevron-up"></i>';
-  // Salvar estado
+  if (sidebar) requestAnimationFrame(() => { sidebar.scrollTop = scrollY; });
   try {
     const states = JSON.parse(sessionStorage.getItem('almStates') || '{}');
     states[id] = !isOpen;

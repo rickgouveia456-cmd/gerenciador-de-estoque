@@ -329,3 +329,11 @@ hr { border-color: var(--border); }
     .topbar { padding: 10px 14px; }
     .page-body { padding: 14px; }
 }
+
+/* ── Sidebar scroll fix ─────────────────────────────────────── */
+.sidebar {
+  overflow-y: auto !important;
+  scroll-behavior: smooth;
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }

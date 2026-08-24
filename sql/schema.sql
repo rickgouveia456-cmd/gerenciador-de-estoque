@@ -1,4 +1,4 @@
-﻿-- ============================================================
+-- ============================================================
 -- Logi-Prime — Schema MySQL 8.0
 -- Migrado do SQLAlchemy/SQLite (Python/Flask)
 -- ============================================================
@@ -275,3 +275,52 @@ CREATE TABLE IF NOT EXISTS kit_item (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- Modulo EPI: fichas, itens ficha, matriz, habilitacoes
+CREATE TABLE IF NOT EXISTS ficha_epi (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    colaborador VARCHAR(100) NOT NULL,
+    funcao VARCHAR(80),
+    obra VARCHAR(100),
+    almoxarifado_id INT UNSIGNED,
+    status ENUM('ativa','encerrada') DEFAULT 'ativa',
+    data_abertura DATE DEFAULT (CURDATE()),
+    data_encerramento DATE,
+    criado_por VARCHAR(100),
+    criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (almoxarifado_id) REFERENCES almoxarifado(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS item_ficha_epi (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    ficha_id INT UNSIGNED NOT NULL,
+    descricao VARCHAR(200) NOT NULL,
+    ca VARCHAR(30),
+    quantidade DECIMAL(8,2) DEFAULT 1,
+    tamanho VARCHAR(30),
+    data_entrega DATE,
+    data_devolucao DATE,
+    FOREIGN KEY (ficha_id) REFERENCES ficha_epi(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS matriz_epi (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    funcao VARCHAR(80) NOT NULL,
+    obra VARCHAR(100),
+    norma VARCHAR(30),
+    epis_json TEXT,
+    criado_por VARCHAR(100),
+    data_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS habilitacao_funcionario (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    colaborador VARCHAR(100) NOT NULL,
+    tipo VARCHAR(100) NOT NULL,
+    descricao VARCHAR(200),
+    validade DATE,
+    almoxarifado_id INT UNSIGNED,
+    criado_por VARCHAR(100),
+    criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (almoxarifado_id) REFERENCES almoxarifado(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

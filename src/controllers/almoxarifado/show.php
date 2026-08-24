@@ -56,6 +56,28 @@ foreach ($itens as $it) {
     }
 }
 
+
+// Right panel: Ferramentas e EPIs do almoxarifado
+$ferramentasAlm = db()->prepare(
+    "SELECT * FROM ferramenta WHERE almoxarifado_id=? AND ativo=1 ORDER BY status ASC, nome ASC LIMIT 20"
+);
+$ferramentasAlm->execute([$id]);
+$ferramentasAlm = $ferramentasAlm->fetchAll();
+
+$episAlm = db()->prepare(
+    "SELECT * FROM item_epi WHERE almoxarifado_id=? AND ativo=1 ORDER BY status ASC, nome ASC LIMIT 20"
+);
+$episAlm->execute([$id]);
+$episAlm = $episAlm->fetchAll();
+
+$kitsAlm = db()->prepare(
+    "SELECT k.*,COUNT(ki.id) AS total_itens FROM kit k
+     LEFT JOIN kit_item ki ON ki.kit_id=k.id
+     WHERE k.ativo=1
+     GROUP BY k.id ORDER BY k.nome LIMIT 10"
+);
+$kitsAlm->execute();
+$kitsAlm = $kitsAlm->fetchAll();
 $pageTitle  = $alm['nome'];
 $activeMenu = 'almoxarifado';
 $activeAlmId = $id;

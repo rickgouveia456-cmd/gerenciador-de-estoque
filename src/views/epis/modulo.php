@@ -314,56 +314,13 @@ elseif($abaAtual==="matriz"): ?>
   </div></div>
 </div>
 
-<?php // ═══ HABILITACOES ══════════════════════════════════════
-elseif($abaAtual==="habilitacoes"): ?>
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-  <form method="GET" action="/epi_modulo" class="d-flex gap-2"><input type="hidden" name="aba" value="habilitacoes"><input type="text" name="q" class="form-control form-control-sm" placeholder="Buscar colaborador..." value="<?= h($_GET["q"]??"") ?>" style="max-width:220px"><button class="btn btn-outline-secondary btn-sm"><i class="bi bi-search"></i></button></form>
-  <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalHab"><i class="bi bi-plus-lg me-1"></i>Nova Habilitação</button>
-</div>
-<?php if(empty($habilitacoes)): ?>
-<div class="card"><div class="text-center py-5 text-muted"><i class="bi bi-award fs-1 d-block mb-2" style="color:var(--accent)"></i>Nenhuma habilitação cadastrada.</div></div>
-<?php else: ?>
-<div class="card"><div class="table-responsive"><table class="table table-hover mb-0">
-  <thead><tr><th>Colaborador</th><th>Tipo</th><th>Descrição</th><th class="text-center">Validade</th><th class="text-center">Status</th></tr></thead>
-  <tbody>
-  <?php foreach($habilitacoes as $h2): $hoje=new DateTime(); $valida=$h2["validade"]?new DateTime($h2["validade"]):null; $venceu=$valida&&$valida<$hoje; ?>
-  <tr>
-    <td class="fw-semibold"><?= h($h2["colaborador"]) ?></td>
-    <td><?= h($h2["tipo"]) ?></td>
-    <td class="text-muted small"><?= h($h2["descricao"]??"—") ?></td>
-    <td class="text-center small"><?= $valida?fmt_data($h2["validade"],"d/m/Y"):"—" ?></td>
-    <td class="text-center"><span class="badge bg-<?= !$valida?"secondary":($venceu?"danger":"success") ?>"><?= !$valida?"Sem validade":($venceu?"Vencida":"Válida") ?></span></td>
-  </tr>
-  <?php endforeach; ?>
-  </tbody>
-</table></div></div>
-<?php endif; ?>
-<!-- Modal Nova Habilitacao -->
-<div class="modal fade" id="modalHab" tabindex="-1">
-  <div class="modal-dialog"><div class="modal-content">
-    <form method="POST" action="/epi_modulo?aba=habilitacoes">
-      <?= csrf_field() ?>
-      <div class="modal-header text-white" style="background:var(--accent)"><h6 class="modal-title fw-bold">Nova Habilitação</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body">
-        <div class="mb-3"><label class="form-label fw-semibold">Colaborador *</label><input type="text" name="colaborador" class="form-control" required placeholder="Nome do colaborador..."></div>
-        <div class="mb-3"><label class="form-label fw-semibold">Tipo *</label><input type="text" name="tipo" class="form-control" required placeholder="Ex: NR-10, Espaço Confinado, Andaime..."></div>
-        <div class="mb-3"><label class="form-label fw-semibold">Descrição</label><input type="text" name="descricao" class="form-control" placeholder="Observações..."></div>
-        <div class="row g-2">
-          <div class="col-6"><label class="form-label small">Validade</label><input type="date" name="validade" class="form-control form-control-sm"></div>
-          <div class="col-6"><label class="form-label small">Almoxarifado</label><select name="almoxarifado_id" class="form-select form-select-sm"><option value="">—</option><?php foreach($almoxarifados as $a): ?><option value="<?= $a["id"] ?>"><?= h($a["nome"]) ?></option><?php endforeach; ?></select></div>
-        </div>
-      </div>
-      <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Salvar</button></div>
-    </form>
-  </div></div>
-</div>
 
-<?php // ═══ CERTIFICADOS (Em Breve) ═══════════════════════════
-elseif($abaAtual==="certificados"): ?>
+<?php // ═══ EM BREVE ══════════════════════════════════════════
+elseif($abaAtual==="em_breve"||$abaAtual==="certificados"||$abaAtual==="habilitacoes"): ?>
 <div class="text-center py-5 mt-4">
   <div style="font-size:4rem">🔜</div>
   <h3 class="fw-bold mt-3" style="color:var(--accent)">Em Breve</h3>
-  <p class="text-muted mt-2">O módulo de Certificados CA está sendo desenvolvido.<br>Em breve você poderá cadastrar e controlar os Certificados de Aprovação dos EPIs.</p>
+  <p class="text-muted mt-2">Os módulos de Habilitações e Certificados CA estão sendo desenvolvidos.<br>Em breve você poderá cadastrar NRs, habilitações e controlar os CAs dos EPIs.</p>
   <a href="/epi_modulo?aba=painel" class="btn btn-outline-secondary btn-sm mt-3"><i class="bi bi-arrow-left me-1"></i>Voltar ao Painel</a>
 </div>
 

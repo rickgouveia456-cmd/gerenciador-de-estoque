@@ -105,6 +105,9 @@ $routes = [
     ['GET', '#^/relatorios/consumo/exportar$#',             'relatorios/exportar_consumo.php', []],
     ['GET|POST', '#^/relatorios/alertas$#',                 'relatorios/alertas.php',        []],
     ['GET', '#^/relatorios/consumo-por-pessoa$#',           'relatorios/consumo_pessoa.php', []],
+    ['GET', '#^/relatorios/ficha-epi$#',                    'relatorios/ficha_epi.php',      []],
+    ['GET', '#^/relatorios/ficha-epi/exportar$#',           'relatorios/ficha_epi.php',      []],
+    ['POST', '#^/movimentacoes/excluir$#',                  'relatorios/excluir_movimentacoes.php', []],
 
     // Admin
     ['GET',  '#^/admin$#',                          'admin/index.php',              []],
@@ -131,6 +134,7 @@ $routes = [
 
     // Req mestre cancelar
     ['POST', '#^/requisicoes/mestre/(\d+)/cancelar$#', 'requisicoes/mestre_cancelar.php', ['id']],
+    ['POST', '#^/requisicoes/mestre/(\d+)/foto$#',     'requisicoes/mestre_foto.php',     ['id']],
 
     // Exportar + importar almoxarifado
     ['GET', '#^/almoxarifado/(\d+)/exportar$#',      'almoxarifado/exportar.php',     ['id']],

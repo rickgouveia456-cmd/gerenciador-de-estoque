@@ -3,6 +3,7 @@
 $totalPessoas = count($porPessoa);
 $totalSaidas  = array_sum(array_column($porPessoa, 'total'));
 $totalMovs    = array_sum(array_map(fn($p) => count($p['movs']), $porPessoa));
+$isAdmin      = ($u['perfil'] === 'admin');
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -93,6 +94,12 @@ $totalMovs    = array_sum(array_map(fn($p) => count($p['movs']), $porPessoa));
 </div>
 <?php else: ?>
 
+<?php if ($isAdmin): ?>
+<!-- Formulário de exclusão (envolve todo o accordion) -->
+<form method="POST" action="/movimentacoes/excluir" id="formExcluir">
+  <?= csrf_field() ?>
+<?php endif; ?>
+
 <div class="accordion" id="accordionPessoas">
 <?php $idx = 0; foreach ($porPessoa as $pessoa => $dados): $idx++; ?>
 <div class="card mb-2" style="border-radius:12px;overflow:hidden">
@@ -110,6 +117,16 @@ $totalMovs    = array_sum(array_map(fn($p) => count($p['movs']), $porPessoa));
       </div>
     </div>
     <div class="d-flex align-items-center gap-3">
+      <?php if ($isAdmin): ?>
+      <!-- Checkbox "selecionar todas desta pessoa" -->
+      <div onclick="event.stopPropagation()" title="Selecionar todas deste colaborador">
+        <input type="checkbox"
+               class="form-check-input check-pessoa"
+               id="checkPessoa<?= $idx ?>"
+               data-idx="<?= $idx ?>"
+               onchange="togglePessoaCheck(<?= $idx ?>, this.checked)">
+      </div>
+      <?php endif; ?>
       <span class="badge rounded-pill" style="background:var(--accent-light);color:var(--accent);border-radius:20px;padding:6px 14px;font-size:0.85rem">
         <?= fmt_qtd($dados['total']) ?> itens
       </span>
@@ -121,6 +138,7 @@ $totalMovs    = array_sum(array_map(fn($p) => count($p['movs']), $porPessoa));
       <table class="table table-sm table-hover mb-0">
         <thead>
           <tr>
+            <?php if ($isAdmin): ?><th style="width:40px"></th><?php endif; ?>
             <th>Data</th>
             <th>Item</th>
             <th>Almoxarifado</th>
@@ -131,6 +149,15 @@ $totalMovs    = array_sum(array_map(fn($p) => count($p['movs']), $porPessoa));
         <tbody>
         <?php foreach ($dados['movs'] as $mov): ?>
         <tr>
+          <?php if ($isAdmin): ?>
+          <td class="text-center" onclick="event.stopPropagation()">
+            <input type="checkbox"
+                   class="form-check-input check-mov check-mov-<?= $idx ?>"
+                   name="mov_ids[]"
+                   value="<?= (int)$mov['id'] ?>"
+                   onchange="atualizarBotaoExcluir()">
+          </td>
+          <?php endif; ?>
           <td class="small text-muted"><?= fmt_data($mov['data'], 'd/m/Y H:i') ?></td>
           <td>
             <span class="fw-semibold"><?= h($mov['item_nome']) ?></span>
@@ -151,6 +178,32 @@ $totalMovs    = array_sum(array_map(fn($p) => count($p['movs']), $porPessoa));
 <?php endforeach; ?>
 </div>
 
+<?php if ($isAdmin): ?>
+</form>
+
+<!-- Botão flutuante de exclusão -->
+<div id="barraExcluir"
+     style="display:none;position:fixed;bottom:28px;left:50%;transform:translateX(-50%);
+            z-index:1050;background:#fff;border:1px solid var(--border);border-radius:16px;
+            box-shadow:0 8px 32px rgba(0,0,0,0.18);padding:14px 24px;
+            display:none;align-items:center;gap:16px;min-width:320px">
+  <div>
+    <span class="fw-semibold text-danger" id="textoSelecionadas">0 selecionada(s)</span>
+    <div class="text-muted small">O estoque será revertido automaticamente</div>
+  </div>
+  <button type="button"
+          class="btn btn-danger btn-sm ms-auto"
+          onclick="confirmarExclusao()">
+    <i class="bi bi-trash3 me-1"></i>Excluir Selecionadas
+  </button>
+  <button type="button"
+          class="btn btn-outline-secondary btn-sm"
+          onclick="limparSelecao()">
+    <i class="bi bi-x"></i>
+  </button>
+</div>
+<?php endif; ?>
+
 <?php endif; ?>
 
 <script>
@@ -162,4 +215,37 @@ function togglePessoa(idx) {
   sub.style.display = open ? 'none' : '';
   if (ico) ico.className = open ? 'bi bi-chevron-down' : 'bi bi-chevron-up';
 }
+
+<?php if ($isAdmin): ?>
+function togglePessoaCheck(idx, checked) {
+  document.querySelectorAll('.check-mov-' + idx).forEach(cb => {
+    cb.checked = checked;
+  });
+  atualizarBotaoExcluir();
+}
+
+function atualizarBotaoExcluir() {
+  const selecionadas = document.querySelectorAll('input[name="mov_ids[]"]:checked').length;
+  const barra = document.getElementById('barraExcluir');
+  const texto = document.getElementById('textoSelecionadas');
+  if (selecionadas > 0) {
+    barra.style.display = 'flex';
+    texto.textContent = selecionadas + ' movimentação(ões) selecionada(s)';
+  } else {
+    barra.style.display = 'none';
+  }
+}
+
+function confirmarExclusao() {
+  const n = document.querySelectorAll('input[name="mov_ids[]"]:checked').length;
+  if (!confirm('Excluir ' + n + ' movimentação(ões)?\n\nO estoque de cada item será revertido automaticamente.\n\nEssa ação não pode ser desfeita.')) return;
+  document.getElementById('formExcluir').submit();
+}
+
+function limparSelecao() {
+  document.querySelectorAll('input[name="mov_ids[]"]:checked, .check-pessoa:checked')
+    .forEach(cb => cb.checked = false);
+  atualizarBotaoExcluir();
+}
+<?php endif; ?>
 </script>

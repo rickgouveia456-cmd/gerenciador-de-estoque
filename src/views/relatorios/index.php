@@ -38,6 +38,18 @@
   </div>
 
   <div class="col-md-4">
+    <a href="/relatorios/ficha-epi" class="card p-3 text-decoration-none text-dark d-flex flex-row align-items-center gap-3 card-stat">
+      <div class="rounded-3 p-2" style="background:var(--warning-light)">
+        <i class="bi bi-file-earmark-person fs-4 text-warning"></i>
+      </div>
+      <div>
+        <div class="fw-semibold">Ficha de EPI</div>
+        <div class="text-muted small">FORM.SEG.014 — por colaborador</div>
+      </div>
+    </a>
+  </div>
+
+  <div class="col-md-4">
     <a href="/catalogo/valor_estoque" class="card p-3 text-decoration-none text-dark d-flex flex-row align-items-center gap-3 card-stat">
       <div class="rounded-3 p-2" style="background:var(--success-light)">
         <i class="bi bi-currency-dollar fs-4 text-success"></i>

@@ -70,23 +70,47 @@ if ($u) {
     </a>
     <?php endif; ?>
 
-    <?php if (in_array($u['perfil'], ['mestre','tecnico_seguranca']) || ($u['perfil'] === 'colaborador' && $u['pode_requisitar'])): ?>
-    <a href="/requisicoes/mestre" class="nav-link <?= ($activeMenu ?? '') === 'req_mestre' ? 'active' : '' ?>">
-      <i class="bi bi-clipboard-check me-2"></i>Minhas Requisições
-    </a>
-    <?php endif; ?>
+
 
     <?php if (in_array($u['perfil'], ['admin','almoxarife','analista'])): ?>
     <a href="/movimentacao/lote" class="nav-link <?= ($activeMenu ?? '') === 'movimentacao' ? 'active' : '' ?>">
-      <i class="bi bi-arrow-left-right me-2"></i>Movimentação
+      <i class="bi bi-arrow-left-right me-2"></i>Registro de Movimentação
     </a>
-    <a href="/requisicoes" class="nav-link <?= ($activeMenu ?? '') === 'requisicoes' ? 'active' : '' ?>">
-      <i class="bi bi-list-check me-2"></i>Requisições
-    </a>
-    <a href="/requisicoes/mestre" class="nav-link <?= ($activeMenu ?? '') === 'req_mestre' ? 'active' : '' ?>">
-      <i class="bi bi-clipboard-plus me-2"></i>Req. Mestre
+    <a href="/relatorios/alertas" class="nav-link <?= ($activeMenu ?? '') === 'alertas' ? 'active' : '' ?>">
+      <i class="bi bi-bell me-2"></i>Alertas de Estoque
+      <?php
+      $ids = almoxarifados_permitidos_ids();
+      if ($ids) {
+          $ph = implode(',', array_fill(0, count($ids), '?'));
+          $stA = db()->prepare("SELECT COUNT(*) FROM item WHERE quantidade <= estoque_minimo AND ativo=1 AND almoxarifado_id IN ($ph)");
+          $stA->execute($ids);
+          $nA = (int)$stA->fetchColumn();
+          if ($nA > 0) echo '<span class="badge bg-danger ms-auto rounded-pill">' . $nA . '</span>';
+      }
+      ?>
     </a>
     <?php endif; ?>
+    <?php // Requisicoes - visivel para todos os perfis com acesso ?>
+    <div class="nav-section">Requisições</div>
+    <a href="/requisicoes/mestre" class="nav-link <?= in_array(($activeMenu ?? ''), ['req_mestre','requisicoes']) ? 'active' : '' ?>">
+      <i class="bi bi-clipboard-list me-2"></i>Requisições
+      <?php
+      // Badge requisições pendentes para almoxarife/admin
+      if (in_array($u['perfil'], ['admin','almoxarife'])) {
+          $ids2 = almoxarifados_permitidos_ids();
+          if ($ids2) {
+              $ph2 = implode(',', array_fill(0, count($ids2), '?'));
+              $stR = db()->prepare("SELECT COUNT(*) FROM requisicao_mestre WHERE status='pendente' AND almoxarifado_id IN ($ph2)");
+              $stR->execute($ids2);
+              $nR = (int)$stR->fetchColumn();
+              if ($nR > 0) echo '<span class="badge bg-warning text-dark ms-auto rounded-pill">' . $nR . '</span>';
+          }
+      }
+      ?>
+    </a>
+    <a href="/requisicoes/mestre/nova" class="nav-link <?= ($activeMenu ?? '') === 'req_mestre_nova' ? 'active' : '' ?>">
+      <i class="bi bi-plus-circle me-2"></i>Nova Requisição
+    </a>
   </nav>
 
   <!-- Almoxarifados com sublinks -->

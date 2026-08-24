@@ -1,3 +1,5 @@
+<?php $isNew=!isset($f)||!$f; $vUrl="/ferramentas".($alm?"?alm=".$alm['id']:""); ?>
+<div class="mb-3"><a href="<?= $vUrl ?>" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Voltar</a></div>
 <?php $isNew=!isset($f)||!$f; $action=$isNew?"/ferramentas/nova?alm={$alm['id']}":"/ferramentas/{$f['id']}/editar"; ?>
 <div class="row justify-content-center">
   <div class="col-md-7">

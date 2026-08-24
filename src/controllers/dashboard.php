@@ -86,6 +86,70 @@ $stats = [
     'req_pendentes'       => $reqPendentes,
 ];
 
+
+// ── Previsão de Ruptura (itens em risco nos próximos 15 dias) ──────────────
+$ruptura = [];
+if (!empty($almIds)) {
+    $almIdsStrR = implode(',', array_map('intval', $almIds));
+    $itensAtivos = db()->query(
+        "SELECT * FROM item WHERE ativo=1 AND almoxarifado_id IN ($almIdsStrR) AND quantidade > 0"
+    )->fetchAll();
+
+    $agora = new DateTime();
+    $corte30 = (new DateTime())->modify('-30 days')->format('Y-m-d H:i:s');
+    $corte7  = (new DateTime())->modify('-7 days')->format('Y-m-d H:i:s');
+
+    foreach ($itensAtivos as $it) {
+        $stM = db()->prepare(
+            "SELECT quantidade, data FROM movimentacao
+             WHERE item_id=? AND tipo='saida' AND data>=?"
+        );
+        $stM->execute([$it['id'], $corte30]);
+        $movs = $stM->fetchAll();
+        if (empty($movs)) continue;
+
+        $saidas7  = 0; $saidas30 = 0;
+        foreach ($movs as $m) {
+            $saidas30 += (float)$m['quantidade'];
+            if ($m['data'] >= $corte7) $saidas7 += (float)$m['quantidade'];
+        }
+
+        $cd7  = $saidas7  > 0 ? $saidas7 / 7  : 0;
+        $cd30 = $saidas30 > 0 ? $saidas30 / 30 : 0;
+
+        if ($cd7 > 0 && $cd30 > 0)      $consumoDiario = ($cd7 * 3 + $cd30) / 4;
+        elseif ($cd7 > 0)                $consumoDiario = $cd7;
+        else                             $consumoDiario = $cd30;
+
+        if ($consumoDiario <= 0) continue;
+
+        $diasAteZero   = max(0, (float)$it['quantidade'] / $consumoDiario);
+        $estoqueDisp   = (float)$it['quantidade'] - (float)$it['estoque_minimo'];
+        $diasAteMinimo = $estoqueDisp / $consumoDiario;
+
+        if ($diasAteMinimo > 15) continue; // só mostra risco nos próximos 15 dias
+
+        $urgencia = $diasAteMinimo <= 0  ? 'critico'
+                  : ($diasAteMinimo <= 7  ? 'alerta'
+                  : ($diasAteMinimo <= 15 ? 'aviso'  : 'normal'));
+
+        // Buscar nome do almoxarifado
+        $stA2 = db()->prepare("SELECT nome FROM almoxarifado WHERE id=?");
+        $stA2->execute([$it['almoxarifado_id']]);
+        $almNomeR = $stA2->fetchColumn();
+
+        $ruptura[] = [
+            'item'           => $it,
+            'alm_nome'       => $almNomeR,
+            'dias'           => (int)round(max(0, $diasAteMinimo)),
+            'dias_zero'      => (int)round($diasAteZero),
+            'consumo_diario' => round($consumoDiario, 2),
+            'urgencia'       => $urgencia,
+        ];
+    }
+    usort($ruptura, fn($a, $b) => $a['dias'] <=> $b['dias']);
+    $ruptura = array_slice($ruptura, 0, 10);
+}
 $pageTitle  = 'Dashboard';
 $activeMenu = 'dashboard';
 ob_start();

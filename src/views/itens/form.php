@@ -1,4 +1,9 @@
-<?php $isNew=!isset($it)||!$it; $action=$isNew?'/item/novo':"/item/{$it['id']}/editar"; ?>
+<?php $isNew=!isset($it)||!$it;
+$voltarUrl = $isNew ? ("/almoxarifado/".($almPresel??0)) : "/almoxarifado/{$it['almoxarifado_id']}"; ?>
+<div class="mb-3">
+  <a href="<?= $voltarUrl ?>" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Voltar</a>
+</div>
+<?php $action=$isNew?'/item/novo':"/item/{$it['id']}/editar"; ?>
 <div class="row justify-content-center">
   <div class="col-md-8">
     <div class="card">

@@ -1,3 +1,5 @@
+<?php $isNew=!isset($f)||!$f; $vUrl="/epis".($alm?"?alm=".$alm['id']:""); ?>
+<div class="mb-3"><a href="<?= $vUrl ?>" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Voltar</a></div>
 <?php $isNew=!isset($f)||!$f;$action=$isNew?"/epis/novo?alm={$alm['id']}":"/epis/{$f['id']}/editar"; ?>
 <div class="row justify-content-center"><div class="col-md-7">
   <div class="card"><div class="card-header"><h6 class="mb-0"><?= $isNew?'Novo EPI':'Editar EPI' ?></h6></div>

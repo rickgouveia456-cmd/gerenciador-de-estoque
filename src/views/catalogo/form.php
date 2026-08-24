@@ -1,3 +1,4 @@
+<div class="mb-3"><a href="/catalogo" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Voltar</a></div>
 <?php $isNew=!isset($ins)||!$ins;$action=$isNew?'/catalogo/novo':"/catalogo/{$ins['id']}/editar"; ?>
 <div class="row justify-content-center"><div class="col-md-8">
   <div class="card"><div class="card-header"><h6 class="mb-0"><?= $isNew?'Novo Insumo':'Editar Insumo' ?></h6></div>

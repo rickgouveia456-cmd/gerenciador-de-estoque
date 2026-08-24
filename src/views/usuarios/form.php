@@ -1,3 +1,4 @@
+<div class="mb-3"><a href="/usuarios" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Voltar</a></div>
 <?php $isNew=!isset($u2)||!$u2; $action=$isNew?'/usuarios/novo':"/usuarios/{$u2['id']}/editar"; ?>
 <div class="row justify-content-center"><div class="col-md-8">
   <div class="card"><div class="card-header"><h6 class="mb-0"><?= $isNew?'Novo Usuário':'Editar Usuário' ?></h6></div>

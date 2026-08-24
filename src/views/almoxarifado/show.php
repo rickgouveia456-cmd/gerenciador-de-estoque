@@ -91,7 +91,7 @@
           <?php if(in_array($u['perfil'],['admin','almoxarife'])): ?>
           <td class="text-center">
             <?php $sc=$it['status_compra']??'pendente'; $scMap=['pendente'=>'warning','comprado'=>'success','nao_necessario'=>'secondary']; $scLabel=['pendente'=>'Pendente','comprado'=>'Comprado','nao_necessario'=>'N/A']; ?>
-            <form method="POST" action="/item/<?= $it['id'] ?>/status_compra"><<?= csrf_field() ?>
+            <form method="POST" action="/item/<?= $it['id'] ?>/status_compra"><?= csrf_field() ?>
               <select name="status_compra" class="form-select form-select-sm" onchange="this.form.submit()">
                 <?php foreach($scMap as $val=>$cls): ?><option value="<?= $val ?>" <?= $sc===$val?'selected':'' ?>><?= $scLabel[$val] ?></option><?php endforeach; ?>
               </select>
@@ -125,7 +125,7 @@
     <div class="card-header d-flex justify-content-between align-items-center py-2">
       <span class="fw-semibold small"><i class="bi bi-box2-heart me-1" style="color:var(--accent)"></i>Kits</span>
       <?php if(in_array($u['perfil'],['admin','almoxarife'])): ?>
-      <a href="/kits" class="btn btn-xs btn-outline-secondary" style="font-size:0.7rem;padding:2px 8px">Ver todos</a>
+      
       <?php endif; ?>
     </div>
     <div class="card-body p-0">

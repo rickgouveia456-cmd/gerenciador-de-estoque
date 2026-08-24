@@ -17,8 +17,9 @@ $routes = [
     ['POST',     '#^/logout$#', 'auth/logout.php', []],
 
     // Dashboard
-    ['GET', '#^/$#',         'dashboard.php', []],
-    ['GET', '#^/dashboard$#','dashboard.php', []],
+    ['GET', '#^/$#',               'dashboard.php',        []],
+    ['GET', '#^/dashboard$#',      'dashboard.php',        []],
+    ['GET', '#^/dashboard/tecnico$#','dashboard_tecnico.php',[]],
 
     // Almoxarifados
     ['GET',      '#^/almoxarifado$#',                              'almoxarifado/index.php',   []],
@@ -98,18 +99,22 @@ $routes = [
     ['GET|POST', '#^/catalogo/importar$#',          'catalogo/importar.php',[]],
 
     // Relatorios
-    ['GET', '#^/relatorios$#',              'relatorios/index.php',    []],
-    ['GET', '#^/relatorios/almoxarifado$#', 'relatorios/almoxarifado.php', []],
-    ['GET', '#^/relatorios/consumo$#',      'relatorios/consumo.php',  []],
+    ['GET', '#^/relatorios$#',                              'relatorios/index.php',          []],
+    ['GET', '#^/relatorios/almoxarifado$#',                 'relatorios/almoxarifado.php',   []],
+    ['GET', '#^/relatorios/consumo$#',                      'relatorios/consumo.php',        []],
+    ['GET', '#^/relatorios/consumo/exportar$#',             'relatorios/exportar_consumo.php', []],
+    ['GET|POST', '#^/relatorios/alertas$#',                 'relatorios/alertas.php',        []],
+    ['GET', '#^/relatorios/consumo-por-pessoa$#',           'relatorios/consumo_pessoa.php', []],
 
     // Admin
-    ['GET',  '#^/admin$#',                          'admin/index.php',          []],
-    ['GET',  '#^/admin/backup$#',                   'admin/backup.php',         []],
-    ['POST', '#^/admin/backup/download$#',          'admin/backup_download.php',[]],
-    ['GET',  '#^/admin/reativar_itens$#',           'admin/reativar_itens.php', []],
-    ['POST', '#^/admin/reativar_item/(\d+)$#',      'admin/reativar_item.php',  ['id']],
-    ['POST', '#^/admin/deletar_item/(\d+)$#',       'admin/deletar_item.php',   ['id']],
-    ['POST', '#^/admin/transferir_itens$#',         'admin/transferir_itens.php',[]],
+    ['GET',  '#^/admin$#',                          'admin/index.php',              []],
+    ['GET',  '#^/admin/backup$#',                   'admin/backup.php',             []],
+    ['POST', '#^/admin/backup/download$#',          'admin/backup_download.php',    []],
+    ['GET',  '#^/admin/reativar_itens$#',           'admin/reativar_itens.php',     []],
+    ['POST', '#^/admin/reativar_item/(\d+)$#',      'admin/reativar_item.php',      ['id']],
+    ['POST', '#^/admin/deletar_item/(\d+)$#',       'admin/deletar_item.php',       ['id']],
+    ['POST', '#^/admin/transferir_itens$#',         'admin/transferir_itens.php',   []],
+    ['POST', '#^/admin/sincronizar-valores$#',      'admin/sincronizar_valores.php',[]],
 
     // 2FA
     ['GET|POST', '#^/perfil/2fa/ativar$#',          'auth/2fa_ativar.php',      []],

@@ -1,0 +1,17 @@
+﻿{
+    "name": "logi-prime/php",
+    "description": "Logi-Prime — Sistema de Gestao de Almoxarifado (PHP)",
+    "type": "project",
+    "require": {
+        "php": ">=8.2",
+        "setasign/fpdf": "^1.8"
+    },
+    "autoload": {
+        "psr-4": {
+            "LogiPrime\\": "src/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}

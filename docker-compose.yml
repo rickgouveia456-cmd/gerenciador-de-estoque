@@ -1,0 +1,71 @@
+﻿version: "3.9"
+
+services:
+  app:
+    build: .
+    container_name: logiprime_php
+    ports:
+      - "8080:80"
+    volumes:
+      - ./src:/var/www/html
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-logiprime}
+      DB_USER: ${DB_USER:-logiprime}
+      DB_PASS: ${DB_PASS:-logiprime123}
+      APP_ENV: ${APP_ENV:-development}
+      APP_SECRET: ${APP_SECRET:-changeme_in_production_32chars_min}
+      APP_URL: ${APP_URL:-http://localhost:8080}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - logiprime_net
+
+  db:
+    image: mysql:8.0
+    container_name: logiprime_mysql
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${DB_NAME:-logiprime}
+      MYSQL_USER: ${DB_USER:-logiprime}
+      MYSQL_PASSWORD: ${DB_PASS:-logiprime123}
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ./sql/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - logiprime_net
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: logiprime_pma
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_USER: ${DB_USER:-logiprime}
+      PMA_PASSWORD: ${DB_PASS:-logiprime123}
+    depends_on:
+      - db
+    restart: unless-stopped
+    networks:
+      - logiprime_net
+
+volumes:
+  db_data:
+
+networks:
+  logiprime_net:
+    driver: bridge

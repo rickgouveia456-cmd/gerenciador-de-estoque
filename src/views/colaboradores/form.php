@@ -1,4 +1,4 @@
-﻿<div class="row justify-content-center"><div class="col-md-7">
+<div class="row justify-content-center"><div class="col-md-7">
   <div class="card"><div class="card-header"><h6 class="mb-0">Editar Colaborador</h6></div>
   <div class="card-body"><form method="POST" action="/colaboradores/<?= $c['id'] ?>/editar">
     <?= csrf_field() ?>

@@ -1,4 +1,4 @@
-﻿<?php /* views/requisicoes/index.php */ ?>
+<?php /* views/requisicoes/index.php */ ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h5 class="fw-bold mb-0">Requisições</h5>
   <a href="/requisicoes/nova" class="btn btn-primary btn-sm"><i class="bi bi-plus me-1"></i>Nova</a>

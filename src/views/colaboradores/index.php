@@ -1,4 +1,4 @@
-﻿<?php /* views/colaboradores/index.php */ ?>
+<?php /* views/colaboradores/index.php */ ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h5 class="fw-bold mb-0"><i class="bi bi-people me-2"></i>Colaboradores</h5>
 </div>

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_login(); $u=usuario_atual();
 $podeFazer=in_array($u['perfil'],['mestre','tecnico_seguranca','admin','almoxarife'])||$u['pode_requisitar'];
 if(!$podeFazer){flash('Sem permissao.','danger');redirect('/');}

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_almoxarife(); $u=usuario_atual();
 $ids=almoxarifados_permitidos_ids();
 $almoxarifados=$u['perfil']==='admin' ? db()->query('SELECT * FROM almoxarifado ORDER BY nome')->fetchAll() :

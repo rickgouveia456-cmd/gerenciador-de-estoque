@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Logi-Prime — Router simples
  * Mapeia URI -> controller

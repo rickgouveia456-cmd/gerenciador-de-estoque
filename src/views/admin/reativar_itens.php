@@ -1,4 +1,4 @@
-﻿<?php /* views/admin/reativar_itens.php */ ?>
+<?php /* views/admin/reativar_itens.php */ ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h5 class="fw-bold mb-0"><i class="bi bi-arrow-counterclockwise me-2"></i>Itens Desativados</h5>
   <div class="d-flex gap-2">

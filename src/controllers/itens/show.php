@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_login();
 $id = (int)($params['id']??0); $u=usuario_atual();
 $st = db()->prepare('SELECT i.*,a.nome AS alm_nome FROM item i JOIN almoxarifado a ON a.id=i.almoxarifado_id WHERE i.id=?');

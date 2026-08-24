@@ -1,4 +1,4 @@
-﻿<?php /* views/requisicoes/mestre_index.php */ ?>
+<?php /* views/requisicoes/mestre_index.php */ ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h5 class="fw-bold mb-0"><i class="bi bi-clipboard-check me-2"></i>Requisições</h5>
   <?php if (in_array($u['perfil'], ['mestre','tecnico_seguranca','admin','almoxarife']) || $u['pode_requisitar']): ?>

@@ -1,4 +1,4 @@
-﻿<?php /* views/ferramentas/index.php */ ?>
+<?php /* views/ferramentas/index.php */ ?>
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <h5 class="fw-bold mb-0"><i class="bi bi-tools me-2"></i>Ferramentas</h5>
   <?php if(in_array($u['perfil'],['admin','almoxarife'])): ?>

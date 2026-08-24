@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_admin();
 csrf_check();
 

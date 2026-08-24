@@ -1,4 +1,4 @@
-﻿<h5 class="fw-bold mb-3"><i class="bi bi-cloud-download me-2"></i>Backup</h5>
+<h5 class="fw-bold mb-3"><i class="bi bi-cloud-download me-2"></i>Backup</h5>
 <div class="card">
   <div class="card-body">
     <p class="text-muted">Para exportar os dados do banco MySQL, utilize o phpMyAdmin na porta 8081 ou execute:</p>

@@ -1,4 +1,4 @@
-﻿<div class="row justify-content-center"><div class="col-md-7">
+<div class="row justify-content-center"><div class="col-md-7">
   <div class="card"><div class="card-header"><h6 class="mb-0">Importar Itens — <?= h($alm['nome']) ?></h6></div>
   <div class="card-body">
     <p class="text-muted small">Envie um arquivo CSV com colunas: <code>Codigo;Nome;Categoria;Unidade;Quantidade;Estoque Minimo</code></p>

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_admin();
 $todos=db()->query('SELECT u.*,a.nome AS alm_nome FROM usuario u LEFT JOIN almoxarifado a ON a.id=u.almoxarifado_id ORDER BY u.nome')->fetchAll();
 $grupos=['admin'=>['label'=>'👑 Admin','usuarios'=>[]],'almoxarife'=>['label'=>'📦 Almoxarife','usuarios'=>[]],'mestre'=>['label'=>'🦺 Mestre de Obra','usuarios'=>[]],'tecnico_seguranca'=>['label'=>'🔒 Técnico de Segurança','usuarios'=>[]],'analista'=>['label'=>'📊 Analista','usuarios'=>[]],'colaborador'=>['label'=>'👔 Colaborador/Engenheiro','usuarios'=>[]]];

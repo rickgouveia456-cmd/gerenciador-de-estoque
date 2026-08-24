@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_admin(); $id=(int)($params['id']??0); $atual=usuario_atual();
 $st=db()->prepare('SELECT * FROM usuario WHERE id=?');$st->execute([$id]);$u2=$st->fetch();if(!$u2){http_response_code(404);exit;}
 $almoxarifados=db()->query('SELECT * FROM almoxarifado ORDER BY nome')->fetchAll();

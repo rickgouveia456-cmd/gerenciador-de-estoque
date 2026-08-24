@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Layout base — Logi-Prime PHP
  * Uso: define $pageTitle, $activeMenu antes de incluir

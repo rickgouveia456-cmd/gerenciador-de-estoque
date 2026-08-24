@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 // Tenta conexao basica com o banco
 try {
     db()->query('SELECT 1');

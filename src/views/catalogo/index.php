@@ -1,4 +1,4 @@
-﻿<?php /* views/catalogo/index.php */ ?>
+<?php /* views/catalogo/index.php */ ?>
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <h5 class="fw-bold mb-0"><i class="bi bi-journal-text me-2"></i>Catálogo de Insumos</h5>
   <div class="d-flex gap-2">

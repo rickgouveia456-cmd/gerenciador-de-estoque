@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_admin();
 $almId = (int)($_GET['alm'] ?? 0);
 

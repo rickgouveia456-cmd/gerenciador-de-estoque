@@ -1,4 +1,4 @@
-﻿<?php $isNew=!isset($u2)||!$u2; $action=$isNew?'/usuarios/novo':"/usuarios/{$u2['id']}/editar"; ?>
+<?php $isNew=!isset($u2)||!$u2; $action=$isNew?'/usuarios/novo':"/usuarios/{$u2['id']}/editar"; ?>
 <div class="row justify-content-center"><div class="col-md-8">
   <div class="card"><div class="card-header"><h6 class="mb-0"><?= $isNew?'Novo Usuário':'Editar Usuário' ?></h6></div>
   <div class="card-body"><form method="POST" action="<?= $action ?>">

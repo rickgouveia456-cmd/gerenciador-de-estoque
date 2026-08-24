@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_login(); $id=(int)($params['id']??0); $u=usuario_atual();
 if(!in_array($u['perfil'],['admin','almoxarife'])){flash('Sem permissao.','danger');redirect('/requisicoes/mestre');}
 $st=db()->prepare('SELECT * FROM requisicao_mestre WHERE id=?'); $st->execute([$id]); $req=$st->fetch();

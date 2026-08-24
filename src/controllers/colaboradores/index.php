@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_login(); $u=usuario_atual();
 if(!in_array($u['perfil'],['admin','almoxarife','analista'])){flash('Acesso negado.','danger');redirect('/');}
 $st=db()->query('SELECT * FROM colaborador ORDER BY ativo DESC, nome');$todos=$st->fetchAll();

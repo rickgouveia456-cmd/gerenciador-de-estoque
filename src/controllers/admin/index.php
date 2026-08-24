@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_admin();
 $totalUsuarios=(int)db()->query('SELECT COUNT(*) FROM usuario WHERE ativo=1')->fetchColumn();
 $totalAlm=(int)db()->query('SELECT COUNT(*) FROM almoxarifado')->fetchColumn();

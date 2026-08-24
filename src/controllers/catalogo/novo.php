@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_almoxarife(); $u=usuario_atual();
 $categorias=['geral','epi','maquinario','eletrica','hidraulica','gas'];
 if($_SERVER['REQUEST_METHOD']==='POST'){

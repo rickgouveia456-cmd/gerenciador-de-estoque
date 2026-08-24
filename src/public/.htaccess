@@ -1,4 +1,4 @@
-﻿Options -Indexes
+Options -Indexes
 RewriteEngine On
 
 # Redirecionar tudo para o front controller, exceto assets existentes

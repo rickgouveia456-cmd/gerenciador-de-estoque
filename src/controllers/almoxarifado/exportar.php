@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_login(); $id=(int)($params['id']??0); $u=usuario_atual();
 if(!usuario_tem_acesso_almoxarifado($id)){flash('Acesso negado.','danger');redirect('/');}
 $stA=db()->prepare('SELECT * FROM almoxarifado WHERE id=?');$stA->execute([$id]);$alm=$stA->fetch();

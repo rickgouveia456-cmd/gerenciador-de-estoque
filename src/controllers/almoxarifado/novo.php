@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_admin();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();

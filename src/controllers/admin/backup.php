@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_admin();
 $pageTitle='Backup';$activeMenu='backup';
 ob_start();require VIEWS_PATH.'/admin/backup.php';

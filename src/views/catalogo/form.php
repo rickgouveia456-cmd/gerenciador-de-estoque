@@ -1,4 +1,4 @@
-﻿<?php $isNew=!isset($ins)||!$ins;$action=$isNew?'/catalogo/novo':"/catalogo/{$ins['id']}/editar"; ?>
+<?php $isNew=!isset($ins)||!$ins;$action=$isNew?'/catalogo/novo':"/catalogo/{$ins['id']}/editar"; ?>
 <div class="row justify-content-center"><div class="col-md-8">
   <div class="card"><div class="card-header"><h6 class="mb-0"><?= $isNew?'Novo Insumo':'Editar Insumo' ?></h6></div>
   <div class="card-body"><form method="POST" action="<?= $action ?>">

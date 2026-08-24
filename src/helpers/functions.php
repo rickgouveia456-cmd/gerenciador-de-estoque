@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Logi-Prime — Funcoes utilitarias globais
  */

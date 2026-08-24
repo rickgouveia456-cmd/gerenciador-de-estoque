@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_almoxarife(); $id=(int)($params['id']??0); $u=usuario_atual();
 $st=db()->prepare('SELECT * FROM ferramenta WHERE id=?');$st->execute([$id]);$f=$st->fetch();
 if(!$f||!usuario_tem_acesso_almoxarifado((int)$f['almoxarifado_id'])){flash('Acesso negado.','danger');redirect('/ferramentas');}

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_login(); $u=usuario_atual();
 $colab=trim($_GET['colaborador']??''); $status=$_GET['status']??''; $dini=$_GET['data_ini']??''; $dfim=$_GET['data_fim']??'';
 $ids=almoxarifados_permitidos_ids();

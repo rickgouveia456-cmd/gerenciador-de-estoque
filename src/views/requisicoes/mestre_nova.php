@@ -1,4 +1,4 @@
-﻿<?php /* views/requisicoes/mestre_nova.php */ ?>
+<?php /* views/requisicoes/mestre_nova.php */ ?>
 <div class="card"><div class="card-header"><h6 class="mb-0"><i class="bi bi-clipboard-plus me-2"></i>Nova Requisição de Obra</h6></div>
 <div class="card-body">
   <form method="POST" action="/requisicoes/mestre/nova">

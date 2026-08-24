@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_login(); csrf_check(); $u=usuario_atual();
 if(!in_array($u['perfil'],['admin','almoxarife','analista'])){flash('Acesso negado.','danger');redirect('/');}
 $nome=trim($_POST['nome']??'');

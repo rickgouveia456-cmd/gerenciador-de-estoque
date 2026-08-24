@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_login();
 $almId=(int)($_GET['alm']??0); $q=trim($_GET['q']??'');
 $sql='SELECT id,nome,quantidade,unidade,categoria,ca FROM item WHERE ativo=1';$binds=[];

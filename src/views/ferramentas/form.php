@@ -1,4 +1,4 @@
-﻿<?php $isNew=!isset($f)||!$f; $action=$isNew?"/ferramentas/nova?alm={$alm['id']}":"/ferramentas/{$f['id']}/editar"; ?>
+<?php $isNew=!isset($f)||!$f; $action=$isNew?"/ferramentas/nova?alm={$alm['id']}":"/ferramentas/{$f['id']}/editar"; ?>
 <div class="row justify-content-center">
   <div class="col-md-7">
     <div class="card">

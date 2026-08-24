@@ -1,4 +1,4 @@
-﻿<?php /* views/dashboard/index.php */ ?>
+<?php /* views/dashboard/index.php */ ?>
 <div class="row g-3 mb-4">
   <!-- Stat Cards -->
   <div class="col-6 col-md-3">

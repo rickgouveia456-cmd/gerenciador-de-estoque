@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_admin();
 $almoxarifados=db()->query('SELECT * FROM almoxarifado ORDER BY nome')->fetchAll();
 $permissoesDisp=['fazer_requisicao'=>'Fazer Requisições','ver_relatorios'=>'Ver Relatórios','ver_alertas'=>'Ver Alertas'];

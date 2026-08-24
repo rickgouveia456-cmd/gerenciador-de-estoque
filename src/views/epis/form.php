@@ -1,4 +1,4 @@
-﻿<?php $isNew=!isset($f)||!$f;$action=$isNew?"/epis/novo?alm={$alm['id']}":"/epis/{$f['id']}/editar"; ?>
+<?php $isNew=!isset($f)||!$f;$action=$isNew?"/epis/novo?alm={$alm['id']}":"/epis/{$f['id']}/editar"; ?>
 <div class="row justify-content-center"><div class="col-md-7">
   <div class="card"><div class="card-header"><h6 class="mb-0"><?= $isNew?'Novo EPI':'Editar EPI' ?></h6></div>
   <div class="card-body"><form method="POST" action="<?= $action ?>">

@@ -1,4 +1,4 @@
-﻿<?php /* views/requisicoes/nova.php */ ?>
+<?php /* views/requisicoes/nova.php */ ?>
 <div class="card"><div class="card-header"><h6 class="mb-0">Nova Requisição</h6></div>
 <div class="card-body">
   <form method="POST" action="/requisicoes/nova">

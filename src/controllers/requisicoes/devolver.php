@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_login(); csrf_check(); $id=(int)($params['id']??0); $u=usuario_atual();
 $st=db()->prepare('SELECT r.*,i.almoxarifado_id,i.nome AS item_nome,i.unidade FROM requisicao r JOIN item i ON i.id=r.item_id WHERE r.id=?');
 $st->execute([$id]); $r=$st->fetch();

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 if (usuario_logado()) redirect('/');
 
 $erro = '';

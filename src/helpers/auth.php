@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Logi-Prime — Helpers de autenticacao e controle de acesso
  */

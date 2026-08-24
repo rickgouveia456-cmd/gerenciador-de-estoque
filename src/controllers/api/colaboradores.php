@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_login();
 $busca  = trim($_GET['q'] ?? '');
 $escopo = $_GET['escopo'] ?? '';

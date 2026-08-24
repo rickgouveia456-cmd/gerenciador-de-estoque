@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_login(); $u=usuario_atual();
 $almId=(int)($_GET['almoxarifado_id']??0);
 $dataIni=$_GET['data_ini']??date('Y-m-01');

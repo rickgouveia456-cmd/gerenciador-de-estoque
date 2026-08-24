@@ -1,4 +1,4 @@
-﻿<?php /* views/requisicoes/mestre_detalhe.php */
+<?php /* views/requisicoes/mestre_detalhe.php */
 $statusMap=['pendente'=>['warning','clock','Pendente'],'aprovada'=>['info','check-circle','Aprovada'],'recusada'=>['danger','x-circle','Recusada'],'entregue'=>['success','bag-check','Entregue'],'parcial'=>['warning','dash-circle','Parcial'],'cancelada'=>['secondary','slash-circle','Cancelada']];
 [$cls,$ico,$lbl]=$statusMap[$req['status']]??['secondary','question','?'];
 ?>

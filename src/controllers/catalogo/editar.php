@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_almoxarife(); $id=(int)($params['id']??0);
 $st=db()->prepare('SELECT * FROM catalogo_insumo WHERE id=?');$st->execute([$id]);$ins=$st->fetch();if(!$ins){http_response_code(404);exit;}
 $categorias=['geral','epi','maquinario','eletrica','hidraulica','gas'];

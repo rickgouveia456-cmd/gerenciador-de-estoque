@@ -1,4 +1,4 @@
-﻿<?php /* views/epis/index.php */ ?>
+<?php /* views/epis/index.php */ ?>
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <h5 class="fw-bold mb-0"><i class="bi bi-shield-check me-2"></i>EPIs</h5>
   <div class="d-flex gap-2">

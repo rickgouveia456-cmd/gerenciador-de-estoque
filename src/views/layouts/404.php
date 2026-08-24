@@ -1,4 +1,4 @@
-﻿<?php $pageTitle = 'Página não encontrada'; ob_start(); ?>
+<?php $pageTitle = 'Página não encontrada'; ob_start(); ?>
 <div class="d-flex flex-column align-items-center justify-content-center" style="min-height:60vh">
   <div class="display-1 fw-bold text-muted">404</div>
   <h2 class="mb-3">Página não encontrada</h2>

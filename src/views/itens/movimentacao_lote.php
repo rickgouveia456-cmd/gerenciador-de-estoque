@@ -1,4 +1,4 @@
-﻿<?php /* views/itens/movimentacao_lote.php */ ?>
+<?php /* views/itens/movimentacao_lote.php */ ?>
 <div class="row g-3">
   <div class="col-lg-7">
     <div class="card">

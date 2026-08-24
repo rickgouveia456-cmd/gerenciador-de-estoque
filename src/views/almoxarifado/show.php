@@ -1,4 +1,4 @@
-﻿<?php /* views/almoxarifado/show.php */ ?>
+<?php /* views/almoxarifado/show.php */ ?>
 <!-- Header -->
 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
   <div>

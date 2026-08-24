@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_admin(); csrf_check(); $id=(int)($params['id']??0); $atual=usuario_atual();
 $acao=$_POST['acao']??'';
 if($acao==='acesso_extra'){

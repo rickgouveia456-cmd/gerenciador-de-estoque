@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_login(); $id=(int)($params['id']??0); $u=usuario_atual();
 if(!in_array($u['perfil'],['admin','almoxarife','analista'])){flash('Acesso negado.','danger');redirect('/');}
 $st=db()->prepare('SELECT * FROM colaborador WHERE id=?');$st->execute([$id]);$c=$st->fetch();if(!$c){http_response_code(404);exit;}

@@ -1,4 +1,4 @@
-﻿<h5 class="fw-bold mb-3"><i class="bi bi-sliders me-2"></i>Painel Admin</h5>
+<h5 class="fw-bold mb-3"><i class="bi bi-sliders me-2"></i>Painel Admin</h5>
 <div class="row g-3 mb-4">
   <?php foreach([['Usuários Ativos',$totalUsuarios,'people','info'],['Almoxarifados',$totalAlm,'buildings','accent'],['Itens Ativos',$totalItens,'box-seam','success'],['Movimentações',$totalMov,'arrow-left-right','warning']] as [$lbl,$n,$ico,$c]): ?>
   <div class="col-6 col-md-3"><div class="card p-3 text-center"><div class="fs-2 fw-bold" style="color:var(--<?= $c ?>)"><?= $n ?></div><div class="text-muted small"><?= $lbl ?></div></div></div>

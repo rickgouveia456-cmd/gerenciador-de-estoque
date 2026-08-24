@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_login();
 $id = (int)($params['id'] ?? 0);
 $u  = usuario_atual();

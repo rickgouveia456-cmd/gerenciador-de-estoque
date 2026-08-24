@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Logi-Prime PHP — Front Controller
  * Ponto de entrada unico de todas as requisicoes

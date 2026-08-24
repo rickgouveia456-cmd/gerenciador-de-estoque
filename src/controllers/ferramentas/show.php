@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_login(); $id=(int)($params['id']??0); $u=usuario_atual();
 $st=db()->prepare('SELECT f.*,a.nome AS alm_nome FROM ferramenta f JOIN almoxarifado a ON a.id=f.almoxarifado_id WHERE f.id=?');
 $st->execute([$id]);$f=$st->fetch();

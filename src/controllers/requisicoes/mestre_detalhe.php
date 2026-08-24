@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_login(); $id=(int)($params['id']??0); $u=usuario_atual();
 $st=db()->prepare('SELECT rm.*,u.nome AS mestre_nome,a.nome AS alm_nome,e.nome AS entregue_nome FROM requisicao_mestre rm JOIN usuario u ON u.id=rm.mestre_id JOIN almoxarifado a ON a.id=rm.almoxarifado_id LEFT JOIN usuario e ON e.id=rm.entregue_por_id WHERE rm.id=?');
 $st->execute([$id]); $req=$st->fetch();

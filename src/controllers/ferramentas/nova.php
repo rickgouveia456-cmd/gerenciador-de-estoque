@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_almoxarife(); $u=usuario_atual();
 $almId=(int)($_GET['alm']??0);
 $st=db()->prepare('SELECT * FROM almoxarifado WHERE id=?');$st->execute([$almId]);$alm=$st->fetch();

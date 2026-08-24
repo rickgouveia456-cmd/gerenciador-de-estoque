@@ -1,4 +1,4 @@
-﻿<?php /* views/epis/modulo.php */ ?>
+<?php /* views/epis/modulo.php */ ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h5 class="fw-bold mb-0"><i class="bi bi-person-badge me-2"></i>Módulo EPI</h5>
 </div>

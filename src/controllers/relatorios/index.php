@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_login(); $u=usuario_atual();
 $pageTitle='Relatórios';$activeMenu='relatorios';
 ob_start();require VIEWS_PATH.'/relatorios/index.php';

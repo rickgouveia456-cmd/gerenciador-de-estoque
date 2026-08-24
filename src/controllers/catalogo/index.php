@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_login(); $u=usuario_atual();
 $q=trim($_GET['q']??'');$cat=$_GET['categoria']??'';
 $sql='SELECT * FROM catalogo_insumo WHERE ativo=1';$binds=[];

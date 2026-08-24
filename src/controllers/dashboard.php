@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_login();
 $u = usuario_atual();
 

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_login(); $u=usuario_atual();
 $almId=(int)($_GET['alm']??0);
 if($almId&&!usuario_tem_acesso_almoxarifado($almId)){flash('Acesso negado.','danger');redirect('/');}

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_login(); csrf_check(); $id=(int)($params['id']??0); $u=usuario_atual();
 if(!in_array($u['perfil'],['admin','almoxarife'])){flash('Acesso negado.','danger');redirect("/requisicoes/mestre/$id");}
 $st=db()->prepare('SELECT * FROM requisicao_mestre WHERE id=?'); $st->execute([$id]); $req=$st->fetch();

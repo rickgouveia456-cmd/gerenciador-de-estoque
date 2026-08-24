@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 requer_login(); csrf_check(); $id=(int)($params['id']??0); $u=usuario_atual();
 $st=db()->prepare('SELECT * FROM requisicao_mestre WHERE id=?');$st->execute([$id]);$req=$st->fetch();
 if(!$req){http_response_code(404);exit;}

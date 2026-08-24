@@ -98,26 +98,3 @@ window.addLinhaMovimentacao = function(almId, itensJson) {
     </td>`;
   tbody.appendChild(tr);
 };
-
-// ── Persistir scroll da sidebar entre navegacoes ──────────────
-(function() {
-  const SCROLL_KEY = 'sidebar_scroll';
-  const sidebar = document.getElementById('sidebar');
-  if (!sidebar) return;
-
-  // Restaurar posicao ao carregar
-  const saved = sessionStorage.getItem(SCROLL_KEY);
-  if (saved) sidebar.scrollTop = parseInt(saved, 10);
-
-  // Salvar posicao antes de sair
-  window.addEventListener('beforeunload', function() {
-    sessionStorage.setItem(SCROLL_KEY, sidebar.scrollTop);
-  });
-
-  // Salvar em cada link da sidebar (mais confiavel em SPA-like)
-  sidebar.querySelectorAll('a').forEach(function(a) {
-    a.addEventListener('click', function() {
-      sessionStorage.setItem(SCROLL_KEY, sidebar.scrollTop);
-    });
-  });
-})();

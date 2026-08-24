@@ -44,7 +44,9 @@ body {
     transition: transform 0.3s ease;
     overflow-y: auto;
     overflow-x: hidden;
+    overflow-anchor: none; /* evita scroll jump ao expandir submenus */
     border-right: 1px solid var(--border);
+    scroll-behavior: auto; /* desabilita smooth que causa loop */
 }
 .sidebar .brand {
     padding: 14px 20px;
@@ -330,7 +332,7 @@ hr { border-color: var(--border); }
     .page-body { padding: 14px; }
 }
 
-/* ── Sidebar scroll fix ─────────────────────────────────────── */
+
 .sidebar {
   overflow-y: auto !important;
   scroll-behavior: smooth;

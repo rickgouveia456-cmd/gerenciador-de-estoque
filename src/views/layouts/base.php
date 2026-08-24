@@ -293,7 +293,10 @@ if ($u) {
 // Sidebar almoxarifado toggle
 function toggleAlm(id) {
   const sidebar = document.getElementById('sidebar');
+  // Travar scroll antes de qualquer mudanca no DOM
+  if (sidebar) sidebar.style.overflow = 'hidden';
   const scrollY = sidebar ? sidebar.scrollTop : 0;
+
   const sub = document.getElementById('sub-alm-' + id);
   const btn = document.getElementById('btn-alm-' + id);
   if (!sub) return;
@@ -302,7 +305,13 @@ function toggleAlm(id) {
   if (btn) btn.innerHTML = isOpen
     ? '<i class="bi bi-chevron-down"></i>'
     : '<i class="bi bi-chevron-up"></i>';
-  if (sidebar) requestAnimationFrame(() => { sidebar.scrollTop = scrollY; });
+
+  // Restaurar scroll e desbloquear overflow
+  if (sidebar) {
+    sidebar.scrollTop = scrollY;
+    sidebar.style.overflow = '';
+  }
+
   try {
     const states = JSON.parse(sessionStorage.getItem('almStates') || '{}');
     states[id] = !isOpen;

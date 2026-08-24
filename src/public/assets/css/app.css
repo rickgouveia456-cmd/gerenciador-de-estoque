@@ -324,7 +324,7 @@ hr { border-color: var(--border); }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
 /* ── Responsivo ── */
-@media (max-width: 767px) {
+@media (max-width: 991px) {
     .sidebar { transform: translateX(-100%); }
     .sidebar.open { transform: translateX(0); }
     .main-content { margin-left: 0; }
@@ -335,7 +335,7 @@ hr { border-color: var(--border); }
 
 .sidebar {
   overflow-y: auto !important;
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
 }
 .sidebar::-webkit-scrollbar { width: 4px; }
 .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }

@@ -98,3 +98,7 @@ window.addLinhaMovimentacao = function(almId, itensJson) {
     </td>`;
   tbody.appendChild(tr);
 };
+
+
+  });
+});

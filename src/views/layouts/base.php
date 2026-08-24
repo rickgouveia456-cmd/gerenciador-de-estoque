@@ -57,7 +57,7 @@ if ($u) {
       <img src="/assets/icons/logo-sidebar.svg" height="32" alt="Logi-Prime">
       <span class="fw-bold text-dark fs-6">Logi-Prime</span>
     </a>
-    <button class="btn btn-sm d-md-none border-0" onclick="closeSidebar()">
+    <button class="btn btn-sm d-lg-none border-0" onclick="closeSidebar()">
       <i class="bi bi-x-lg"></i>
     </button>
   </div>
@@ -231,7 +231,7 @@ if ($u) {
   <!-- Topbar -->
   <div class="topbar">
     <div class="d-flex align-items-center gap-3">
-      <button class="btn btn-sm border-0 d-md-none" onclick="openSidebar()">
+      <button class="btn btn-sm border-0 d-lg-none" onclick="openSidebar()">
         <i class="bi bi-list fs-5"></i>
       </button>
       <span class="topbar-title"><?= h($pageTitle) ?></span>

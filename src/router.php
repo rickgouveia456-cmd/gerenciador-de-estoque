@@ -123,6 +123,18 @@ $routes = [
     ['GET',  '#^/api/almoxarifados$#',              'api/almoxarifados.php',    []],
     ['POST', '#^/api/movimentacao/foto/(\d+)$#',    'api/foto_movimentacao.php',['id']],
 
+
+    // Req mestre cancelar
+    ['POST', '#^/requisicoes/mestre/(\d+)/cancelar$#', 'requisicoes/mestre_cancelar.php', ['id']],
+
+    // Exportar + importar almoxarifado
+    ['GET', '#^/almoxarifado/(\d+)/exportar$#',      'almoxarifado/exportar.php',     ['id']],
+    ['GET|POST', '#^/almoxarifado/(\d+)/importar$#', 'almoxarifado/importar.php',     ['id']],
+    ['GET', '#^/almoxarifado/(\d+)/modelo_excel$#',  'almoxarifado/modelo_excel.php', ['id']],
+
+    // API extras
+    ['GET', '#^/api/itens$#',          'api/itens.php',          []],
+    ['GET', '#^/api/almoxarifados$#',  'api/almoxarifados.php',  []],
     // Healthcheck
     ['GET', '#^/healthz$#', 'api/healthz.php', []],
 ];
@@ -158,3 +170,5 @@ if (!$matched) {
     http_response_code(404);
     require ROOT_PATH . '/views/layouts/404.php';
 }
+
+

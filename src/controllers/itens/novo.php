@@ -11,7 +11,8 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     $ex->execute([$codigo,$almId]); $existente=$ex->fetch();
     if($existente){flash("Código \"$codigo\" já usado por \"{$existente['nome']}\" neste almoxarifado.",'danger');}
     else {
-        db()->prepare('INSERT INTO item (nome,codigo,unidade,quantidade,estoque_minimo,almoxarifado_id,categoria,ca) VALUES (?,?,?,?,?,?,?,?)')->execute([trim($_POST['nome']),$codigo,trim($_POST['unidade']),(float)($_POST['quantidade']??0),(float)($_POST['estoque_minimo']??0),$almId,$_POST['categoria']??'geral',trim($_POST['ca']??'')?:null]);
+        $valorUnit = isset($_POST['valor_unitario']) && $_POST['valor_unitario'] !== '' ? (float)str_replace(',','.',$_POST['valor_unitario']) : null;
+        db()->prepare('INSERT INTO item (nome,codigo,unidade,quantidade,estoque_minimo,almoxarifado_id,categoria,ca,valor_unitario) VALUES (?,?,?,?,?,?,?,?,?)')->execute([trim($_POST['nome']),$codigo,trim($_POST['unidade']),(float)($_POST['quantidade']??0),(float)($_POST['estoque_minimo']??0),$almId,$_POST['categoria']??'geral',trim($_POST['ca']??'')?:null,$valorUnit]);
         flash('Item cadastrado!','success'); redirect("/almoxarifado/$almId");
     }
 }

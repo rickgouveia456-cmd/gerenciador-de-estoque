@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS almoxarifado (
     descricao   VARCHAR(200),
     obra        VARCHAR(100),
     cidade      VARCHAR(100),
+    regiao      VARCHAR(100),
     criado_em   DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -34,6 +35,7 @@ CREATE TABLE IF NOT EXISTS usuario (
     totp_secret       VARCHAR(32),
     pode_requisitar   TINYINT(1) DEFAULT 0,
     pode_ver_alertas  TINYINT(1) DEFAULT 0,
+    regiao            VARCHAR(100),
     criado_em         DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (almoxarifado_id) REFERENCES almoxarifado(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

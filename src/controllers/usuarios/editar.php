@@ -11,7 +11,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     if($u2['id']==$atual['id']&&$novoPerfil!=='admin'){flash('Não pode remover próprio perfil admin.','danger');redirect("/usuarios/$id/editar");}
     $ativo=isset($_POST['ativo'])?1:0;
     if($u2['id']==$atual['id']) $ativo=1;
-    db()->prepare('UPDATE usuario SET nome=?,login=?,perfil=?,almoxarifado_id=?,email=?,ativo=?,pode_requisitar=?,pode_ver_alertas=? WHERE id=?')->execute([trim($_POST['nome']),trim($_POST['login']),$novoPerfil,$_POST['almoxarifado_id']??null?:null,trim($_POST['email']??'')?:null,$ativo,isset($_POST['pode_requisitar'])?1:0,isset($_POST['pode_ver_alertas'])?1:0,$id]);
+    db()->prepare('UPDATE usuario SET nome=?,login=?,perfil=?,almoxarifado_id=?,email=?,ativo=?,pode_requisitar=?,pode_ver_alertas=?,regiao=? WHERE id=?')->execute([trim($_POST['nome']),trim($_POST['login']),$novoPerfil,$_POST['almoxarifado_id']??null?:null,trim($_POST['email']??'')?:null,$ativo,isset($_POST['pode_requisitar'])?1:0,isset($_POST['pode_ver_alertas'])?1:0,trim($_POST['regiao']??'')?:null,$id]);
     if(!empty($_POST['senha'])){ if(strlen($_POST['senha'])<8){flash('Senha mínima 8 chars.','danger');redirect("/usuarios/$id/editar");}
         db()->prepare('UPDATE usuario SET senha_hash=? WHERE id=?')->execute([password_hash($_POST['senha'],PASSWORD_BCRYPT),$id]); }
     flash('Usuário atualizado!','success');redirect('/usuarios');

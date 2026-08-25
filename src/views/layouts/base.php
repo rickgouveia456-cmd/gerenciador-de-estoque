@@ -119,7 +119,8 @@ if ($u) {
   // Agrupar por cidade
   $cidadeGrupos = [];
   foreach($sidebarAlms as $alm) {
-      $cidade = $alm['cidade'] ?: 'Sem Cidade';
+      $localizacao = ($alm['regiao'] ?? '') ? ($alm['regiao'] . ' — ' . ($alm['cidade'] ?: 'Sem Cidade')) : ($alm['cidade'] ?: 'Sem Cidade');
+      $cidade = $localizacao;
       $cidadeGrupos[$cidade][] = $alm;
   }
   ?>

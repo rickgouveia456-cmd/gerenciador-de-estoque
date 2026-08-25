@@ -675,3 +675,83 @@ html[data-theme="dark"] .dark-toggle-wrap .icon-moon { opacity:1; color:#ff7043;
     .bottom-nav { display: none !important; }
     .main-content { padding-bottom: 0; }
 }
+
+/* ── Dark mode — elementos complementares ───────────────── */
+html[data-theme="dark"] .topbar { background-color: #1a2232 !important; }
+html[data-theme="dark"] .main-content { background-color: #0f1623 !important; }
+html[data-theme="dark"] .page-body { background-color: #0f1623 !important; min-height: 100vh; }
+html[data-theme="dark"] body > .page-body { background-color: #0f1623 !important; }
+
+/* Nav tabs dark */
+html[data-theme="dark"] .nav-tabs .nav-link.active {
+    background-color: #ff7043 !important;
+    border-color: #ff7043 !important;
+    color: #fff !important;
+}
+html[data-theme="dark"] .nav-tabs .nav-link {
+    color: #8898aa !important;
+    border-color: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Select options dark (browser native) */
+html[data-theme="dark"] select option {
+    background-color: #1a2232;
+    color: #e2e8f0;
+}
+
+/* Inputs readonly/disabled */
+html[data-theme="dark"] .form-control:disabled,
+html[data-theme="dark"] .form-control[readonly] {
+    background-color: rgba(255,255,255,0.03) !important;
+    color: #8898aa !important;
+}
+
+/* Accordion botão */
+html[data-theme="dark"] .accordion-button:not(.collapsed) {
+    background-color: rgba(255,112,67,0.15) !important;
+    color: #ff7043 !important;
+}
+html[data-theme="dark"] .accordion-button::after {
+    filter: invert(0.7);
+}
+
+/* Pill/tag badges customizados */
+html[data-theme="dark"] [style*="background:var(--accent-light)"],
+html[data-theme="dark"] [style*="background: var(--accent-light)"] {
+    background: rgba(255,112,67,0.15) !important;
+}
+
+/* Sidebar footer */
+html[data-theme="dark"] .sidebar .border-top {
+    border-color: #2a3547 !important;
+    background: #1e2530 !important;
+}
+
+/* Card hover no dark */
+html[data-theme="dark"] .card-stat:hover {
+    box-shadow: 0 10px 28px rgba(0,0,0,0.5) !important;
+    border-color: #ff7043 !important;
+}
+
+/* Bottom nav dark */
+html[data-theme="dark"] .bottom-nav {
+    background: #1e2530 !important;
+    border-top-color: #2a3547 !important;
+}
+html[data-theme="dark"] .bottom-nav-item { color: #8898aa !important; }
+html[data-theme="dark"] .bottom-nav-item.active { color: #ff7043 !important; }
+html[data-theme="dark"] .bottom-nav-item:hover { background: rgba(255,112,67,0.1) !important; color: #ff7043 !important; }
+
+/* Topbar title dark */
+html[data-theme="dark"] .topbar-title {
+    background: linear-gradient(135deg,#ff7043,#ff8a50) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+}
+
+/* Garantir que table dentro de card fique escura */
+html[data-theme="dark"] .card .table-responsive { background: transparent !important; }
+html[data-theme="dark"] .card table { background: transparent !important; }
+html[data-theme="dark"] tbody, html[data-theme="dark"] thead, html[data-theme="dark"] tr { background: transparent !important; }

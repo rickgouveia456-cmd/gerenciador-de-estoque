@@ -155,6 +155,12 @@ function avatarIniciais(string $nome): string {
           <i class="bi bi-dash-circle me-1"></i>Sem almoxarifado
         </div>
         <?php endif; ?>
+        <?php if (!empty($u2['regiao'])): ?>
+        <div class="text-muted d-flex align-items-center gap-1 mt-1" style="font-size:0.75rem">
+          <i class="bi bi-geo-alt" style="color:var(--accent)"></i>
+          <span><?= h($u2['regiao']) ?></span>
+        </div>
+        <?php endif; ?>
       </div>
 
       <!-- Ações -->

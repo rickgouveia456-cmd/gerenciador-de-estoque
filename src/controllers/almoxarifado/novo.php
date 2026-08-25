@@ -2,12 +2,13 @@
 requer_admin();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
-    $stmt = db()->prepare('INSERT INTO almoxarifado (nome,descricao,obra,cidade) VALUES (?,?,?,?)');
+    $stmt = db()->prepare('INSERT INTO almoxarifado (nome,descricao,obra,cidade,regiao) VALUES (?,?,?,?,?)');
     $stmt->execute([
         trim($_POST['nome']),
         trim($_POST['descricao'] ?? ''),
         trim($_POST['obra'] ?? '') ?: null,
         trim($_POST['cidade'] ?? '') ?: null,
+        trim($_POST['regiao'] ?? '') ?: null,
     ]);
     flash('Almoxarifado criado!', 'success');
     redirect('/');

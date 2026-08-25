@@ -8,8 +8,8 @@ if (!$alm) { http_response_code(404); exit; }
 if (!usuario_tem_acesso_almoxarifado($id)) { flash('Acesso negado.','danger'); redirect('/'); }
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
-    db()->prepare('UPDATE almoxarifado SET nome=?,descricao=?,obra=?,cidade=? WHERE id=?')
-       ->execute([trim($_POST['nome']),trim($_POST['descricao']??''),trim($_POST['obra']??'')?:null,trim($_POST['cidade']??'')?:null,$id]);
+    db()->prepare('UPDATE almoxarifado SET nome=?,descricao=?,obra=?,cidade=?,regiao=? WHERE id=?')
+       ->execute([trim($_POST['nome']),trim($_POST['descricao']??''),trim($_POST['obra']??'')?:null,trim($_POST['cidade']??'')?:null,trim($_POST['regiao']??'')?:null,$id]);
     flash('Almoxarifado atualizado!','success');
     redirect("/almoxarifado/$id");
 }

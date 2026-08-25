@@ -13,7 +13,8 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         $tipo=$diff>0?'entrada':'saida';
         db()->prepare('INSERT INTO movimentacao (tipo,quantidade,responsavel,observacao,item_id) VALUES (?,?,?,?,?)')->execute([$tipo,abs($diff),$u['nome'],"Ajuste manual: {$it['quantidade']} → $novaQtd {$it['unidade']}",$id]);
     }
-    db()->prepare('UPDATE item SET nome=?,codigo=?,unidade=?,quantidade=?,estoque_minimo=?,almoxarifado_id=?,categoria=?,ca=? WHERE id=?')->execute([trim($_POST['nome']),trim($_POST['codigo']),trim($_POST['unidade']),$novaQtd,(float)$_POST['estoque_minimo'],(int)$_POST['almoxarifado_id'],$_POST['categoria']??'geral',trim($_POST['ca']??'')?:null,$id]);
+    $valorUnit = isset($_POST['valor_unitario']) && $_POST['valor_unitario'] !== '' ? (float)str_replace(',','.',$_POST['valor_unitario']) : null;
+    db()->prepare('UPDATE item SET nome=?,codigo=?,unidade=?,quantidade=?,estoque_minimo=?,almoxarifado_id=?,categoria=?,ca=?,valor_unitario=? WHERE id=?')->execute([trim($_POST['nome']),trim($_POST['codigo']),trim($_POST['unidade']),$novaQtd,(float)$_POST['estoque_minimo'],(int)$_POST['almoxarifado_id'],$_POST['categoria']??'geral',trim($_POST['ca']??'')?:null,$valorUnit,$id]);
     flash('Item atualizado!','success'); redirect("/almoxarifado/{$_POST['almoxarifado_id']}");
 }
 $pageTitle='Editar Item'; $activeMenu='almoxarifado'; $activeAlmId=$it['almoxarifado_id'];

@@ -11,6 +11,13 @@
       <div class="col-md-6"><label class="form-label fw-semibold">Email</label><input type="email" name="email" class="form-control" value="<?= h($u2['email']??'') ?>"></div>
       <div class="col-md-4"><label class="form-label fw-semibold">Perfil *</label><select name="perfil" class="form-select"><?php foreach(['admin','almoxarife','mestre','tecnico_seguranca','analista','colaborador'] as $p): ?><option value="<?= $p ?>" <?= ($u2['perfil']??'')===$p?'selected':'' ?>><?= ucfirst(str_replace('_',' ',$p)) ?></option><?php endforeach; ?></select></div>
       <div class="col-md-8"><label class="form-label fw-semibold">Almoxarifado</label><select name="almoxarifado_id" class="form-select"><option value="">—</option><?php foreach($almoxarifados as $a): ?><option value="<?= $a['id'] ?>" <?= ($u2['almoxarifado_id']??0)==$a['id']?'selected':'' ?>><?= h($a['nome']) ?></option><?php endforeach; ?></select></div>
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">Região / Obra</label>
+        <input type="text" name="regiao" class="form-control"
+               placeholder="Ex: Obra Patamares, Norte..."
+               value="<?= h($u2['regiao'] ?? '') ?>">
+        <div class="form-text">Identifica qual obra ou região este usuário pertence</div>
+      </div>
       <?php if(!$isNew): ?>
       <div class="col-md-4"><div class="form-check mt-4"><input type="checkbox" name="ativo" class="form-check-input" <?= $u2['ativo']?'checked':'' ?>><label class="form-check-label">Ativo</label></div></div>
       <div class="col-md-4"><div class="form-check mt-4"><input type="checkbox" name="pode_requisitar" class="form-check-input" <?= $u2['pode_requisitar']?'checked':'' ?>><label class="form-check-label">Pode Requisitar</label></div></div>

@@ -23,6 +23,12 @@
               <label class="form-label fw-semibold">Cidade</label>
               <input type="text" name="cidade" class="form-control" value="<?= h($alm['cidade'] ?? '') ?>">
             </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label fw-semibold">Região</label>
+              <input type="text" name="regiao" class="form-control"
+                     placeholder="Ex: Norte, Sul, Zona Leste..."
+                     value="<?= h($alm['regiao'] ?? '') ?>">
+            </div>
           </div>
           <div class="d-flex gap-2">
             <button type="submit" class="btn btn-primary"><?= $isNew ? 'Criar' : 'Salvar' ?></button>

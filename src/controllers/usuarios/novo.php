@@ -10,7 +10,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     elseif(strlen($_POST['senha']??'')<8){flash('Senha mínima 8 caracteres.','danger');}
     else{
         $hash=password_hash($_POST['senha'],PASSWORD_BCRYPT);
-        db()->prepare('INSERT INTO usuario (nome,login,senha_hash,perfil,almoxarifado_id,email,pode_requisitar,pode_ver_alertas) VALUES (?,?,?,?,?,?,?,?)')->execute([trim($_POST['nome']),$login,$hash,$_POST['perfil']??'colaborador',$_POST['almoxarifado_id']??null?:null,trim($_POST['email']??'')?:null,isset($_POST['pode_requisitar'])?1:0,isset($_POST['pode_ver_alertas'])?1:0]);
+        db()->prepare('INSERT INTO usuario (nome,login,senha_hash,perfil,almoxarifado_id,email,pode_requisitar,pode_ver_alertas,regiao) VALUES (?,?,?,?,?,?,?,?,?)')->execute([trim($_POST['nome']),$login,$hash,$_POST['perfil']??'colaborador',$_POST['almoxarifado_id']??null?:null,trim($_POST['email']??'')?:null,isset($_POST['pode_requisitar'])?1:0,isset($_POST['pode_ver_alertas'])?1:0,trim($_POST['regiao']??'')?:null]);
         flash('Usuário criado!','success');redirect('/usuarios');
     }
 }

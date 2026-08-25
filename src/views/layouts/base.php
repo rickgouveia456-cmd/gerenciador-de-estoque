@@ -27,7 +27,7 @@ if ($u) {
 }
 ?>
 <!DOCTYPE html>
-<html lang="pt-BR">
+<?php $isDark = ($_COOKIE["theme"] ?? "") === "dark"; ?><html lang="pt-BR" data-theme="<?= $isDark ? "dark" : "light" ?>">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -261,6 +261,12 @@ if ($u) {
       <span class="topbar-title"><?= h($pageTitle) ?></span>
     </div>
     <div class="d-flex align-items-center gap-2">
+      <!-- Dark Mode Toggle -->
+      <div class="dark-toggle-wrap">
+        <i class="bi bi-sun icon-sun" style="font-size:.9rem"></i>
+        <button id="darkModeToggle" onclick="toggleDark()" title="Modo escuro/claro"></button>
+        <i class="bi bi-moon icon-moon" style="font-size:.85rem"></i>
+      </div>
       <?php
       // Contador de alertas
       $nAlertas = 0;
@@ -400,5 +406,9 @@ function toggleAlm(id) {
     sessionStorage.setItem('sidebarScrollTop', sidebar.scrollTop);
   });
 })();
+<script>
+(function(){var t=localStorage.getItem("lp_theme")||"";if(!t){var m=document.cookie.match(/theme=([^;]+)/);t=m?m[1]:"";}if(t==="dark")document.documentElement.setAttribute("data-theme","dark");})();
+function toggleDark(){var d=document.documentElement.getAttribute("data-theme")==="dark";var n=d?"light":"dark";document.documentElement.setAttribute("data-theme",n);localStorage.setItem("lp_theme",n);document.cookie="theme="+n+";path=/;max-age=31536000;SameSite=Lax";}
+</script>
 </script></body>
 </html>

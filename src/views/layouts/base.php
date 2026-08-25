@@ -421,5 +421,69 @@ function toggleDark() {
   if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
 })();
 </script>
+
+<?php if ($u): ?>
+<!-- ── Bottom Navigation (mobile) ─────────────────────── -->
+<nav class="bottom-nav" id="bottomNav">
+  <div class="bottom-nav-inner">
+    <a href="/" class="bottom-nav-item <?= ($activeMenu??'')==='dashboard'?'active':'' ?>">
+      <i class="bi bi-speedometer2"></i>
+      <span>Dashboard</span>
+    </a>
+    <a href="/requisicoes/mestre" class="bottom-nav-item <?= in_array($activeMenu??'',['req_mestre','requisicoes'])?'active':'' ?>">
+      <div class="bottom-nav-badge">
+        <i class="bi bi-clipboard-list"></i>
+        <?php
+        if (in_array($u['perfil'],['admin','almoxarife'])) {
+            $ids2 = almoxarifados_permitidos_ids();
+            if ($ids2) { $ph2=implode(',',array_fill(0,count($ids2),'?')); $stR=db()->prepare("SELECT COUNT(*) FROM requisicao_mestre WHERE status='pendente' AND almoxarifado_id IN ($ph2)"); $stR->execute($ids2); $nR=(int)$stR->fetchColumn(); if($nR>0) echo '<span class="badge-num">'.$nR.'</span>'; }
+        }
+        ?>
+      </div>
+      <span>Req.</span>
+    </a>
+    <?php if (in_array($u['perfil'],['mestre','tecnico_seguranca']) || $u['pode_requisitar']): ?>
+    <a href="/requisicoes/mestre/nova" class="bottom-nav-item <?= ($activeMenu??'')==='req_mestre_nova'?'active':'' ?>" style="flex:0 0 52px">
+      <div style="width:48px;height:48px;border-radius:50%;background:var(--gradient-primary);display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 4px 14px rgba(255,107,53,.4);margin-top:-12px">
+        <i class="bi bi-plus fs-4"></i>
+      </div>
+      <span>Nova</span>
+    </a>
+    <?php else: ?>
+    <a href="/movimentacao/lote" class="bottom-nav-item <?= ($activeMenu??'')==='movimentacao'?'active':'' ?>" style="flex:0 0 52px">
+      <div style="width:48px;height:48px;border-radius:50%;background:var(--gradient-primary);display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 4px 14px rgba(255,107,53,.4);margin-top:-12px">
+        <i class="bi bi-arrow-left-right fs-5"></i>
+      </div>
+      <span>Mov.</span>
+    </a>
+    <?php endif; ?>
+    <a href="/relatorios/alertas" class="bottom-nav-item <?= ($activeMenu??'')==='alertas'?'active':'' ?>">
+      <div class="bottom-nav-badge">
+        <i class="bi bi-bell"></i>
+        <?php
+        $ids3 = almoxarifados_permitidos_ids();
+        if ($ids3) { $ph3=implode(',',array_fill(0,count($ids3),'?')); $stA3=db()->prepare("SELECT COUNT(*) FROM item WHERE quantidade<=estoque_minimo AND ativo=1 AND almoxarifado_id IN ($ph3)"); $stA3->execute($ids3); $nA3=(int)$stA3->fetchColumn(); if($nA3>0) echo '<span class="badge-num">'.$nA3.'</span>'; }
+        ?>
+      </div>
+      <span>Alertas</span>
+    </a>
+    <button class="bottom-nav-item" onclick="openSidebar()">
+      <i class="bi bi-grid-3x3-gap"></i>
+      <span>Menu</span>
+    </button>
+  </div>
+</nav>
+<?php endif; ?>
+
+<script>
+// Registrar Service Worker (PWA)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js')
+      .then(function(r) { console.log('SW registrado:', r.scope); })
+      .catch(function(e) { console.log('SW erro:', e); });
+  });
+}
+</script>
 </body>
 </html>

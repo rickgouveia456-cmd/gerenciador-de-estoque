@@ -407,8 +407,7 @@ function toggleAlm(id) {
   });
 })();
 <script>
-(function(){var t=localStorage.getItem("lp_theme")||"";if(!t){var m=document.cookie.match(/theme=([^;]+)/);t=m?m[1]:"";}if(t==="dark")document.documentElement.setAttribute("data-theme","dark");})();
 function toggleDark(){var d=document.documentElement.getAttribute("data-theme")==="dark";var n=d?"light":"dark";document.documentElement.setAttribute("data-theme",n);localStorage.setItem("lp_theme",n);document.cookie="theme="+n+";path=/;max-age=31536000;SameSite=Lax";}
-</script>
-</script></body>
+// Aplicar tema salvo ao carregar
+(function(){var t=localStorage.getItem("lp_theme")||"";if(!t){var m=document.cookie.match(/theme=([^;]+)/);t=m?m[1]:"";}if(t==="dark"){document.documentElement.setAttribute("data-theme","dark");}})();
 </html>

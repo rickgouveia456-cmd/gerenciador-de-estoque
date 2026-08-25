@@ -53,6 +53,15 @@ $voltarUrl = $isNew ? ("/almoxarifado/".($almPresel??0)) : "/almoxarifado/{$it['
               <label class="form-label fw-semibold">CA (EPI)</label>
               <input type="text" name="ca" class="form-control" value="<?= h($it['ca']??'') ?>">
             </div>
+            <div class="col-md-3">
+              <label class="form-label fw-semibold">
+                <i class="bi bi-currency-dollar me-1 text-success"></i>Valor Unitário (R$)
+              </label>
+              <input type="number" name="valor_unitario" class="form-control" step="0.01" min="0"
+                     placeholder="0,00"
+                     value="<?= $it['valor_unitario']??'' ?>">
+              <div class="form-text">Opcional — usado no relatório de valor em estoque</div>
+            </div>
           </div>
           <div class="d-flex gap-2 mt-3">
             <button type="submit" class="btn btn-primary"><?= $isNew?'Cadastrar':'Salvar' ?></button>

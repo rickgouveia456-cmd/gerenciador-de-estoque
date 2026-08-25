@@ -126,7 +126,7 @@ $isAlmox     = in_array($u['perfil'], ['admin', 'almoxarife']);
             <th style="width:12%" class="text-center">Nível</th>
             <th style="width:9%" class="text-center">Status</th>
             <?php if ($isAlmox): ?>
-            <th style="width:9%" class="text-center">Compra</th>
+            <th style="width:10%" class="text-center">Valor Unit.</th>
             <?php endif; ?>
             <th style="width:8%" class="text-center">Ações</th>
           </tr>
@@ -187,17 +187,13 @@ $isAlmox     = in_array($u['perfil'], ['admin', 'almoxarife']);
             <td class="text-center"><?= status_badge($st) ?></td>
             <?php if ($isAlmox): ?>
             <td class="text-center">
-              <?php $sc = $it['status_compra'] ?? 'pendente';
-                    $scMap   = ['pendente' => 'warning', 'comprado' => 'success', 'nao_necessario' => 'secondary'];
-                    $scLabel = ['pendente' => 'Pendente', 'comprado' => 'Comprado', 'nao_necessario' => 'N/A'];
-              ?>
-              <form method="POST" action="/item/<?= $it['id'] ?>/status_compra"><?= csrf_field() ?>
-                <select name="status_compra" class="form-select form-select-sm" onchange="this.form.submit()">
-                  <?php foreach ($scMap as $val => $cls): ?>
-                  <option value="<?= $val ?>" <?= $sc === $val ? 'selected' : '' ?>><?= $scLabel[$val] ?></option>
-                  <?php endforeach; ?>
-                </select>
-              </form>
+              <?php if ($it['valor_unitario'] > 0): ?>
+                <span class="fw-semibold text-success small"><?= fmt_dinheiro((float)$it['valor_unitario']) ?></span>
+              <?php else: ?>
+                <a href="/item/<?= $it['id'] ?>/editar" class="text-muted small" title="Adicionar valor">
+                  <i class="bi bi-plus-circle me-1"></i>—
+                </a>
+              <?php endif; ?>
             </td>
             <?php endif; ?>
             <td class="text-center">

@@ -27,7 +27,8 @@ if ($u) {
 }
 ?>
 <!DOCTYPE html>
-<html lang="pt-BR">
+<?php $isDark = ($_COOKIE["theme"] ?? "light") === "dark"; ?>
+<html lang="pt-BR" data-theme="<?= $isDark ? "dark" : "light" ?>">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -261,6 +262,12 @@ if ($u) {
       <span class="topbar-title"><?= h($pageTitle) ?></span>
     </div>
     <div class="d-flex align-items-center gap-2">
+      <!-- Toggle Dark Mode -->
+      <div class="dark-toggle-wrap">
+        <i class="bi bi-sun icon-sun" style="font-size:0.9rem"></i>
+        <button id="darkModeToggle" title="Alternar modo escuro/claro" onclick="toggleDarkMode()"></button>
+        <i class="bi bi-moon icon-moon" style="font-size:0.85rem"></i>
+      </div>
       <?php
       // Contador de alertas
       $nAlertas = 0;
@@ -400,5 +407,23 @@ function toggleAlm(id) {
     sessionStorage.setItem('sidebarScrollTop', sidebar.scrollTop);
   });
 })();
-</script></body>
+</script><script>
+function toggleDarkMode() {
+    const html = document.documentElement;
+    const isDark = html.getAttribute("data-theme") === "dark";
+    const novo = isDark ? "light" : "dark";
+    html.setAttribute("data-theme", novo);
+    // Salvar no cookie (1 ano)
+    document.cookie = "theme=" + novo + ";path=/;max-age=31536000;SameSite=Lax";
+    // Animação suave na transição
+    html.style.transition = "background 0.4s ease, color 0.4s ease";
+    setTimeout(() => html.style.transition = "", 500);
+}
+// Sincronizar toggle com estado atual ao carregar
+(function() {
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    // Toggle visual já está correto via CSS
+})();
+</script>
+</body>
 </html>

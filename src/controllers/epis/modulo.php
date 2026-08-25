@@ -46,20 +46,78 @@ if ($aba === "ficha_detalhe") {
     $stI = db()->prepare("SELECT * FROM item_ficha_epi WHERE ficha_id=? ORDER BY id"); $stI->execute([$fichaId]); $ficha_itens = $stI->fetchAll();
 }
 
-// ── NOVA FICHA (POST) ────────────────────────────────────────
+// ── NOVA FICHA (POST) — ficha fixa por colaborador ───────────
 if ($aba === "ficha_nova" && $_SERVER["REQUEST_METHOD"] === "POST") {
     csrf_check();
-    $colab = trim($_POST["colaborador"] ?? ""); $funcao = trim($_POST["funcao"] ?? ""); $obra = trim($_POST["obra"] ?? ""); $almId = (int)($_POST["almoxarifado_id"] ?? 0);
-    if (!$colab) { flash("Informe o colaborador.","warning"); redirect("/epi_modulo?aba=ficha_nova"); }
-    db()->prepare("INSERT INTO ficha_epi (colaborador,funcao,obra,almoxarifado_id,criado_por,data_abertura) VALUES (?,?,?,?,?,CURDATE())")->execute([$colab,$funcao?:null,$obra?:null,$almId?:null,$u["nome"]]);
-    $fichaId = (int)db()->lastInsertId();
-    $indices = []; foreach ($_POST as $k => $_) { if (preg_match("/^epi_desc_(\d+)$/", $k, $m)) $indices[] = (int)$m[1]; } sort($indices);
-    foreach ($indices as $i) {
-        $desc = trim($_POST["epi_desc_$i"] ?? ""); if (!$desc) continue;
-        $ca = trim($_POST["epi_ca_$i"] ?? ""); $qtd = (float)($_POST["epi_qtd_$i"] ?? 1); $tam = trim($_POST["epi_tam_$i"] ?? ""); $dtE = $_POST["epi_dt_$i"] ?? date("Y-m-d");
-        db()->prepare("INSERT INTO item_ficha_epi (ficha_id,descricao,ca,quantidade,tamanho,data_entrega) VALUES (?,?,?,?,?,?)")->execute([$fichaId,$desc,$ca?:null,$qtd,$tam?:null,$dtE]);
+    $colab = trim($_POST["colaborador"] ?? "");
+    $funcao = trim($_POST["funcao"] ?? "");
+    $obra   = trim($_POST["obra"]   ?? "");
+    $almId  = (int)($_POST["almoxarifado_id"] ?? 0);
+
+    if (!$colab) {
+        flash("Informe o colaborador.", "warning");
+        redirect("/epi_modulo?aba=ficha_nova");
     }
-    flash("Ficha criada para $colab!","success"); redirect("/epi_modulo?aba=ficha_detalhe&id=$fichaId");
+
+    // Verificar se ja existe ficha ATIVA para este colaborador
+    $stEx = db()->prepare(
+        "SELECT id FROM ficha_epi WHERE LOWER(colaborador)=LOWER(?) AND status='ativa' ORDER BY criado_em DESC LIMIT 1"
+    );
+    $stEx->execute([$colab]);
+    $fichaExistente = $stEx->fetchColumn();
+
+    if ($fichaExistente) {
+        // Reutilizar ficha existente — adicionar EPIs nela
+        $fichaId = (int)$fichaExistente;
+        // Atualizar funcao/obra se informados e ainda vazios
+        if ($funcao || $obra) {
+            db()->prepare(
+                "UPDATE ficha_epi SET
+                    funcao = COALESCE(NULLIF(funcao,''), ?),
+                    obra   = COALESCE(NULLIF(obra,''),   ?)
+                 WHERE id = ?"
+            )->execute([$funcao ?: null, $obra ?: null, $fichaId]);
+        }
+        $msgFicha = "EPIs adicionados na ficha existente de $colab.";
+    } else {
+        // Criar nova ficha
+        db()->prepare(
+            "INSERT INTO ficha_epi (colaborador,funcao,obra,almoxarifado_id,criado_por,data_abertura)
+             VALUES (?,?,?,?,?,CURDATE())"
+        )->execute([$colab, $funcao ?: null, $obra ?: null, $almId ?: null, $u["nome"]]);
+        $fichaId  = (int)db()->lastInsertId();
+        $msgFicha = "Ficha criada para $colab!";
+    }
+
+    // Inserir itens na ficha (nova ou existente)
+    $indices = [];
+    foreach ($_POST as $k => $_) {
+        if (preg_match("/^epi_desc_(\d+)$/", $k, $m)) $indices[] = (int)$m[1];
+    }
+    sort($indices);
+
+    $inseridos = 0;
+    foreach ($indices as $i) {
+        $desc = trim($_POST["epi_desc_$i"] ?? "");
+        if (!$desc) continue;
+        $ca  = trim($_POST["epi_ca_$i"]  ?? "") ?: null;
+        $qtd = (float)($_POST["epi_qtd_$i"] ?? 1);
+        $tam = trim($_POST["epi_tam_$i"] ?? "") ?: null;
+        $dtE = $_POST["epi_dt_$i"] ?? date("Y-m-d");
+        db()->prepare(
+            "INSERT INTO item_ficha_epi (ficha_id,descricao,ca,quantidade,tamanho,data_entrega)
+             VALUES (?,?,?,?,?,?)"
+        )->execute([$fichaId, $desc, $ca, $qtd, $tam, $dtE]);
+        $inseridos++;
+    }
+
+    if ($inseridos === 0) {
+        flash("Adicione pelo menos um EPI.", "warning");
+        redirect("/epi_modulo?aba=ficha_nova");
+    }
+
+    flash($msgFicha, "success");
+    redirect("/epi_modulo?aba=ficha_detalhe&id=$fichaId");
 }
 
 // ── DEVOLUCAO ITEM FICHA (POST) ──────────────────────────────

@@ -174,6 +174,32 @@ inputColab?.addEventListener("input",function(){
   });
 });
 document.addEventListener("click",e=>{if(!sugColab.contains(e.target)&&e.target!==inputColab)sugColab.style.display="none";});
+
+// Verificar se colaborador ja tem ficha ativa
+let _fichaTimer = null;
+function verificarFichaExistente(nome) {
+  clearTimeout(_fichaTimer);
+  const aviso = document.getElementById("avisoFichaExistente");
+  const texto = document.getElementById("textoFichaExistente");
+  if (!nome || nome.length < 3) { if (aviso) aviso.style.display = "none"; return; }
+  _fichaTimer = setTimeout(() => {
+    fetch("/api/ficha-epi/existente?colaborador=" + encodeURIComponent(nome))
+      .then(r => r.json())
+      .then(data => {
+        if (aviso && texto) {
+          if (data.tem_ficha) {
+            texto.textContent = "✓ " + nome + " já tem ficha ativa (" + data.total_itens + " EPI(s)). Os novos EPIs serão adicionados nela.";
+            aviso.style.display = "flex";
+            aviso.style.background = "var(--info-light)";
+            aviso.style.border = "1px solid var(--info)";
+          } else {
+            aviso.style.display = "none";
+          }
+        }
+      })
+      .catch(() => { if (aviso) aviso.style.display = "none"; });
+  }, 500);
+}
 </script>
 
 <?php // ═══ DETALHE FICHA ═════════════════════════════════════

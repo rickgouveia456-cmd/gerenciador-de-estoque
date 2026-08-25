@@ -44,9 +44,97 @@
     </table>
   </div>
 </div>
+
+<!-- Modal usar EPI -->
+<div class="modal fade" id="modalUsarEPI" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="background:var(--accent)">
+        <h6 class="modal-title text-white fw-bold"><i class="bi bi-person-plus me-2"></i>Registrar Uso de EPI</h6>
+        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="epiIdUsar">
+        <label class="form-label fw-semibold">Colaborador que vai usar</label>
+        <div class="position-relative">
+          <input type="text" id="inputColabEPI" class="form-control" placeholder="Digite o nome..." autocomplete="off">
+          <div id="acListEPI" class="position-absolute w-100 bg-white border rounded shadow-sm" style="top:100%;z-index:300;max-height:200px;overflow-y:auto;display:none"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" onclick="confirmarUsarEPI()"><i class="bi bi-check me-1"></i>Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <form id="_csrf2"><?= csrf_field() ?></form>
+
 <script>
-function getToken(){return document.querySelector('#_csrf2 [name=csrf_token]')?.value||'';}
-function usarEPI(id){const r=prompt('Colaborador:');if(!r)return;fetch(`/epis/${id}/usar`,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`responsavel=${encodeURIComponent(r)}&csrf_token=${encodeURIComponent(getToken())}`}).then(()=>location.reload());}
-function devolverEPI(id){if(!confirm('Confirmar devolução?'))return;fetch(`/epis/${id}/devolver`,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`csrf_token=${encodeURIComponent(getToken())}`}).then(()=>location.reload());}
+function getEpiToken() {
+  return document.querySelector('#_csrf2 [name=csrf_token]')?.value || '';
+}
+
+function usarEPI(id) {
+  document.getElementById('epiIdUsar').value = id;
+  document.getElementById('inputColabEPI').value = '';
+  document.getElementById('acListEPI').style.display = 'none';
+  new bootstrap.Modal(document.getElementById('modalUsarEPI')).show();
+}
+
+// Autocomplete colaboradores no modal EPI
+document.getElementById('inputColabEPI')?.addEventListener('input', function() {
+  const q = this.value.trim();
+  const list = document.getElementById('acListEPI');
+  if (q.length < 1) { list.style.display = 'none'; return; }
+  fetch('/api/colaboradores?q=' + encodeURIComponent(q))
+    .then(r => r.json())
+    .then(data => {
+      list.innerHTML = '';
+      if (!data.length) { list.style.display = 'none'; return; }
+      data.slice(0, 8).forEach(c => {
+        const d = document.createElement('div');
+        d.className = 'px-3 py-2';
+        d.style.cssText = 'cursor:pointer;font-size:0.88rem;border-bottom:1px solid #eee';
+        d.textContent = c.nome + (c.funcao ? ' — ' + c.funcao : '');
+        d.onmousedown = () => {
+          document.getElementById('inputColabEPI').value = c.nome;
+          list.style.display = 'none';
+        };
+        d.onmouseover = () => d.style.background = 'var(--accent-light)';
+        d.onmouseout  = () => d.style.background = '';
+        list.appendChild(d);
+      });
+      list.style.display = '';
+    })
+    .catch(() => { list.style.display = 'none'; });
+});
+
+document.getElementById('inputColabEPI')?.addEventListener('blur', function() {
+  setTimeout(() => { document.getElementById('acListEPI').style.display = 'none'; }, 150);
+});
+
+function confirmarUsarEPI() {
+  const id   = document.getElementById('epiIdUsar').value;
+  const resp = document.getElementById('inputColabEPI').value.trim();
+  if (!resp) { alert('Informe o colaborador.'); return; }
+  fetch('/epis/' + id + '/usar', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: 'responsavel=' + encodeURIComponent(resp) + '&csrf_token=' + encodeURIComponent(getEpiToken())
+  }).then(() => {
+    bootstrap.Modal.getInstance(document.getElementById('modalUsarEPI')).hide();
+    location.reload();
+  });
+}
+
+function devolverEPI(id) {
+  if (!confirm('Confirmar devolução?')) return;
+  fetch('/epis/' + id + '/devolver', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: 'csrf_token=' + encodeURIComponent(getEpiToken())
+  }).then(() => location.reload());
+}
 </script>

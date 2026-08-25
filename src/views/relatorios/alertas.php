@@ -10,6 +10,20 @@ $statusLabels = [
     'pedido_rota'     => ['label' => 'Em Rota',          'badge' => 'bg-info'],
     'recebido'        => ['label' => 'Recebido',         'badge' => 'bg-success'],
 ];
+
+function fmt_consumo_diario(float $cd, string $unidade): string {
+    $inteiras = ['un', 'und', 'uni', 'pct', 'pc', 'par', 'unid', 'unidade', 'uni.'];
+    $u = strtolower(trim($unidade));
+    if (in_array($u, $inteiras)) {
+        if ($cd <= 0) return '0';
+        if ($cd < 1)  return '< 1';
+        return (string)(int)round($cd);
+    }
+    // metro, kg, litro — 1 casa decimal
+    if ($cd <= 0) return '0';
+    if ($cd < 0.1) return '< 0,1';
+    return number_format($cd, 1, ',', '');
+}
 ?>
 
 <!-- Cabeçalho com stats -->
@@ -114,7 +128,7 @@ $statusLabels = [
         <td class="text-center">
           <?php if ($row['dias_ate_zero'] > 0): ?>
             <span class="badge rounded-pill <?= $row['dias_ate_zero'] <= 3 ? 'bg-danger' : ($row['dias_ate_zero'] <= 7 ? 'bg-warning' : 'bg-secondary') ?>"
-                  title="Consumo: <?= $row['consumo_diario'] ?>/dia">
+                  title="Consumo: <?= fmt_consumo_diario((float)$row['consumo_diario'], $it['unidade'] ?? '') ?>/dia">
               <?= $row['dias_ate_zero'] ?>d
             </span>
           <?php elseif ((float)$it['quantidade'] <= 0): ?>

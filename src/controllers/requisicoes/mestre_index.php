@@ -18,18 +18,10 @@ $sql   = 'SELECT rm.*,
 $binds = [];
 
 // Filtro por perfil
-if ($u['perfil'] === 'mestre') {
+if (in_array($u['perfil'], ['mestre', 'tecnico_seguranca'])) {
+    // mestre e técnico de segurança veem SOMENTE as próprias requisições
     $sql    .= ' AND rm.mestre_id=?';
     $binds[] = $u['id'];
-} elseif ($u['perfil'] === 'tecnico_seguranca') {
-    $ids = almoxarifados_permitidos_ids();
-    if ($ids) {
-        $ph     = implode(',', array_fill(0, count($ids), '?'));
-        $sql   .= " AND rm.almoxarifado_id IN ($ph)";
-        $binds  = array_merge($binds, $ids);
-    } else {
-        $sql .= ' AND 1=0';
-    }
 } elseif ($u['perfil'] !== 'admin') {
     $ids = almoxarifados_permitidos_ids();
     if ($ids) {
@@ -64,7 +56,8 @@ $sqlBase = 'SELECT rm.status, COUNT(*) AS n FROM requisicao_mestre rm
             JOIN almoxarifado a ON a.id = rm.almoxarifado_id
             WHERE 1=1';
 $bindsBase = [];
-if ($u['perfil'] === 'mestre') {
+if (in_array($u['perfil'], ['mestre', 'tecnico_seguranca'])) {
+    // mestre e técnico de segurança veem SOMENTE as próprias requisições
     $sqlBase .= ' AND rm.mestre_id=?'; $bindsBase[] = $u['id'];
 } elseif ($u['perfil'] !== 'admin') {
     $ids = almoxarifados_permitidos_ids();

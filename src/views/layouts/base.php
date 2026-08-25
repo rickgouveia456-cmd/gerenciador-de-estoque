@@ -149,7 +149,7 @@ if ($u) {
         <a href="/almoxarifado/<?= $alm['id'] ?>"
            class="nav-link flex-grow-1 <?= $isActiveAlm?'active':'' ?>"
            style="padding:6px 4px 6px 0">
-          <i class="bi bi-building me-1" style="font-size:0.8rem"></i>
+          <i class="bi bi-warehouse me-1" style="font-size:0.8rem"></i>
           <span class="text-truncate" style="font-size:0.82rem"><?= h($alm['nome']) ?></span>
         </a>
         <span style="font-size:0.72rem;color:<?= $pctColor ?>;font-weight:600;flex-shrink:0"><?= $pct ?>%</span>
@@ -161,9 +161,9 @@ if ($u) {
         </button>
       </div>
       <!-- Sublinks -->
-      <div id="sub-alm-<?= $alm['id'] ?>" style="<?= $expanded?'':'display:none' ?>;padding-left:16px">
+      <div id="sub-alm-<?= $alm['id'] ?>" style="<?= $expanded ? 'max-height:500px;opacity:1' : 'max-height:0px;opacity:0' ?>;overflow:hidden;padding-left:16px">
         <a href="/almoxarifado/<?= $alm['id'] ?>" class="nav-link py-1 d-flex justify-content-between align-items-center" style="font-size:0.78rem">
-          <span><i class="bi bi-boxes me-1"></i>Insumos</span>
+          <span><i class="bi bi-box-seam me-1"></i>Insumos</span>
           <span class="badge bg-secondary rounded-pill"><?= $nInsumos ?></span>
         </a>
         <a href="/ferramentas?alm=<?= $alm['id'] ?>" class="nav-link py-1 d-flex justify-content-between align-items-center" style="font-size:0.78rem">
@@ -171,7 +171,7 @@ if ($u) {
           <span class="badge bg-secondary rounded-pill"><?= $nFerr ?></span>
         </a>
         <a href="/epis?alm=<?= $alm['id'] ?>" class="nav-link py-1 d-flex justify-content-between align-items-center" style="font-size:0.78rem">
-          <span><i class="bi bi-shield-check me-1"></i>EPIs / Uniformes</span>
+          <span><i class="bi bi-person-workspace me-1"></i>EPIs / Uniformes</span>
           <span class="badge bg-secondary rounded-pill"><?= $nEpis ?></span>
         </a>
         <a href="/almoxarifado/<?= $alm['id'] ?>/kits" class="nav-link py-1 d-flex justify-content-between align-items-center" style="font-size:0.78rem">
@@ -317,20 +317,41 @@ if ($u) {
 // Sidebar almoxarifado toggle
 function toggleAlm(id) {
   const sub = document.getElementById('sub-alm-' + id);
-  const ico = document.getElementById('ico-alm-' + id);
+  const btn = document.getElementById('btn-alm-' + id);
   if (!sub) return;
+
+  // Salvar scroll atual da sidebar antes de qualquer alteração
+  const sidebar = document.getElementById('sidebar');
+  const scrollY = sidebar ? sidebar.scrollTop : 0;
+
   const isOpen = sub.style.maxHeight && sub.style.maxHeight !== '0px';
-  // Usar max-height: 0 vs 200px — sem reflow de scroll
-  sub.style.maxHeight = isOpen ? '0' : '200px';
-  if (ico) {
-    ico.className = isOpen ? 'bi bi-chevron-down' : 'bi bi-chevron-up';
+
+  if (!isOpen) {
+    sub.style.maxHeight = sub.scrollHeight + 'px';
+    sub.style.opacity = '1';
+  } else {
+    sub.style.maxHeight = '0px';
+    sub.style.opacity = '0';
   }
+
+  if (btn) {
+    btn.innerHTML = isOpen
+      ? '<i class="bi bi-chevron-down"></i>'
+      : '<i class="bi bi-chevron-up"></i>';
+  }
+
+  // Restaurar scroll sem salto visual
+  if (sidebar) {
+    requestAnimationFrame(() => { sidebar.scrollTop = scrollY; });
+  }
+
   try {
     const states = JSON.parse(sessionStorage.getItem('almStates') || '{}');
     states[id] = !isOpen;
     sessionStorage.setItem('almStates', JSON.stringify(states));
   } catch(e) {}
 }
+
 // Restaurar estados salvos
 (function() {
   try {
@@ -339,15 +360,45 @@ function toggleAlm(id) {
       const sub = document.getElementById('sub-alm-' + id);
       const btn = document.getElementById('btn-alm-' + id);
       if (!sub) return;
-      // Nao sobrescrever o ativo (ja esta expandido pelo PHP)
+      // Não sobrescrever o ativo (já está expandido pelo PHP)
       if (!sub.closest('.alm-nav-item')?.querySelector('.nav-link.active')) {
-        sub.style.display = open ? '' : 'none';
+        if (open) {
+          sub.style.maxHeight = sub.scrollHeight + 'px';
+          sub.style.opacity = '1';
+        } else {
+          sub.style.maxHeight = '0px';
+          sub.style.opacity = '0';
+        }
         if (btn) btn.innerHTML = open
           ? '<i class="bi bi-chevron-up"></i>'
           : '<i class="bi bi-chevron-down"></i>';
       }
     });
   } catch(e) {}
+})();
+
+// Persistir scroll da sidebar entre navegações
+(function() {
+  const sidebar = document.getElementById('sidebar');
+  if (!sidebar) return;
+
+  // Restaurar scroll salvo
+  const saved = sessionStorage.getItem('sidebarScrollTop');
+  if (saved) {
+    requestAnimationFrame(() => { sidebar.scrollTop = parseInt(saved, 10); });
+  }
+
+  // Salvar scroll ao clicar em qualquer link da sidebar (exceto toggles)
+  sidebar.querySelectorAll('a[href]').forEach(function(a) {
+    a.addEventListener('click', function() {
+      sessionStorage.setItem('sidebarScrollTop', sidebar.scrollTop);
+    });
+  });
+
+  // Salvar também no beforeunload
+  window.addEventListener('beforeunload', function() {
+    sessionStorage.setItem('sidebarScrollTop', sidebar.scrollTop);
+  });
 })();
 </script></body>
 </html>

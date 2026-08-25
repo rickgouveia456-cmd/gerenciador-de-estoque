@@ -118,6 +118,7 @@ $routes = [
     ['POST', '#^/admin/deletar_item/(\d+)$#',       'admin/deletar_item.php',       ['id']],
     ['POST', '#^/admin/transferir_itens$#',         'admin/transferir_itens.php',   []],
     ['POST', '#^/admin/sincronizar-valores$#',      'admin/sincronizar_valores.php',[]],
+    ['POST', '#^/admin/limpar-catalogo$#',          'admin/limpar_catalogo.php',    []],
 
     // 2FA
     ['GET|POST', '#^/perfil/2fa/ativar$#',          'auth/2fa_ativar.php',      []],

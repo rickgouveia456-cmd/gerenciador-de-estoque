@@ -353,3 +353,12 @@ hr { border-color: var(--border); }
 .table { color: var(--text) !important; }
 .text-muted { color: var(--text-muted) !important; }
 label { color: var(--text); }
+
+/* Sublinks sidebar — animação fluida sem overlap */
+[id^="sub-alm-"] {
+  overflow: hidden;
+  transition: max-height 0.25s ease, opacity 0.2s ease;
+  background: var(--primary);
+  position: relative;
+  z-index: 1;
+}

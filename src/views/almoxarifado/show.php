@@ -1,5 +1,32 @@
 <?php /* views/almoxarifado/show.php */
 
+// Unidades de peso/volume/comprimento — mostram "/unidade" no valor
+function unidade_tipo(string $und): string {
+    $und = strtolower(trim($und));
+    $continuas = ['kg','kgs','kilo','kilos','l','lt','litro','litros','lts','m','ml','mt','mts','metro','metros'];
+    return in_array($und, $continuas) ? 'continua' : 'discreta';
+}
+
+function fmt_valor_unit(float $valor, string $und): string {
+    if ($valor <= 0) return '';
+    $tipo = unidade_tipo($und);
+    $und_lower = strtolower(trim($und));
+    // Normalizar label da unidade
+    $labels = ['kg'=>'kg','kgs'=>'kg','kilo'=>'kg','kilos'=>'kg','l'=>'L','lt'=>'L','litro'=>'L','litros'=>'L','lts'=>'L','m'=>'m','ml'=>'ml','mt'=>'m','mts'=>'m','metro'=>'m','metros'=>'m'];
+    $label = $labels[$und_lower] ?? $und;
+    if ($tipo === 'continua') {
+        return 'R$ ' . number_format($valor, 2, ',', '.') . '/' . $label;
+    }
+    return 'R$ ' . number_format($valor, 2, ',', '.');
+}
+
+function fmt_valor_total_item(float $qtd, float $valor, string $und): float {
+    // Para qualquer unidade: valor_total = quantidade * valor_unitario
+    // (o valor_unitario JÁ é por kg, por litro, por unidade, etc.)
+    return $qtd * $valor;
+}
+
+
 // Contar itens por categoria
 $catContadores = [];
 foreach ($itens as $it) {
@@ -187,10 +214,18 @@ $isAlmox     = in_array($u['perfil'], ['admin', 'almoxarife']);
             <td class="text-center"><?= status_badge($st) ?></td>
             <?php if ($isAlmox): ?>
             <td class="text-center">
-              <?php if ($it['valor_unitario'] > 0): ?>
-                <span class="fw-semibold text-success small"><?= fmt_dinheiro((float)$it['valor_unitario']) ?></span>
+              <?php if ((float)($it['valor_unitario'] ?? 0) > 0):
+                $vUnit = (float)$it['valor_unitario'];
+                $tipo  = unidade_tipo($it['unidade'] ?? 'un');
+              ?>
+                <div class="fw-semibold text-success small"><?= fmt_valor_unit($vUnit, $it['unidade'] ?? 'un') ?></div>
+                <?php if ($tipo === 'continua'): ?>
+                <div class="text-muted" style="font-size:0.7rem">
+                  Total: <?= fmt_dinheiro(fmt_valor_total_item((float)$it['quantidade'], $vUnit, $it['unidade'])) ?>
+                </div>
+                <?php endif; ?>
               <?php else: ?>
-                <a href="/item/<?= $it['id'] ?>/editar" class="text-muted small" title="Adicionar valor">
+                <a href="/item/<?= $it['id'] ?>/editar" class="text-muted small" title="Adicionar valor unitário">
                   <i class="bi bi-plus-circle me-1"></i>—
                 </a>
               <?php endif; ?>

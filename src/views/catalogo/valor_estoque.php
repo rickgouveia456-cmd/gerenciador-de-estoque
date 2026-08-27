@@ -34,7 +34,17 @@
       <tr>
         <td><?= h($row["item"]["nome"]) ?></td>
         <td class="text-center"><?= fmt_qtd((float)$row["item"]["quantidade"]) ?> <?= h($row["item"]["unidade"]) ?></td>
-        <td class="text-center"><?= fmt_dinheiro((float)$row["item"]["valor_unitario"]) ?></td>
+        <td class="text-center">
+          <?php
+          $vU = (float)$row["item"]["valor_unitario"];
+          $uN = $row["item"]["unidade"] ?? "un";
+          $und_l = strtolower(trim($uN));
+          $cont = in_array($und_l, ["kg","kgs","l","lt","litro","litros","lts","m","ml","mt","metro","metros"]);
+          $labels2 = ["kg"=>"kg","kgs"=>"kg","l"=>"L","lt"=>"L","litro"=>"L","litros"=>"L","lts"=>"L","m"=>"m","ml"=>"ml","mt"=>"m","metro"=>"m","metros"=>"m"];
+          $lbl = $labels2[$und_l] ?? $uN;
+          echo $cont ? 'R$ '.number_format($vU,2,',','.').'/'.$lbl : fmt_dinheiro($vU);
+          ?>
+        </td>
         <td class="text-center fw-semibold text-success"><?= fmt_dinheiro($row["valor_total"]) ?></td>
       </tr>
       <?php endforeach; ?>

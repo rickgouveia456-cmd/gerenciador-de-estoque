@@ -1,4 +1,6 @@
 <?php /* views/requisicoes/nova.php */ ?>
+
+<div class="mb-3"><a href="/requisicoes/mestre" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Requisições</a></div>
 <div class="card"><div class="card-header"><h6 class="mb-0">Nova Requisição</h6></div>
 <div class="card-body">
   <form method="POST" action="/requisicoes/nova">

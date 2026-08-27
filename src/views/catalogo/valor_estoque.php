@@ -1,4 +1,6 @@
 <?php /* views/catalogo/valor_estoque.php */ ?>
+
+<div class="mb-3"><a href="/catalogo" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Catálogo</a></div>
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h5 class="fw-bold mb-0"><i class="bi bi-currency-dollar me-2"></i>Valor em Estoque</h5>
   <span class="badge bg-success fs-6"><?= fmt_dinheiro($totalGeral) ?> total</span>

@@ -1,4 +1,6 @@
 <?php /* views/requisicoes/mestre_index.php */ ?>
+
+<div class="mb-3"><a href="/" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Dashboard</a></div>
 <?php
 $perfilCores = [
     'admin'             => '#7c3aed',

@@ -1,4 +1,6 @@
 <?php /* views/catalogo/index.php */ ?>
+
+<div class="mb-3"><a href="/" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Voltar</a></div>
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <h5 class="fw-bold mb-0"><i class="bi bi-journal-text me-2"></i>Catálogo de Insumos</h5>
   <div class="d-flex gap-2">

@@ -1,4 +1,6 @@
 <?php /* views/requisicoes/mestre_editar.php */ ?>
+
+<div class="mb-3"><a href="/requisicoes/mestre" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Voltar</a></div>
 <div class="card"><div class="card-header"><h6 class="mb-0">Editar Req <?= h($req['protocolo']??'#'.$req['id']) ?></h6></div>
 <div class="card-body">
   <form method="POST" action="/requisicoes/mestre/<?= $req['id'] ?>/editar">

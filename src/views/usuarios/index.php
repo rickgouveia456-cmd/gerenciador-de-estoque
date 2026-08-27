@@ -1,4 +1,6 @@
 <?php /* views/usuarios/index.php */ ?>
+
+<div class="mb-3"><a href="/" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Voltar</a></div>
 <?php
 // Cores e ícones por perfil
 $perfilConfig = [

@@ -1,4 +1,6 @@
 <?php /* views/requisicoes/index.php */ ?>
+
+<div class="mb-3"><a href="/requisicoes/mestre" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Requisições</a></div>
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h5 class="fw-bold mb-0">Requisições</h5>
   <a href="/requisicoes/nova" class="btn btn-primary btn-sm"><i class="bi bi-plus me-1"></i>Nova</a>

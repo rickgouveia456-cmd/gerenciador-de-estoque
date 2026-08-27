@@ -132,16 +132,25 @@ if ($u) {
   <nav class="nav flex-column">
     <?php foreach($almsGrupo as $alm):
       $isActiveAlm = (($activeAlmId ?? 0) == $alm['id']);
-      // Contadores
-      $stN = db()->prepare("SELECT COUNT(*) FROM item WHERE almoxarifado_id=? AND ativo=1"); $stN->execute([$alm['id']]); $nInsumos = (int)$stN->fetchColumn();
-      $stF = db()->prepare("SELECT COUNT(*) FROM ferramenta WHERE almoxarifado_id=? AND ativo=1"); $stF->execute([$alm['id']]); $nFerr = (int)$stF->fetchColumn();
-      $stE = db()->prepare("SELECT COUNT(*) FROM item_epi WHERE almoxarifado_id=? AND ativo=1"); $stE->execute([$alm['id']]); $nEpis = (int)$stE->fetchColumn();
-      $stKT = db()->prepare("SELECT COUNT(*) FROM kit WHERE almoxarifado_id=? AND ativo=1"); $stKT->execute([$alm['id']]); $nKits = (int)$stKT->fetchColumn();
-      // Saude do almoxarifado
-      $stOK = db()->prepare("SELECT COUNT(*) FROM item WHERE almoxarifado_id=? AND ativo=1 AND quantidade > estoque_minimo"); $stOK->execute([$alm['id']]); $nOK = (int)$stOK->fetchColumn();
+      // 1 query para todos os contadores + saúde
+      $aid = $alm['id'];
+      $stC = db()->prepare("
+          SELECT
+            (SELECT COUNT(*) FROM item     WHERE almoxarifado_id=? AND ativo=1) AS n_insumos,
+            (SELECT COUNT(*) FROM item     WHERE almoxarifado_id=? AND ativo=1 AND quantidade > estoque_minimo) AS n_ok,
+            (SELECT COUNT(*) FROM ferramenta WHERE almoxarifado_id=? AND ativo=1) AS n_ferr,
+            (SELECT COUNT(*) FROM item_epi   WHERE almoxarifado_id=? AND ativo=1) AS n_epis,
+            (SELECT COUNT(*) FROM kit        WHERE almoxarifado_id=? AND ativo=1) AS n_kits
+      ");
+      $stC->execute([$aid,$aid,$aid,$aid,$aid]);
+      $cnt = $stC->fetch();
+      $nInsumos = (int)$cnt['n_insumos'];
+      $nFerr    = (int)$cnt['n_ferr'];
+      $nEpis    = (int)$cnt['n_epis'];
+      $nKits    = (int)$cnt['n_kits'];
+      $nOK      = (int)$cnt['n_ok'];
       $pct = $nInsumos > 0 ? round($nOK/$nInsumos*100) : 100;
       $pctColor = $pct>=80?'#22c55e':($pct>=50?'#f59e0b':'#ef4444');
-      // Estado expandido
       $expanded = $isActiveAlm;
     ?>
     <div class="alm-nav-item">

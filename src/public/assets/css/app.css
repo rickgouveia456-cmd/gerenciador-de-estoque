@@ -755,3 +755,94 @@ html[data-theme="dark"] .topbar-title {
 html[data-theme="dark"] .card .table-responsive { background: transparent !important; }
 html[data-theme="dark"] .card table { background: transparent !important; }
 html[data-theme="dark"] tbody, html[data-theme="dark"] thead, html[data-theme="dark"] tr { background: transparent !important; }
+/* ═══ Dark mode — elementos restantes ═══ */
+/* Pills de categoria na tabela */
+html[data-theme="dark"] .pill-cat,
+html[data-theme="dark"] [style*="background:#f1f5f9"],
+html[data-theme="dark"] [style*="background: #f1f5f9"] {
+    background: #252d3a !important;
+    color: #94a3b8 !important;
+    border-color: #2a3547 !important;
+}
+html[data-theme="dark"] [style*="color:#64748b"] { color: #8898aa !important; }
+html[data-theme="dark"] [style*="color: #64748b"] { color: #8898aa !important; }
+html[data-theme="dark"] [style*="border:1px solid #e2e8f0"] { border-color: #2a3547 !important; }
+html[data-theme="dark"] [style*="border: 1px solid #e2e8f0"] { border-color: #2a3547 !important; }
+
+/* Badge de itens ativos no almoxarifado */
+html[data-theme="dark"] .badge.bg-info { color: #fff !important; }
+
+/* Valor total badge verde */
+html[data-theme="dark"] [style*="background:var(--success)"],
+html[data-theme="dark"] [style*="background: var(--success)"] {
+    background: var(--gradient-success) !important;
+}
+
+/* Barra de busca no almoxarifado */
+html[data-theme="dark"] #buscaItem { 
+    background: rgba(255,255,255,0.06) !important; 
+    color: #e2e8f0 !important;
+    border-color: #2a3547 !important;
+}
+
+/* Pills status nas requisições */
+html[data-theme="dark"] .pill-status,
+html[data-theme="dark"] [class*="pill-"] {
+    background: rgba(255,255,255,0.05) !important;
+}
+
+/* Barras de progresso container */
+html[data-theme="dark"] .progress { background: #2a3547 !important; }
+
+/* Topbar items e botões dentro */
+html[data-theme="dark"] .topbar .btn-outline-danger {
+    border-color: #f87171 !important;
+    color: #f87171 !important;
+}
+html[data-theme="dark"] .topbar .btn-outline-secondary {
+    border-color: #2a3547 !important;
+    color: #8898aa !important;
+}
+
+/* Sidebar nav-section e texto */
+html[data-theme="dark"] .alm-nav-item .d-flex { background: transparent !important; }
+html[data-theme="dark"] .alm-nav-item span { color: #e2e8f0 !important; }
+
+/* Texto geral que pode ficar escuro */
+html[data-theme="dark"] .fw-bold,
+html[data-theme="dark"] .fw-semibold { color: inherit !important; }
+html[data-theme="dark"] h1, html[data-theme="dark"] h2,
+html[data-theme="dark"] h3, html[data-theme="dark"] h4,
+html[data-theme="dark"] h5, html[data-theme="dark"] h6 { color: #e2e8f0 !important; }
+html[data-theme="dark"] p { color: #e2e8f0; }
+html[data-theme="dark"] small { color: #8898aa !important; }
+html[data-theme="dark"] .small { color: #8898aa !important; }
+
+/* Links */
+html[data-theme="dark"] a:not(.btn):not(.nav-link):not(.badge):not(.bottom-nav-item) { 
+    color: #60a5fa !important; 
+}
+html[data-theme="dark"] a.text-dark { color: #e2e8f0 !important; }
+html[data-theme="dark"] a.text-decoration-none.text-dark { color: #e2e8f0 !important; }
+html[data-theme="dark"] a.fw-semibold { color: #e2e8f0 !important; }
+
+/* Font monospace */
+html[data-theme="dark"] .font-monospace { color: #94a3b8 !important; }
+
+/* Code blocks */
+html[data-theme="dark"] pre { background: rgba(255,255,255,0.04) !important; color: #e2e8f0 !important; border-color: #2a3547 !important; }
+
+/* Valor unit. coluna — garantir cor no dark */
+html[data-theme="dark"] .text-success { color: #10b981 !important; }
+html[data-theme="dark"] .text-warning { color: #f59e0b !important; }
+html[data-theme="dark"] .text-danger  { color: #f87171 !important; }
+html[data-theme="dark"] .text-info    { color: #60a5fa !important; }
+html[data-theme="dark"] .text-muted   { color: #8898aa !important; }
+
+/* Garantir que pill-cat ativo fique laranja no dark */
+html[data-theme="dark"] #pill-cat-todos[style*="accent"],
+html[data-theme="dark"] .pill-cat[style*="accent"] {
+    background: rgba(255,112,67,0.2) !important;
+    color: #ff7043 !important;
+    border-color: #ff7043 !important;
+}

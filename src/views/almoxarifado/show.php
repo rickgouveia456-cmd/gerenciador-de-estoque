@@ -1,28 +1,23 @@
 <?php /* views/almoxarifado/show.php */
 
 // Unidades de peso/volume/comprimento — mostram "/unidade" no valor
+// Unidades contínuas: kg, L, m — mostram "/unidade" e valor total
 function unidade_tipo(string $und): string {
-    $und = strtolower(trim($und));
-    $continuas = ['kg','kgs','kilo','kilos','l','lt','litro','litros','lts','m','ml','mt','mts','metro','metros'];
-    return in_array($und, $continuas) ? 'continua' : 'discreta';
+    $u = strtolower(trim($und));
+    return in_array($u, ['kg','l','m']) ? 'continua' : 'discreta';
 }
 
 function fmt_valor_unit(float $valor, string $und): string {
     if ($valor <= 0) return '';
-    $tipo = unidade_tipo($und);
-    $und_lower = strtolower(trim($und));
-    // Normalizar label da unidade
-    $labels = ['kg'=>'kg','kgs'=>'kg','kilo'=>'kg','kilos'=>'kg','l'=>'L','lt'=>'L','litro'=>'L','litros'=>'L','lts'=>'L','m'=>'m','ml'=>'ml','mt'=>'m','mts'=>'m','metro'=>'m','metros'=>'m'];
-    $label = $labels[$und_lower] ?? $und;
-    if ($tipo === 'continua') {
+    $u = strtolower(trim($und));
+    $label = ['kg'=>'kg','l'=>'L','m'=>'m'][$u] ?? strtoupper($und);
+    if (unidade_tipo($und) === 'continua') {
         return 'R$ ' . number_format($valor, 2, ',', '.') . '/' . $label;
     }
     return 'R$ ' . number_format($valor, 2, ',', '.');
 }
 
 function fmt_valor_total_item(float $qtd, float $valor, string $und): float {
-    // Para qualquer unidade: valor_total = quantidade * valor_unitario
-    // (o valor_unitario JÁ é por kg, por litro, por unidade, etc.)
     return $qtd * $valor;
 }
 

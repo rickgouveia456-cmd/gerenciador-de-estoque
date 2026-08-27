@@ -39,9 +39,9 @@
           $vU = (float)$row["item"]["valor_unitario"];
           $uN = $row["item"]["unidade"] ?? "un";
           $und_l = strtolower(trim($uN));
-          $cont = in_array($und_l, ["kg","kgs","l","lt","litro","litros","lts","m","ml","mt","metro","metros"]);
-          $labels2 = ["kg"=>"kg","kgs"=>"kg","l"=>"L","lt"=>"L","litro"=>"L","litros"=>"L","lts"=>"L","m"=>"m","ml"=>"ml","mt"=>"m","metro"=>"m","metros"=>"m"];
-          $lbl = $labels2[$und_l] ?? $uN;
+          $cont = in_array($und_l, ["kg","l","m"]);
+          $labels2 = ["kg"=>"kg","l"=>"L","m"=>"m"];
+          $lbl = $labels2[$und_l] ?? strtoupper($uN);
           echo $cont ? 'R$ '.number_format($vU,2,',','.').'/'.$lbl : fmt_dinheiro($vU);
           ?>
         </td>

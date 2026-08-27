@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS usuario (
     nome              VARCHAR(100) NOT NULL,
     login             VARCHAR(50)  NOT NULL UNIQUE,
     senha_hash        VARCHAR(256) NOT NULL,
-    perfil            ENUM('admin','almoxarife','analista','mestre','tecnico_seguranca','colaborador') DEFAULT 'colaborador',
+    perfil            ENUM('admin','almoxarife','analista','mestre','tecnico_seguranca','colaborador','assistente','engenheiro') DEFAULT 'colaborador',
     almoxarifado_id   INT UNSIGNED,
     escopo            VARCHAR(50),
     email             VARCHAR(120),

@@ -9,8 +9,9 @@ $perfilConfig = [
     'mestre'            => ['cor' => '#f0a500', 'icone' => 'bi-person-badge-fill',   'label' => 'Mestre de Obra', 'label_curto' => 'Mestre'],
     'tecnico_seguranca' => ['cor' => '#059669', 'icone' => 'bi-shield-check-fill',   'label' => 'Téc. Segurança', 'label_curto' => 'Tec. Seg.'],
     'analista'          => ['cor' => '#2563eb', 'icone' => 'bi-graph-up',            'label' => 'Analista',       'label_curto' => 'Analista'],
+    'assistente'        => ['cor' => '#0891b2', 'icone' => 'bi-clipboard2-check',    'label' => 'Assistente',     'label_curto' => 'Assistente'],
+    'engenheiro'        => ['cor' => '#7c3aed', 'icone' => 'bi-building-gear',       'label' => 'Engenheiro',     'label_curto' => 'Engenheiro'],
     'colaborador'       => ['cor' => '#64748b', 'icone' => 'bi-person-fill',         'label' => 'Colaborador',    'label_curto' => 'Colaborador'],
-    'engenheiro'        => ['cor' => '#0891b2', 'icone' => 'bi-wrench-adjustable',   'label' => 'Engenheiro',     'label_curto' => 'Engenheiro'],
 ];
 
 // Contar ativos por perfil e total geral

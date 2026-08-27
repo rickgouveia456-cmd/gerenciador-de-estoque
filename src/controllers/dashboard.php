@@ -3,6 +3,7 @@ requer_login();
 $u = usuario_atual();
 
 // Redirecionar mestre/tecnico/colaborador com requisitar para tela de requisicoes
+// analista e assistente ficam no dashboard normal — NÃO redirecionar
 if (in_array($u['perfil'], ['mestre', 'tecnico_seguranca'])) {
     redirect('/requisicoes/mestre');
 }

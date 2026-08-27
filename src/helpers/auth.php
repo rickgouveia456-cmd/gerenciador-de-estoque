@@ -54,16 +54,16 @@ function perfil_pode(string $acao): bool {
     if (!$u) return false;
     $perfil = $u['perfil'];
     $mapa = [
-        'ver_dashboard'      => ['admin', 'almoxarife', 'analista'],
-        'ver_almoxarifado'   => ['admin', 'almoxarife', 'analista'],
-        'editar_item'        => ['admin', 'almoxarife'],
-        'movimentar'         => ['admin', 'almoxarife'],
-        'ver_relatorios'     => ['admin', 'almoxarife', 'analista'],
+        'ver_dashboard'      => ['admin', 'almoxarife', 'analista', 'assistente'],
+        'ver_almoxarifado'   => ['admin', 'almoxarife', 'analista', 'assistente'],
+        'editar_item'        => ['admin', 'almoxarife', 'assistente'],
+        'movimentar'         => ['admin', 'almoxarife', 'assistente'],
+        'ver_relatorios'     => ['admin', 'almoxarife', 'analista', 'assistente'],
         'fazer_requisicao'   => ['admin', 'almoxarife', 'mestre', 'tecnico_seguranca', 'colaborador'],
         'aprovar_requisicao' => ['admin', 'almoxarife'],
         'gerenciar_usuarios' => ['admin'],
-        'ver_catalogo'       => ['admin', 'almoxarife', 'analista'],
-        'gerenciar_catalogo' => ['admin', 'almoxarife'],
+        'ver_catalogo'       => ['admin', 'almoxarife', 'analista', 'assistente'],
+        'gerenciar_catalogo' => ['admin', 'almoxarife', 'assistente'],
     ];
     return in_array($perfil, $mapa[$acao] ?? []);
 }

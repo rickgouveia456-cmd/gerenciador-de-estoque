@@ -45,3 +45,5 @@ logs/
 uploads/
 temp/
 tmp/
+.env.production
+mysql.cnf

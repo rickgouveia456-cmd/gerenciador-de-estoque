@@ -1,4 +1,4 @@
-﻿"""Funcoes compartilhadas: decorators, helpers, rate limiting."""
+"""Funcoes compartilhadas: decorators, helpers, rate limiting."""
 from flask import session, redirect, url_for, flash
 from functools import wraps
 from markupsafe import Markup
@@ -85,7 +85,7 @@ def almoxarife_required(f):
         if 'usuario_id' not in session:
             return redirect(url_for('auth_bp.login'))
         u = db.session.get(Usuario, session['usuario_id'])
-        if not u or u.perfil not in ('admin', 'almoxarife'):
+        if not u or u.perfil not in ('admin', 'almoxarife', 'assistente'):
             flash('Acesso restrito ao almoxarife.', 'danger')
             return redirect(url_for('main_bp.index'))
         return f(*args, **kwargs)

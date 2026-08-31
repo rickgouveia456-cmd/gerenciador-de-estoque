@@ -185,6 +185,7 @@ def novo_almoxarifado():
         alm = Almoxarifado(nome=request.form['nome'], descricao=request.form.get('descricao', ''))
         alm.obra = request.form.get('obra', '').strip() or None
         alm.cidade = request.form.get('cidade', '').strip() or None
+        alm.regiao = request.form.get('regiao', '').strip() or None
         db.session.add(alm)
         db.session.commit()
         flash(f'Almoxarifado "{alm.nome}" criado!', 'success')
@@ -205,6 +206,7 @@ def editar_almoxarifado(id):
         alm.descricao = request.form.get('descricao', '')
         alm.obra = request.form.get('obra', '').strip() or None
         alm.cidade = request.form.get('cidade', '').strip() or None
+        alm.regiao = request.form.get('regiao', '').strip() or None
         db.session.commit()
         flash('Almoxarifado atualizado!', 'success')
         return redirect(url_for('main_bp.index'))

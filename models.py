@@ -16,6 +16,7 @@ class Almoxarifado(db.Model):
     descricao = db.Column(db.String(200))
     obra = db.Column(db.String(100), nullable=True)
     cidade = db.Column(db.String(100), nullable=True)
+    regiao = db.Column(db.String(100), nullable=True)
     itens = db.relationship('Item', backref='almoxarifado', lazy=True, cascade='all, delete-orphan')
 
 
@@ -123,6 +124,7 @@ class Usuario(db.Model):
     perfil = db.Column(db.String(20), default='colaborador')
     almoxarifado_id = db.Column(db.Integer, db.ForeignKey('almoxarifado.id'), nullable=True)
     escopo = db.Column(db.String(50), nullable=True)
+    regiao = db.Column(db.String(100), nullable=True)
     email = db.Column(db.String(120), nullable=True)
     ativo = db.Column(db.Boolean, default=True)
     totp_secret = db.Column(db.String(32), nullable=True)

@@ -36,13 +36,6 @@
                                    placeholder="email@exemplo.com">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">Região</label>
-                            <input type="text" name="regiao" class="form-control"
-                                   value="{{ usuario.regiao or '' if usuario else '' }}"
-                                   placeholder="Ex: Nordeste, Sul">
-                            <div class="form-text">Região de atuação do usuário</div>
-                        </div>
-                        <div class="col-md-6">
                             <label class="form-label fw-semibold">Perfil *</label>
                             <select name="perfil" class="form-select" required id="selectPerfil"
                                     onchange="toggleAlmox()">

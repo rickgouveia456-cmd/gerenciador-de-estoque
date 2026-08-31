@@ -101,6 +101,35 @@ def create_app():
         except (TypeError, ValueError):
             return value
 
+    # Filtro para valor unitário: R$ 12,50/kg | R$ 8,00/un | R$ 3,20/L
+    @app.template_filter('fmt_valor_unit')
+    def fmt_valor_unit(value, unidade='un'):
+        try:
+            v = float(value)
+            unidade = (unidade or 'un').strip().lower()
+            # Mapeia variações para rótulo amigável
+            label_map = {
+                'kg': 'kg', 'kilo': 'kg', 'quilograma': 'kg',
+                'l': 'L', 'lt': 'L', 'litro': 'L', 'litros': 'L',
+                'm': 'm', 'metro': 'm', 'metros': 'm',
+                'm2': 'm²', 'm3': 'm³',
+                'un': 'un', 'und': 'un', 'unid': 'un', 'unidade': 'un',
+                'pct': 'pct', 'par': 'par', 'cx': 'cx', 'sc': 'sc',
+            }
+            label = label_map.get(unidade, unidade)
+            return f"R$ {v:,.2f}/{label}".replace(',', 'X').replace('.', ',').replace('X', '.')
+        except (TypeError, ValueError):
+            return '—'
+
+    # Filtro para valor total: quantidade × valor_unitario
+    @app.template_filter('fmt_valor_total')
+    def fmt_valor_total(quantidade, valor_unitario):
+        try:
+            total = float(quantidade) * float(valor_unitario)
+            return f"R$ {total:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+        except (TypeError, ValueError):
+            return '—'
+
     # Context processor — sidebar e usuario
     @app.context_processor
     def inject_sidebar():

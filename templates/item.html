@@ -16,6 +16,16 @@
                     <tr><td class="text-muted">Almoxarifado</td><td>{{ item.almoxarifado.nome }}</td></tr>
                     <tr><td class="text-muted">Unidade</td><td>{{ item.unidade }}</td></tr>
                     <tr><td class="text-muted">Estoque Mínimo</td><td>{{ item.estoque_minimo }} {{ item.unidade }}</td></tr>
+                    {% if item.valor_unitario %}
+                    <tr>
+                        <td class="text-muted">Valor Unitário</td>
+                        <td><strong>{{ item.valor_unitario|fmt_valor_unit(item.unidade) }}</strong></td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Valor em Estoque</td>
+                        <td><strong class="text-success">{{ item.quantidade|fmt_valor_total(item.valor_unitario) }}</strong></td>
+                    </tr>
+                    {% endif %}
                 </table>
             </div>
         </div>

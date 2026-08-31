@@ -273,7 +273,8 @@ def novo_item():
                 estoque_minimo=float(request.form.get('estoque_minimo', 0)),
                 almoxarifado_id=int(request.form['almoxarifado_id']),
                 categoria=request.form.get('categoria', 'geral'),
-                ca=request.form.get('ca', '').strip() or None
+                ca=request.form.get('ca', '').strip() or None,
+                valor_unitario=float(request.form['valor_unitario']) if request.form.get('valor_unitario') else None
             )
             db.session.add(it)
             db.session.commit()
@@ -307,6 +308,7 @@ def editar_item(id):
         it.almoxarifado_id = int(request.form['almoxarifado_id'])
         it.categoria = request.form.get('categoria', 'geral')
         it.ca = request.form.get('ca', '').strip() or None
+        it.valor_unitario = float(request.form['valor_unitario']) if request.form.get('valor_unitario') else None
         # Atualizar quantidade se informada (admin pode corrigir o valor)
         qtd_str = request.form.get('quantidade')
         if qtd_str is not None and qtd_str != '':

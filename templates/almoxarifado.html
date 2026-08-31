@@ -92,6 +92,7 @@
                     <th>Unidade</th>
                     <th>Qtd. Atual</th>
                     <th>Estoque Mínimo</th>
+                    <th>Valor Estoque</th>
                     <th>Nível</th>
                     <th>Status</th>
                     <th>Ações</th>
@@ -121,6 +122,13 @@
                         {{ item.quantidade|fmt_qtd }}
                     </td>
                     <td>{{ item.estoque_minimo }}</td>
+                    <td class="small text-muted">
+                        {% if item.valor_unitario %}
+                            {{ item.quantidade|fmt_valor_total(item.valor_unitario) }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
                     <td style="min-width:120px">
                         {% if item.ativo and item.estoque_minimo > 0 %}
                         {% set pct = [(item.quantidade / item.estoque_minimo * 100), 100] | min %}

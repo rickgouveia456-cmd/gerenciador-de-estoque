@@ -1,4 +1,4 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 {% block title %}{% if item %}Editar{% else %}Novo{% endif %} Item{% endblock %}
 {% block page_title %}{% if item %}Editar Item{% else %}Novo Item{% endif %}{% endblock %}
 
@@ -93,6 +93,14 @@
                                    value="{{ item.ca if item and item.ca else '' }}"
                                    placeholder="Ex: 12345">
                             <div class="form-text">Certificado de Aprovação (MTE)</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Valor Unitário (R$)</label>
+                            <input type="number" name="valor_unitario" class="form-control"
+                                   step="0.01" min="0"
+                                   value="{{ item.valor_unitario if item and item.valor_unitario else '' }}"
+                                   placeholder="Ex: 12.50">
+                            <div class="form-text">Preço por {{ item.unidade if item else 'unidade' }} — usado no valor de estoque</div>
                         </div>
                     </div>
                     <div class="d-flex gap-2 mt-4">

@@ -51,10 +51,21 @@ def configure_app(app):
         os.environ.get('URI_DO_BANCO_DE_DADOS') or
         f'sqlite:///{os.path.join(os.path.dirname(os.path.abspath(__file__)), "instance", "estoque.db")}'
     )
+    # Compatibilidade postgres:// → postgresql://
     if _db_url.startswith('postgres://'):
         _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
+    # Compatibilidade mysql:// → mysql+pymysql://
+    if _db_url.startswith('mysql://'):
+        _db_url = _db_url.replace('mysql://', 'mysql+pymysql://', 1)
 
     app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
+    # Configurações extras para MySQL/MariaDB
+    if 'mysql' in _db_url:
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'pool_recycle': 280,
+            'pool_pre_ping': True,
+            'connect_args': {'charset': 'utf8mb4'},
+        }
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['WTF_CSRF_TIME_LIMIT'] = 7200
     app.config['PREFERRED_URL_SCHEME'] = 'https'

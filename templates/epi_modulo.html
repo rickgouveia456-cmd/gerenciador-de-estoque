@@ -12,9 +12,6 @@
             ('fichas',        'bi-file-earmark-person', 'Fichas de Entrega'),
             ('matriz',        'bi-table',               'Matriz de EPI'),
             ('devolucoes',    'bi-arrow-return-left',   'Devoluções'),
-            ('treinamentos',  'bi-mortarboard',         'Treinamentos'),
-            ('habilitacoes',  'bi-award',               'Habilitações'),
-            ('certificados',  'bi-patch-check',         'Certificados (CA)'),
         ] %}
         {% for id_aba, icone, label in abas %}
         <li class="nav-item">
@@ -400,16 +397,6 @@
 </div>
 
 {# ════════════════════════════════ CERTIFICADOS CA ══════════════════════════ #}
-{% elif aba == 'certificados' %}
-<div class="text-center py-5 mt-4">
-    <div style="font-size:4.5rem">🚧</div>
-    <h3 class="fw-bold mt-3" style="color:var(--accent)">Em Breve</h3>
-    <p class="text-muted mt-2">O módulo de Certificados CA está sendo desenvolvido.<br>Em breve você poderá cadastrar e controlar os Certificados de Aprovação dos EPIs.</p>
-    <a href="/epi/painel" class="btn btn-outline-secondary btn-sm mt-3">
-        <i class="bi bi-arrow-left me-1"></i> Voltar ao Painel
-    </a>
-</div>
-
 {# ════════════════════════════════ MATRIZ DE EPI ════════════════════════════ #}
 {% elif aba == 'matriz' %}
 
@@ -534,28 +521,6 @@
             </form>
         </div>
     </div>
-</div>
-
-{# ════════════════════════════════ TREINAMENTOS ══════════════════════════════ #}
-{% elif aba == 'treinamentos' %}
-<div class="text-center py-5 mt-4">
-    <div style="font-size:4.5rem">🚧</div>
-    <h3 class="fw-bold mt-3" style="color:var(--accent)">Em Breve</h3>
-    <p class="text-muted mt-2">O módulo de Treinamentos está sendo aprimorado.<br>Em breve você poderá registrar, controlar e emitir certificados de treinamentos de segurança.</p>
-    <a href="/epi/painel" class="btn btn-outline-secondary btn-sm mt-3">
-        <i class="bi bi-arrow-left me-1"></i> Voltar ao Painel
-    </a>
-</div>
-
-{# ════════════════════════════════ HABILITAÇÕES ══════════════════════════════ #}
-{% elif aba == 'habilitacoes' %}
-<div class="text-center py-5 mt-4">
-    <div style="font-size:4.5rem">🚧</div>
-    <h3 class="fw-bold mt-3" style="color:var(--accent)">Em Breve</h3>
-    <p class="text-muted mt-2">O módulo de Habilitações está sendo desenvolvido.<br>Em breve você poderá cadastrar e controlar certificados de habilitação dos funcionários.</p>
-    <a href="/epi/painel" class="btn btn-outline-secondary btn-sm mt-3">
-        <i class="bi bi-arrow-left me-1"></i> Voltar ao Painel
-    </a>
 </div>
 
 {# ════════════════════════════════ DEVOLUÇÕES ════════════════════════════════ #}

@@ -87,6 +87,7 @@ def novo_usuario():
             perfil=request.form['perfil'],
             almoxarifado_id=request.form.get('almoxarifado_id') or None,
             email=request.form.get('email', '').strip() or None,
+            escopo=request.form.get('escopo', '').strip() or None,
             regiao=request.form.get('regiao', '').strip() or None
         )
         senha_nova = request.form.get('senha', '')
@@ -127,6 +128,7 @@ def editar_usuario(id):
         u.perfil = novo_perfil
         u.almoxarifado_id = request.form.get('almoxarifado_id') or None
         u.email = request.form.get('email', '').strip() or None
+        u.escopo = request.form.get('escopo', '').strip() or None
         u.regiao = request.form.get('regiao', '').strip() or None
         u.ativo = 'ativo' in request.form
         # Impede que admin desative a si mesmo

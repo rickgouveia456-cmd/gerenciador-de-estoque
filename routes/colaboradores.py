@@ -43,9 +43,9 @@ def colaboradores():
                     escopo_almoxarife = esc
                     break
 
-    # Almoxarife E técnico veem apenas colaboradores da sua obra E frente
-    if u.perfil in ('almoxarife', 'tecnico', 'tecnico_seguranca'):
-        # Se não tem almoxarifado vinculado, não vê nenhum colaborador
+    # Almoxarife vê apenas colaboradores da sua obra E frente
+    # Técnico de segurança vê todos
+    if u.perfil == 'almoxarife':
         if not u.almoxarifado_id:
             cols = []
         else:

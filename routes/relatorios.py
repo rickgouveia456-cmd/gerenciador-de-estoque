@@ -31,10 +31,8 @@ def relatorio_consumo():
     aba = request.args.get('aba', 'saidas')  # saidas | entradas
 
     # Determina almoxarifados permitidos filtrados por cidade
-    if u.perfil == 'admin':
+    if u.perfil in ('admin', 'ggo'):
         ids_perm = None
-    elif u.perfil == 'ggo':
-        ids_perm = {a.id for a in almoxarifados_do_ggo(u)}
     else:
         ids_perm = set(u.almoxarifados_permitidos())
         if u.perfil in ('tecnico_seguranca', 'analista') and u.almoxarifado_id:
@@ -184,7 +182,7 @@ def relatorio_consumo_pessoa():
     if u.perfil == 'admin':
         ids_permitidos = None  # sem restrição
     elif u.perfil == 'ggo':
-        ids_permitidos = {a.id for a in almoxarifados_do_ggo(u)}
+        ids_permitidos = None  # GGO vê tudo
     else:
         ids_permitidos = u.almoxarifados_permitidos()
         # Para técnico/analista: expande para todos da mesma cidade
@@ -907,15 +905,10 @@ def relatorio_alertas():
         ).all()
         todos_ativos = Item.query.filter(Item.ativo == True).all()
     elif u.perfil == 'ggo':
-        ids_ggo = {a.id for a in almoxarifados_do_ggo(u)}
-        itens = Item.query.filter(
-            Item.quantidade <= Item.estoque_minimo,
-            Item.almoxarifado_id.in_(ids_ggo),
-            Item.ativo == True
-        ).order_by(Item.fixado.desc(), Item.quantidade.asc()).all() if ids_ggo else []
-        todos_ativos = Item.query.filter(
-            Item.ativo == True, Item.almoxarifado_id.in_(ids_ggo)
-        ).all() if ids_ggo else []
+        itens = Item.query.filter(Item.quantidade <= Item.estoque_minimo, Item.ativo == True).order_by(
+            Item.fixado.desc(), Item.quantidade.asc()
+        ).all()
+        todos_ativos = Item.query.filter(Item.ativo == True).all()
     elif u.perfil == 'analista':
         # Analista vê apenas alertas da sua cidade
         ids_alm = set()

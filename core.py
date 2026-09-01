@@ -51,14 +51,9 @@ def ggo_cidade(u):
     return None
 
 def almoxarifados_do_ggo(u):
-    """Retorna lista de Almoxarifado da cidade do GGO."""
+    """GGO ve todos os almoxarifados sem restricao."""
     from models import Almoxarifado
-    cidade = ggo_cidade(u)
-    if not cidade:
-        return []
-    return Almoxarifado.query.filter(
-        db.func.lower(Almoxarifado.cidade) == cidade
-    ).all()
+    return Almoxarifado.query.all()
 
 def usuario_atual():
     if 'usuario_id' in session:

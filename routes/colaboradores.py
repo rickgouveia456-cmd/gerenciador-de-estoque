@@ -29,13 +29,9 @@ def colaboradores():
         return redirect(url_for('main_bp.index'))
     cols = Colaborador.query.order_by(Colaborador.ativo.desc(), Colaborador.nome).all()
 
-    # GGO vê apenas colaboradores da sua cidade (campo escopo)
+    # GGO vê todos os colaboradores sem filtro
     if u.perfil == 'ggo':
-        cidade_ggo = ggo_cidade(u)
-        if cidade_ggo:
-            cols = [c for c in cols if (c.cidade or '').lower().strip() == cidade_ggo]
-        else:
-            cols = []
+        pass  # cols já tem todos
 
     # Determinar escopo, obra e cidade pelo almoxarifado vinculado
     escopo_almoxarife = None

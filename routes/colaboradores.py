@@ -23,7 +23,7 @@ colaboradores_bp = Blueprint('colaboradores_bp', __name__)
 @login_required
 def colaboradores():
     u = usuario_atual()
-    if u.perfil not in ('admin', 'almoxarife', 'analista'):
+    if u.perfil not in ('admin', 'almoxarife', 'analista', 'assistente', 'tecnico'):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('main_bp.index'))
     cols = Colaborador.query.order_by(Colaborador.ativo.desc(), Colaborador.nome).all()
@@ -43,8 +43,8 @@ def colaboradores():
                     escopo_almoxarife = esc
                     break
 
-    # Almoxarife vê apenas colaboradores da sua obra E frente
-    if u.perfil == 'almoxarife':
+    # Almoxarife E técnico veem apenas colaboradores da sua obra E frente
+    if u.perfil in ('almoxarife', 'tecnico'):
         def colab_pertence(c):
             # Filtro por obra — se almoxarife tem obra definida, só vê colaboradores
             # com a mesma obra. Colaboradores sem obra passam apenas se cidade bater.
@@ -108,7 +108,7 @@ def colaboradores():
 @login_required
 def novo_colaborador():
     u = usuario_atual()
-    if u.perfil not in ('admin', 'almoxarife', 'analista'):
+    if u.perfil not in ('admin', 'almoxarife', 'analista', 'assistente', 'tecnico'):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('main_bp.index'))
     nome = request.form.get('nome', '').strip()
@@ -118,8 +118,8 @@ def novo_colaborador():
     cidade = request.form.get('cidade', '').strip()
     tipo = request.form.get('tipo', 'peao').strip()
 
-    # Se almoxarife não preencheu obra/cidade, usa os do almoxarifado dele
-    if not obra and u.perfil == 'almoxarife' and u.almoxarifado_id:
+    # Se técnico ou almoxarife não preencheu obra/cidade, usa os do almoxarifado dele
+    if not obra and u.perfil in ('almoxarife', 'tecnico') and u.almoxarifado_id:
         alm = db.session.get(Almoxarifado, u.almoxarifado_id)
         if alm:
             obra = alm.obra or ''
@@ -141,7 +141,7 @@ def novo_colaborador():
 @login_required
 def desativar_colaborador(id):
     u = usuario_atual()
-    if u.perfil not in ('admin', 'almoxarife', 'analista'):
+    if u.perfil not in ('admin', 'almoxarife', 'analista', 'assistente', 'tecnico'):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('main_bp.index'))
     c = Colaborador.query.get_or_404(id)
@@ -154,7 +154,7 @@ def desativar_colaborador(id):
 @login_required
 def reativar_colaborador(id):
     u = usuario_atual()
-    if u.perfil not in ('admin', 'almoxarife', 'analista'):
+    if u.perfil not in ('admin', 'almoxarife', 'analista', 'assistente', 'tecnico'):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('main_bp.index'))
     c = Colaborador.query.get_or_404(id)

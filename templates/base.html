@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -167,7 +167,7 @@
         </a>
         {% endif %}
         {% endif %}
-        {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife') %}
+        {% if usuario_atual and usuario_atual.perfil in ('admin', 'almoxarife', 'assistente', 'tecnico', 'analista') %}
         <span class="nav-section">Equipe</span>
         <a href="/colaboradores" class="nav-link {% if request.endpoint == 'colaboradores_bp.colaboradores' %}active{% endif %}">
             <i class="bi bi-person-badge me-2"></i> Colaboradores

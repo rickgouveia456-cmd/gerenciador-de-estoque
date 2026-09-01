@@ -27,7 +27,16 @@ def api_alertas():
         return jsonify({'error': 'Too many requests'}), 429
     u = usuario_atual()
     if is_admin_ou_ggo(u):
-        itens = Item.query.filter(Item.quantidade <= Item.estoque_minimo, Item.ativo == True).all()
+        if u.perfil == 'ggo':
+            from core import almoxarifados_do_ggo
+            ids_ggo = {a.id for a in almoxarifados_do_ggo(u)}
+            itens = Item.query.filter(
+                Item.quantidade <= Item.estoque_minimo,
+                Item.almoxarifado_id.in_(ids_ggo),
+                Item.ativo == True
+            ).all() if ids_ggo else []
+        else:
+            itens = Item.query.filter(Item.quantidade <= Item.estoque_minimo, Item.ativo == True).all()
     else:
         ids = u.almoxarifados_permitidos()
         itens = Item.query.filter(

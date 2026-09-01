@@ -28,11 +28,11 @@ def colaboradores():
         return redirect(url_for('main_bp.index'))
     cols = Colaborador.query.order_by(Colaborador.ativo.desc(), Colaborador.nome).all()
 
-    # Determinar escopo, obra e cidade do almoxarife pelo seu almoxarifado vinculado
+    # Determinar escopo, obra e cidade pelo almoxarifado vinculado
     escopo_almoxarife = None
     obra_almoxarife = None
     cidade_almoxarife = None
-    if u.perfil == 'almoxarife' and u.almoxarifado_id:
+    if u.perfil in ('almoxarife', 'tecnico', 'tecnico_seguranca') and u.almoxarifado_id:
         alm = db.session.get(Almoxarifado, u.almoxarifado_id)
         if alm:
             obra_almoxarife = (alm.obra or '').lower().strip() or None
@@ -45,25 +45,24 @@ def colaboradores():
 
     # Almoxarife E técnico veem apenas colaboradores da sua obra E frente
     if u.perfil in ('almoxarife', 'tecnico', 'tecnico_seguranca'):
-        def colab_pertence(c):
-            # Filtro por obra — se almoxarife tem obra definida, só vê colaboradores
-            # com a mesma obra. Colaboradores sem obra passam apenas se cidade bater.
-            if obra_almoxarife:
-                obra_colab = (c.obra or '').lower().strip()
-                if obra_colab and obra_colab != obra_almoxarife:
-                    return False
-            # Filtro por cidade — se almoxarife tem cidade, colaboradores sem cidade
-            # ou de outra cidade ficam fora
-            if cidade_almoxarife:
-                cidade_colab = (c.cidade or '').lower().strip()
-                if cidade_colab != cidade_almoxarife:
-                    return False
-            # Filtro por escopo (frente de obra)
-            if escopo_almoxarife and c.escopo:
-                if c.escopo.lower().strip() != escopo_almoxarife:
-                    return False
-            return True
-        cols = [c for c in cols if colab_pertence(c)]
+        # Se não tem almoxarifado vinculado, não vê nenhum colaborador
+        if not u.almoxarifado_id:
+            cols = []
+        else:
+            def colab_pertence(c):
+                if obra_almoxarife:
+                    obra_colab = (c.obra or '').lower().strip()
+                    if obra_colab and obra_colab != obra_almoxarife:
+                        return False
+                if cidade_almoxarife:
+                    cidade_colab = (c.cidade or '').lower().strip()
+                    if cidade_colab != cidade_almoxarife:
+                        return False
+                if escopo_almoxarife and c.escopo:
+                    if c.escopo.lower().strip() != escopo_almoxarife:
+                        return False
+                return True
+            cols = [c for c in cols if colab_pertence(c)]
 
     # Analista vê apenas colaboradores da sua cidade E escopo
     if u.perfil == 'analista':

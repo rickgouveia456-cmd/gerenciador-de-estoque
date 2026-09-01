@@ -80,6 +80,14 @@
                             </select>
                             <div class="form-text" id="textoAlmox">Engenheiro acessa este almoxarifado</div>
                         </div>
+                        <div class="col-md-6" id="divEscopo">
+                            <label class="form-label fw-semibold">Escopo / Cidade <span id="labelEscopo" class="text-muted fw-normal" style="font-size:0.82rem"></span></label>
+                            <input type="text" name="escopo" class="form-control"
+                                   value="{{ usuario.escopo if usuario and usuario.escopo else '' }}"
+                                   id="inputEscopo"
+                                   placeholder="Ex: Salvador, Aracaju">
+                            <div class="form-text" id="textoEscopo">Para GGO: cidade que vai gerenciar</div>
+                        </div>
                         {% if usuario %}
                         <div class="col-12">
                             <div class="form-check">
@@ -286,7 +294,26 @@
 <script>
 function toggleAlmox() {
     const perfil = document.getElementById('selectPerfil').value;
-    document.getElementById('divAlmox').style.display = perfil === 'admin' ? 'none' : '';
+    // Almoxarifado: oculto para admin e GGO
+    document.getElementById('divAlmox').style.display = (perfil === 'admin' || perfil === 'ggo') ? 'none' : '';
+    // Escopo/Cidade: sempre visível, mas destaque para GGO
+    const divEscopo = document.getElementById('divEscopo');
+    const inputEscopo = document.getElementById('inputEscopo');
+    const textoEscopo = document.getElementById('textoEscopo');
+    const labelEscopo = document.getElementById('labelEscopo');
+    if (perfil === 'ggo') {
+        inputEscopo.placeholder = 'Ex: Salvador, Aracaju, Sergipe...';
+        inputEscopo.style.borderColor = '#f59e0b';
+        inputEscopo.style.borderWidth = '2px';
+        if (textoEscopo) textoEscopo.textContent = '⚠️ Obrigatório para GGO — define quais almoxarifados e dados ele verá';
+        if (labelEscopo) labelEscopo.textContent = '(obrigatório para GGO)';
+    } else {
+        inputEscopo.placeholder = 'Ex: Salvador, Estrutura...';
+        inputEscopo.style.borderColor = '';
+        inputEscopo.style.borderWidth = '';
+        if (textoEscopo) textoEscopo.textContent = 'Escopo ou frente de obra do usuário';
+        if (labelEscopo) labelEscopo.textContent = '';
+    }
     const textos = {
         'colaborador': 'Engenheiro acessa este almoxarifado',
         'almoxarife': 'Almoxarife gerencia este almoxarifado',

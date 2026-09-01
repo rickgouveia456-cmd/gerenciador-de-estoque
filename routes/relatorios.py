@@ -14,7 +14,8 @@ from models import (agora, Almoxarifado, Item, Movimentacao, Requisicao,
 from core import (login_required, admin_required, almoxarife_required,
     usuario_atual, flash_html, usuario_tem_acesso_almoxarifado,
     usuario_tem_acesso_item, PERMISSOES_DISPONIVEIS,
-    _check_rate_limit, _register_attempt, _clear_attempts, _check_api_rate)
+    _check_rate_limit, _register_attempt, _clear_attempts, _check_api_rate,
+    ggo_cidade, almoxarifados_do_ggo)
 
 logger = logging.getLogger(__name__)
 from utils import calcular_ruptura
@@ -32,6 +33,8 @@ def relatorio_consumo():
     # Determina almoxarifados permitidos filtrados por cidade
     if u.perfil == 'admin':
         ids_perm = None
+    elif u.perfil == 'ggo':
+        ids_perm = {a.id for a in almoxarifados_do_ggo(u)}
     else:
         ids_perm = set(u.almoxarifados_permitidos())
         if u.perfil in ('tecnico_seguranca', 'analista') and u.almoxarifado_id:
@@ -180,6 +183,8 @@ def relatorio_consumo_pessoa():
     # IDs de almoxarifados que o usuário pode ver (filtrado por cidade para não-admins)
     if u.perfil == 'admin':
         ids_permitidos = None  # sem restrição
+    elif u.perfil == 'ggo':
+        ids_permitidos = {a.id for a in almoxarifados_do_ggo(u)}
     else:
         ids_permitidos = u.almoxarifados_permitidos()
         # Para técnico/analista: expande para todos da mesma cidade
@@ -901,6 +906,16 @@ def relatorio_alertas():
             Item.fixado.desc(), Item.quantidade.asc()
         ).all()
         todos_ativos = Item.query.filter(Item.ativo == True).all()
+    elif u.perfil == 'ggo':
+        ids_ggo = {a.id for a in almoxarifados_do_ggo(u)}
+        itens = Item.query.filter(
+            Item.quantidade <= Item.estoque_minimo,
+            Item.almoxarifado_id.in_(ids_ggo),
+            Item.ativo == True
+        ).order_by(Item.fixado.desc(), Item.quantidade.asc()).all() if ids_ggo else []
+        todos_ativos = Item.query.filter(
+            Item.ativo == True, Item.almoxarifado_id.in_(ids_ggo)
+        ).all() if ids_ggo else []
     elif u.perfil == 'analista':
         # Analista vê apenas alertas da sua cidade
         ids_alm = set()

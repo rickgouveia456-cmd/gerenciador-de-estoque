@@ -53,13 +53,18 @@
                                 </option>
                                 <option value="analista" {% if usuario and usuario.perfil == 'analista' %}selected{% endif %}>
                                     📊 Analista
-                                </option>                                <option value="admin" {% if usuario and usuario.perfil == 'admin' %}selected{% endif %}>
+                                </option>
+                                <option value="ggo" {% if usuario and usuario.perfil == 'ggo' %}selected{% endif %}>
+                                    🏗️ GGO (Gestor Geral de Obra)
+                                </option>
+                                <option value="admin" {% if usuario and usuario.perfil == 'admin' %}selected{% endif %}>
                                     👑 Administrador
                                 </option>
                             </select>
                             <div class="form-text">
                                 <strong>Mestre / Téc. Segurança</strong>: fazem requisições ao almoxarifado ·
-                                <strong>Almoxarife</strong>: gerencia e entrega materiais
+                                <strong>Almoxarife</strong>: gerencia e entrega materiais ·
+                                <strong>GGO</strong>: vê todos os almoxarifados/relatórios da sua cidade (defina a cidade no campo Escopo)
                             </div>
                         </div>
                         <div class="col-md-6" id="divAlmox">

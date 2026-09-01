@@ -44,6 +44,22 @@ def usuario_tem_acesso_almoxarifado(u, alm_id):
 def usuario_tem_acesso_item(u, it):
     return u.perfil == 'admin' or (it and it.almoxarifado_id in u.almoxarifados_permitidos())
 
+def ggo_cidade(u):
+    """Retorna a cidade do GGO (armazenada no campo escopo do usuario)."""
+    if u and u.perfil == 'ggo':
+        return (u.escopo or '').strip().lower() or None
+    return None
+
+def almoxarifados_do_ggo(u):
+    """Retorna lista de Almoxarifado da cidade do GGO."""
+    from models import Almoxarifado
+    cidade = ggo_cidade(u)
+    if not cidade:
+        return []
+    return Almoxarifado.query.filter(
+        db.func.lower(Almoxarifado.cidade) == cidade
+    ).all()
+
 def usuario_atual():
     if 'usuario_id' in session:
         return db.session.get(Usuario, session['usuario_id'])

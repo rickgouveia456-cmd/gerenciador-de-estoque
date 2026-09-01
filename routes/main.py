@@ -14,7 +14,8 @@ from models import (agora, Almoxarifado, Item, Movimentacao, Requisicao,
 from core import (login_required, admin_required, almoxarife_required,
     usuario_atual, flash_html, usuario_tem_acesso_almoxarifado,
     usuario_tem_acesso_item, PERMISSOES_DISPONIVEIS,
-    _check_rate_limit, _register_attempt, _clear_attempts, _check_api_rate)
+    _check_rate_limit, _register_attempt, _clear_attempts, _check_api_rate,
+    ggo_cidade, almoxarifados_do_ggo)
 
 logger = logging.getLogger(__name__)
 from utils import calcular_ruptura
@@ -51,6 +52,15 @@ def index():
             Item.almoxarifado_id.in_(ids_analista),
             Item.ativo == True
         ).all()
+    elif u.perfil == 'ggo':
+        # GGO vê todos os almoxarifados da sua cidade (campo escopo)
+        almoxarifados = almoxarifados_do_ggo(u)
+        ids_ggo = {a.id for a in almoxarifados}
+        alertas = Item.query.filter(
+            Item.quantidade <= Item.estoque_minimo,
+            Item.almoxarifado_id.in_(ids_ggo),
+            Item.ativo == True
+        ).all() if ids_ggo else []
     else:
         ids = u.almoxarifados_permitidos()
         almoxarifados = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).all() if ids else []

@@ -37,7 +37,60 @@
         </button>
     </div>
     <nav class="nav flex-column mt-1">
-        {% if usuario_atual and usuario_atual.perfil == 'analista' %}
+        {% if usuario_atual and usuario_atual.perfil == 'ggo' %}
+        <!-- SIDEBAR PARA GGO -->
+        <span class="nav-section" style="color:#f59e0b">🏗️ GGO — {{ usuario_atual.escopo | title if usuario_atual.escopo else 'Gestor' }}</span>
+        <a href="/" class="nav-link {% if request.endpoint == 'main_bp.index' %}active{% endif %}">
+            <i class="bi bi-speedometer2 me-2"></i> Dashboard
+        </a>
+        <a href="/relatorios/alertas" class="nav-link {% if request.endpoint == 'relatorios_bp.relatorio_alertas' %}active{% endif %}">
+            <i class="bi bi-bell me-2"></i> Alertas de Estoque
+            <span id="badge-alertas" class="badge bg-danger ms-1" style="display:none"></span>
+        </a>
+        <span class="nav-section">Almoxarifados</span>
+        {% for alm in sidebar_alms %}
+        {% set c = sidebar_contadores.get(alm.id, {}) %}
+        {% set alm_open = request.view_args is not none and (request.view_args.get('id') == alm.id or request.view_args.get('alm_id') == alm.id) %}
+        <div>
+            <div class="nav-link d-flex align-items-center justify-content-between pe-2"
+                 style="cursor:pointer" onclick="toggleAlm({{ alm.id }})">
+                <span><i class="bi bi-archive me-2"></i>{{ alm.nome | truncate(14, True) }}</span>
+                <div class="d-flex align-items-center gap-1">
+                    <small class="badge rounded-pill"
+                           style="background:var(--accent);color:#fff;font-size:0.62rem">
+                        {% set pct_val = [(c.get('qtd_ok',0) / c.get('itens',1) * 100)|int, 100]|min if c.get('itens',0) > 0 else 0 %}
+                        {{ pct_val }}%</small>
+                    <i class="bi bi-chevron-down" id="arr_{{ alm.id }}"
+                       style="font-size:0.7rem;transition:transform 0.2s;{% if alm_open %}transform:rotate(180deg){% endif %}"></i>
+                </div>
+            </div>
+            <div id="sub_{{ alm.id }}" {% if not alm_open %}style="display:none"{% endif %}>
+                <a href="/almoxarifado/{{ alm.id }}" class="nav-link ps-4 py-1 d-flex justify-content-between align-items-center" style="font-size:0.82rem">
+                    <span><i class="bi bi-boxes me-1"></i>Insumos</span>
+                    <span class="badge rounded-pill bg-secondary" style="font-size:0.65rem">{{ c.get('itens', 0) }}</span>
+                </a>
+                <a href="/almoxarifado/{{ alm.id }}/ferramentas" class="nav-link ps-4 py-1" style="font-size:0.82rem">
+                    <span><i class="bi bi-tools me-1"></i>Ferramentas</span>
+                </a>
+                <a href="/almoxarifado/{{ alm.id }}/epis" class="nav-link ps-4 py-1" style="font-size:0.82rem">
+                    <span><i class="bi bi-shield-check me-1"></i>EPIs</span>
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+        <span class="nav-section">Relatórios</span>
+        <a href="/relatorios/consumo" class="nav-link {% if request.endpoint == 'relatorios_bp.relatorio_consumo' %}active{% endif %}">
+            <i class="bi bi-graph-down me-2"></i> Consumo
+        </a>
+        <a href="/relatorios/consumo-por-pessoa" class="nav-link {% if request.endpoint == 'relatorios_bp.relatorio_consumo_pessoa' %}active{% endif %}">
+            <i class="bi bi-people me-2"></i> Consumo por Pessoa
+        </a>
+        <span class="nav-section">Equipe</span>
+        <a href="/colaboradores" class="nav-link {% if request.endpoint == 'colaboradores_bp.colaboradores' %}active{% endif %}">
+            <i class="bi bi-person-badge me-2"></i> Colaboradores
+        </a>
+
+        {% elif usuario_atual and usuario_atual.perfil == 'analista' %}
         <!-- SIDEBAR PARA ANALISTA -->
         <span class="nav-section" style="color:#10b981">📊 Analista</span>
         <a href="/" class="nav-link {% if request.endpoint == 'main_bp.index' %}active{% endif %}">
@@ -322,6 +375,8 @@
                                 <span class="badge" style="background:#0d6efd;color:#fff">🦺 Téc. Segurança</span>
                             {% elif usuario_atual.perfil == 'analista' %}
                                 <span class="badge" style="background:#10b981;color:#fff">📊 Analista</span>
+                            {% elif usuario_atual.perfil == 'ggo' %}
+                                <span class="badge" style="background:#f59e0b;color:#fff">🏗️ GGO — {{ usuario_atual.escopo | title if usuario_atual.escopo else 'Gestor' }}</span>
                             {% elif usuario_atual.perfil == 'almoxarife' %}
                                 <span class="badge bg-info text-dark">Almoxarife</span>
                             {% else %}

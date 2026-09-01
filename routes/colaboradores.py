@@ -14,7 +14,8 @@ from models import (agora, Almoxarifado, Item, Movimentacao, Requisicao,
 from core import (login_required, admin_required, almoxarife_required,
     usuario_atual, flash_html, usuario_tem_acesso_almoxarifado,
     usuario_tem_acesso_item, PERMISSOES_DISPONIVEIS,
-    _check_rate_limit, _register_attempt, _clear_attempts, _check_api_rate)
+    _check_rate_limit, _register_attempt, _clear_attempts, _check_api_rate,
+    ggo_cidade, almoxarifados_do_ggo)
 
 logger = logging.getLogger(__name__)
 colaboradores_bp = Blueprint('colaboradores_bp', __name__)
@@ -23,10 +24,18 @@ colaboradores_bp = Blueprint('colaboradores_bp', __name__)
 @login_required
 def colaboradores():
     u = usuario_atual()
-    if u.perfil not in ('admin', 'almoxarife', 'analista', 'assistente', 'tecnico', 'tecnico_seguranca'):
+    if u.perfil not in ('admin', 'almoxarife', 'analista', 'assistente', 'tecnico', 'tecnico_seguranca', 'ggo'):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('main_bp.index'))
     cols = Colaborador.query.order_by(Colaborador.ativo.desc(), Colaborador.nome).all()
+
+    # GGO vê apenas colaboradores da sua cidade (campo escopo)
+    if u.perfil == 'ggo':
+        cidade_ggo = ggo_cidade(u)
+        if cidade_ggo:
+            cols = [c for c in cols if (c.cidade or '').lower().strip() == cidade_ggo]
+        else:
+            cols = []
 
     # Determinar escopo, obra e cidade pelo almoxarifado vinculado
     escopo_almoxarife = None

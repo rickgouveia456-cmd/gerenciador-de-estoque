@@ -32,7 +32,6 @@ def colaboradores():
     # GGO vê todos os colaboradores sem filtro
     if u.perfil == 'ggo':
         pass  # cols já tem todos
-
     # Determinar escopo, obra e cidade pelo almoxarifado vinculado
     escopo_almoxarife = None
     obra_almoxarife = None
@@ -112,7 +111,7 @@ def colaboradores():
 @login_required
 def novo_colaborador():
     u = usuario_atual()
-    if u.perfil not in ('admin', 'almoxarife', 'analista', 'assistente', 'tecnico', 'tecnico_seguranca'):
+    if u.perfil not in ('admin', 'almoxarife', 'analista', 'assistente', 'tecnico', 'tecnico_seguranca', 'ggo'):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('main_bp.index'))
     nome = request.form.get('nome', '').strip()
@@ -145,7 +144,7 @@ def novo_colaborador():
 @login_required
 def desativar_colaborador(id):
     u = usuario_atual()
-    if u.perfil not in ('admin', 'almoxarife', 'analista', 'assistente', 'tecnico', 'tecnico_seguranca'):
+    if u.perfil not in ('admin', 'almoxarife', 'analista', 'assistente', 'tecnico', 'tecnico_seguranca', 'ggo'):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('main_bp.index'))
     c = Colaborador.query.get_or_404(id)
@@ -158,7 +157,7 @@ def desativar_colaborador(id):
 @login_required
 def reativar_colaborador(id):
     u = usuario_atual()
-    if u.perfil not in ('admin', 'almoxarife', 'analista', 'assistente', 'tecnico', 'tecnico_seguranca'):
+    if u.perfil not in ('admin', 'almoxarife', 'analista', 'assistente', 'tecnico', 'tecnico_seguranca', 'ggo'):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('main_bp.index'))
     c = Colaborador.query.get_or_404(id)

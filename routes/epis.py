@@ -14,7 +14,8 @@ from models import (agora, Almoxarifado, Item, Movimentacao, Requisicao,
 from core import (login_required, admin_required, almoxarife_required,
     usuario_atual, flash_html, usuario_tem_acesso_almoxarifado,
     usuario_tem_acesso_item, PERMISSOES_DISPONIVEIS,
-    _check_rate_limit, _register_attempt, _clear_attempts, _check_api_rate)
+    _check_rate_limit, _register_attempt, _clear_attempts, _check_api_rate,
+    is_admin_ou_ggo, admin_ou_ggo_required)
 
 logger = logging.getLogger(__name__)
 epis_bp = Blueprint('epis_bp', __name__)
@@ -24,7 +25,7 @@ epis_bp = Blueprint('epis_bp', __name__)
 def epis(alm_id):
     u = usuario_atual()
     alm = Almoxarifado.query.get_or_404(alm_id)
-    if u.perfil not in ('admin', 'almoxarife') and alm_id not in u.almoxarifados_permitidos():
+    if not is_admin_ou_ggo(u) and u.perfil != 'almoxarife' and alm_id not in u.almoxarifados_permitidos():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('main_bp.index'))
     lista = ItemEPI.query.filter_by(almoxarifado_id=alm_id, ativo=True).order_by(ItemEPI.nome).all()
@@ -35,7 +36,7 @@ def epis(alm_id):
 def novo_epi(alm_id):
     u = usuario_atual()
     alm = Almoxarifado.query.get_or_404(alm_id)
-    if u.perfil not in ('admin', 'almoxarife'):
+    if not is_admin_ou_ggo(u) and u.perfil != 'almoxarife':
         flash('Acesso negado.', 'danger')
         return redirect(url_for('epis_bp.epis', alm_id=alm_id))
     if request.method == 'POST':
@@ -59,7 +60,7 @@ def novo_epi(alm_id):
 def atualizar_status_epi(id):
     e = ItemEPI.query.get_or_404(id)
     u = usuario_atual()
-    if u.perfil not in ('admin', 'almoxarife'):
+    if not is_admin_ou_ggo(u) and u.perfil != 'almoxarife':
         return jsonify({'error': 'Acesso negado'}), 403
     novo_status = request.form.get('status', 'disponivel')
     responsavel = request.form.get('responsavel', '').strip()
@@ -149,7 +150,7 @@ def historico_epi(id):
     })
 
 @epis_bp.route('/epi/<int:id>/deletar', methods=['POST'])
-@admin_required
+@admin_ou_ggo_required
 def deletar_epi(id):
     e = ItemEPI.query.get_or_404(id)
     alm_id = e.almoxarifado_id

@@ -14,7 +14,8 @@ from models import (agora, Almoxarifado, Item, Movimentacao, Requisicao,
 from core import (login_required, admin_required, almoxarife_required,
     usuario_atual, flash_html, usuario_tem_acesso_almoxarifado,
     usuario_tem_acesso_item, PERMISSOES_DISPONIVEIS,
-    _check_rate_limit, _register_attempt, _clear_attempts, _check_api_rate)
+    _check_rate_limit, _register_attempt, _clear_attempts, _check_api_rate,
+    is_admin_ou_ggo, admin_ou_ggo_required, almoxarifados_do_ggo)
 
 logger = logging.getLogger(__name__)
 requisicoes_bp = Blueprint('requisicoes_bp', __name__)
@@ -31,7 +32,7 @@ def mestre_requisicoes():
     u = usuario_atual()
 
     pode_fazer = (
-        u.perfil in ('mestre', 'tecnico_seguranca', 'admin', 'almoxarife') or
+        u.perfil in ('mestre', 'tecnico_seguranca', 'admin', 'ggo', 'almoxarife') or
         u.pode_requisitar or
         any(p.permissao == 'fazer_requisicao' for p in u.permissoes_extras)
     )
@@ -39,7 +40,7 @@ def mestre_requisicoes():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('main_bp.index'))
 
-    if u.perfil == 'admin':
+    if is_admin_ou_ggo(u):
         reqs = RequisicaoMestre.query.order_by(RequisicaoMestre.data_criacao.desc()).all()
     elif u.perfil == 'almoxarife' and u.almoxarifado_id:
         reqs = RequisicaoMestre.query.filter_by(almoxarifado_id=u.almoxarifado_id).order_by(RequisicaoMestre.data_criacao.desc()).all()
@@ -57,7 +58,7 @@ def mestre_requisicao_nova():
 
     # ── Verificação de acesso ────────────────────────────────────────────────
     pode_fazer = (
-        u.perfil in ('mestre', 'tecnico_seguranca', 'admin') or
+        u.perfil in ('mestre', 'tecnico_seguranca', 'admin', 'ggo') or
         u.pode_requisitar or
         any(p.permissao == 'fazer_requisicao' for p in u.permissoes_extras)
     )
@@ -66,8 +67,8 @@ def mestre_requisicao_nova():
         return redirect(url_for('main_bp.index'))
 
     # ── Almoxarifados que o usuário pode requisitar ──────────────────────────
-    if u.perfil == 'admin':
-        almoxarifados = Almoxarifado.query.all()
+    if is_admin_ou_ggo(u):
+        almoxarifados = almoxarifados_do_ggo(u) if u.perfil == 'ggo' else Almoxarifado.query.all()
     elif u.perfil == 'tecnico_seguranca':
         ids = u.almoxarifados_permitidos()
         almoxarifados = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).all() if ids else (
@@ -188,8 +189,8 @@ def mestre_requisicao_editar(id):
     """Almoxarife ou admin edita uma requisição pendente."""
     req = RequisicaoMestre.query.get_or_404(id)
     u = usuario_atual()
-    if u.perfil not in ('admin', 'almoxarife'):
-        flash('Apenas almoxarife ou admin pode editar requisições.', 'danger')
+    if u.perfil not in ('admin', 'ggo', 'almoxarife'):
+        flash('Apenas almoxarife, GGO ou admin pode editar requisições.', 'danger')
         return redirect(url_for('requisicoes_bp.mestre_requisicoes'))
     if req.status == 'entregue':
         flash('Não é possível editar uma requisição já entregue.', 'warning')
@@ -227,7 +228,7 @@ def mestre_requisicao_aprovar(id):
     """
     req = RequisicaoMestre.query.get_or_404(id)
     u = usuario_atual()
-    if u.perfil not in ('admin', 'almoxarife'):
+    if u.perfil not in ('admin', 'ggo', 'almoxarife'):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('requisicoes_bp.mestre_requisicoes'))
     if req.status != 'pendente':
@@ -287,7 +288,7 @@ def mestre_requisicao_entregar(id):
     """Almoxarife confirma entrega — baixa o estoque apenas dos itens aprovados."""
     req = RequisicaoMestre.query.get_or_404(id)
     u = usuario_atual()
-    if u.perfil not in ('admin', 'almoxarife'):
+    if u.perfil not in ('admin', 'ggo', 'almoxarife'):
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return jsonify({'ok': False, 'msg': 'Acesso negado.'}), 403
         flash('Acesso negado.', 'danger')
@@ -354,7 +355,7 @@ def mestre_requisicao_foto(id):
     """Salva foto de comprovante de entrega na requisição."""
     req = RequisicaoMestre.query.get_or_404(id)
     u = usuario_atual()
-    if u.perfil not in ('admin', 'almoxarife'):
+    if u.perfil not in ('admin', 'ggo', 'almoxarife'):
         return jsonify({'ok': False, 'error': 'Acesso negado.'}), 403
     data = request.get_json(silent=True) or {}
     foto = data.get('foto', '')

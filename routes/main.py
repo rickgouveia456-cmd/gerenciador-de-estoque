@@ -15,7 +15,7 @@ from core import (login_required, admin_required, almoxarife_required,
     usuario_atual, flash_html, usuario_tem_acesso_almoxarifado,
     usuario_tem_acesso_item, PERMISSOES_DISPONIVEIS,
     _check_rate_limit, _register_attempt, _clear_attempts, _check_api_rate,
-    ggo_cidade, almoxarifados_do_ggo)
+    ggo_cidade, almoxarifados_do_ggo, is_admin_ou_ggo, admin_ou_ggo_required)
 
 logger = logging.getLogger(__name__)
 from utils import calcular_ruptura
@@ -158,9 +158,15 @@ def almoxarifado(id):
         flash('Acesso restrito. Use a tela de requisições.', 'warning')
         return redirect(url_for('requisicoes_bp.mestre_requisicoes'))
     alm = Almoxarifado.query.get_or_404(id)
-    if u.perfil not in ('admin', 'analista') and id not in u.almoxarifados_permitidos():
+    if u.perfil not in ('admin', 'analista', 'ggo') and id not in u.almoxarifados_permitidos():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('main_bp.index'))
+    # GGO só acessa almoxarifados da sua cidade
+    if u.perfil == 'ggo':
+        ids_ggo = {a.id for a in almoxarifados_do_ggo(u)}
+        if id not in ids_ggo:
+            flash('Acesso negado.', 'danger')
+            return redirect(url_for('main_bp.index'))
     # Analista só acessa almoxarifados da sua cidade
     if u.perfil == 'analista' and u.almoxarifado_id:
         alm_ref = db.session.get(Almoxarifado, u.almoxarifado_id)
@@ -171,7 +177,7 @@ def almoxarifado(id):
                 return redirect(url_for('main_bp.index'))
     # Mostrar todos os itens (ativos e desativados) para permitir reativação
     itens = Item.query.filter_by(almoxarifado_id=id).order_by(Item.ativo.desc(), Item.nome).all()
-    todos_almoxarifados = Almoxarifado.query.order_by(Almoxarifado.nome).all() if u.perfil == 'admin' else []
+    todos_almoxarifados = Almoxarifado.query.order_by(Almoxarifado.nome).all() if is_admin_ou_ggo(u) else []
     return render_template('almoxarifado.html', almoxarifado=alm, itens=itens,
                            todos_almoxarifados=todos_almoxarifados)
 
@@ -180,7 +186,7 @@ def almoxarifado(id):
 def item(id):
     it = Item.query.get_or_404(id)
     u = usuario_atual()
-    if u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos():
+    if not is_admin_ou_ggo(u) and it.almoxarifado_id not in u.almoxarifados_permitidos():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('main_bp.index'))
     movs = Movimentacao.query.filter_by(item_id=id).order_by(Movimentacao.data.desc()).limit(50).all()
@@ -189,7 +195,7 @@ def item(id):
 # ── CRUD ALMOXARIFADO ────────────────────────────────────────────────────────
 
 @main_bp.route('/almoxarifado/novo', methods=['GET', 'POST'])
-@admin_required
+@admin_ou_ggo_required
 def novo_almoxarifado():
     if request.method == 'POST':
         alm = Almoxarifado(nome=request.form['nome'], descricao=request.form.get('descricao', ''))
@@ -207,8 +213,8 @@ def novo_almoxarifado():
 def editar_almoxarifado(id):
     alm = Almoxarifado.query.get_or_404(id)
     u = usuario_atual()
-    # Apenas admin ou almoxarife do próprio almoxarifado pode editar
-    if u.perfil != 'admin' and id not in u.almoxarifados_permitidos():
+    # Apenas admin/GGO ou almoxarife do próprio almoxarifado pode editar
+    if not is_admin_ou_ggo(u) and id not in u.almoxarifados_permitidos():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('main_bp.index'))
     if request.method == 'POST':
@@ -257,9 +263,8 @@ def deletar_almoxarifado(id):
 @almoxarife_required
 def novo_item():
     u = usuario_atual()
-    # Almoxarife só vê seus próprios almoxarifados no select
-    if u.perfil == 'admin':
-        almoxarifados = Almoxarifado.query.all()
+    if is_admin_ou_ggo(u):
+        almoxarifados = almoxarifados_do_ggo(u) if u.perfil == 'ggo' else Almoxarifado.query.all()
     else:
         ids = u.almoxarifados_permitidos()
         almoxarifados = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).all() if ids else []
@@ -301,12 +306,11 @@ def novo_item():
 def editar_item(id):
     it = Item.query.get_or_404(id)
     u = usuario_atual()
-    if u.perfil in ('mestre', 'tecnico_seguranca', 'analista') or (u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos()):
+    if u.perfil in ('mestre', 'tecnico_seguranca', 'analista') or (not is_admin_ou_ggo(u) and it.almoxarifado_id not in u.almoxarifados_permitidos()):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('main_bp.item', id=id))
-    # Almoxarife só vê seus próprios almoxarifados no select
-    if u.perfil == 'admin':
-        almoxarifados = Almoxarifado.query.all()
+    if is_admin_ou_ggo(u):
+        almoxarifados = almoxarifados_do_ggo(u) if u.perfil == 'ggo' else Almoxarifado.query.all()
     else:
         ids = u.almoxarifados_permitidos()
         almoxarifados = Almoxarifado.query.filter(Almoxarifado.id.in_(ids)).all() if ids else []
@@ -349,8 +353,8 @@ def deletar_item(id):
     it = Item.query.get_or_404(id)
     u = usuario_atual()
     # Admin pode deletar qualquer item; almoxarife pode deletar itens do próprio almoxarifado
-    if u.perfil == 'admin':
-        pass  # permitido
+    if is_admin_ou_ggo(u):
+        pass  # admin e GGO permitidos
     elif u.perfil == 'almoxarife' and it.almoxarifado_id in u.almoxarifados_permitidos():
         pass  # almoxarife do almoxarifado pode deletar
     else:
@@ -369,7 +373,7 @@ def deletar_itens_lote(alm_id):
     alm = Almoxarifado.query.get_or_404(alm_id)
     u = usuario_atual()
     # Verificar permissão: admin ou almoxarife do próprio almoxarifado
-    if u.perfil == 'admin':
+    if is_admin_ou_ggo(u):
         pass
     elif u.perfil == 'almoxarife' and alm_id in u.almoxarifados_permitidos():
         pass
@@ -408,7 +412,7 @@ def deletar_itens_lote(alm_id):
 
 
 @main_bp.route('/almoxarifado/<int:alm_id>/transferir-lote', methods=['POST'])
-@admin_required
+@admin_ou_ggo_required
 def transferir_itens_lote(alm_id):
     """Admin transfere itens para outro almoxarifado OU exclui permanentemente."""
     ids_str = request.form.getlist('item_ids')
@@ -510,10 +514,11 @@ def movimentacao_lote():
         flash('Analistas não têm permissão para registrar movimentações.', 'danger')
         return redirect(url_for('main_bp.index'))
     almoxarifados = Almoxarifado.query.all() if u.perfil == 'admin' else \
+        almoxarifados_do_ggo(u) if u.perfil == 'ggo' else \
         Almoxarifado.query.filter(Almoxarifado.id.in_(u.almoxarifados_permitidos())).all()
 
     # Histórico das últimas 20 movimentações
-    if u.perfil == 'admin':
+    if is_admin_ou_ggo(u):
         historico = Movimentacao.query.order_by(Movimentacao.data.desc()).limit(20).all()
         requisicoes_hist = Requisicao.query.order_by(Requisicao.data_retirada.desc()).limit(20).all()
     else:
@@ -537,7 +542,7 @@ def movimentacao_lote():
 
     if request.method == 'POST':
         alm_id      = int(request.form['almoxarifado_id'])
-        if u.perfil != 'admin' and alm_id not in u.almoxarifados_permitidos():
+        if not is_admin_ou_ggo(u) and alm_id not in u.almoxarifados_permitidos():
             flash('Acesso negado.', 'danger')
             return redirect(url_for('main_bp.movimentacao_lote'))
 
@@ -672,7 +677,7 @@ def movimentar(id):
     if u.perfil == 'analista':
         flash('Analistas não têm permissão para registrar movimentações.', 'danger')
         return redirect(url_for('main_bp.item', id=id))
-    if u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos():
+    if not is_admin_ou_ggo(u) and it.almoxarifado_id not in u.almoxarifados_permitidos():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('main_bp.item', id=id))
 
@@ -712,7 +717,7 @@ def requisicoes():
     data_fim     = request.args.get('data_fim', '')
 
     q = Requisicao.query
-    if u.perfil != 'admin':
+    if not is_admin_ou_ggo(u):
         ids = u.almoxarifados_permitidos()
         q = q.join(Item).filter(Item.almoxarifado_id.in_(ids)) if ids else q.filter(False)
     if colaborador:
@@ -742,6 +747,7 @@ def requisicoes():
 def requisicao_nova():
     u = usuario_atual()
     almoxarifados = Almoxarifado.query.all() if u.perfil == 'admin' else \
+        almoxarifados_do_ggo(u) if u.perfil == 'ggo' else \
         Almoxarifado.query.filter(Almoxarifado.id.in_(u.almoxarifados_permitidos())).all()
     itens_json = {}
     for alm in almoxarifados:
@@ -777,7 +783,7 @@ def requisicao_nova():
                 continue
             if not it or qtd <= 0:
                 continue
-            if u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos():
+            if not is_admin_ou_ggo(u) and it.almoxarifado_id not in u.almoxarifados_permitidos():
                 continue
             if qtd > it.quantidade:
                 flash_html(
@@ -825,7 +831,7 @@ def requisicao_nova():
 def devolver_requisicao(id):
     req = Requisicao.query.get_or_404(id)
     u = usuario_atual()
-    if u.perfil != 'admin' and req.item.almoxarifado_id not in u.almoxarifados_permitidos():
+    if not is_admin_ou_ggo(u) and req.item.almoxarifado_id not in u.almoxarifados_permitidos():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('main_bp.requisicoes'))
     if req.status == 'aberta':
@@ -847,7 +853,7 @@ def devolver_requisicao(id):
 def importar_itens(id):
     u = usuario_atual()
     alm = Almoxarifado.query.get_or_404(id)
-    if u.perfil != 'admin' and id not in u.almoxarifados_permitidos():
+    if not is_admin_ou_ggo(u) and id not in u.almoxarifados_permitidos():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('main_bp.index'))
 
@@ -965,7 +971,7 @@ def modelo_excel(id):
 def atualizar_status_compra(id):
     it = Item.query.get_or_404(id)
     u = usuario_atual()
-    if u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos():
+    if not is_admin_ou_ggo(u) and it.almoxarifado_id not in u.almoxarifados_permitidos():
         return ('', 403)
     it.status_compra = request.form.get('status_compra', 'pendente')
     db.session.commit()
@@ -976,7 +982,7 @@ def atualizar_status_compra(id):
 def fixar_item(id):
     it = Item.query.get_or_404(id)
     u = usuario_atual()
-    if u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos():
+    if not is_admin_ou_ggo(u) and it.almoxarifado_id not in u.almoxarifados_permitidos():
         return jsonify({'error': 'Acesso negado.'}), 403
     it.fixado = not it.fixado
     db.session.commit()
@@ -988,7 +994,7 @@ def marcar_devolvido(id):
     """Marca/desmarca uma movimentação de saída como devolvida."""
     mov = Movimentacao.query.get_or_404(id)
     u = usuario_atual()
-    if u.perfil not in ('admin', 'almoxarife'):
+    if u.perfil not in ('admin', 'ggo', 'almoxarife'):
         return jsonify({'error': 'Acesso negado.'}), 403
     # Toggle: None/False → True, True → False
     mov.devolvido = not bool(mov.devolvido)
@@ -1000,7 +1006,7 @@ def marcar_devolvido(id):
 def desativar_item(id):
     it = Item.query.get_or_404(id)
     u = usuario_atual()
-    if u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos():
+    if not is_admin_ou_ggo(u) and it.almoxarifado_id not in u.almoxarifados_permitidos():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('main_bp.item', id=id))
     
@@ -1026,7 +1032,7 @@ def desativar_item(id):
 def reativar_item(id):
     it = Item.query.get_or_404(id)
     u = usuario_atual()
-    if u.perfil != 'admin' and it.almoxarifado_id not in u.almoxarifados_permitidos():
+    if not is_admin_ou_ggo(u) and it.almoxarifado_id not in u.almoxarifados_permitidos():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('main_bp.item', id=id))
     
@@ -1041,7 +1047,7 @@ def reativar_item(id):
 @login_required
 def exportar_almoxarifado(id):
     u = usuario_atual()
-    if u.perfil != 'admin' and id not in u.almoxarifados_permitidos():
+    if not is_admin_ou_ggo(u) and id not in u.almoxarifados_permitidos():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('main_bp.index'))
     alm = Almoxarifado.query.get_or_404(id)

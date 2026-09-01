@@ -14,7 +14,8 @@ from models import (agora, Almoxarifado, Item, Movimentacao, Requisicao,
 from core import (login_required, admin_required, almoxarife_required,
     usuario_atual, flash_html, usuario_tem_acesso_almoxarifado,
     usuario_tem_acesso_item, PERMISSOES_DISPONIVEIS,
-    _check_rate_limit, _register_attempt, _clear_attempts, _check_api_rate)
+    _check_rate_limit, _register_attempt, _clear_attempts, _check_api_rate,
+    is_admin_ou_ggo)
 
 logger = logging.getLogger(__name__)
 api_bp = Blueprint('api_bp', __name__)
@@ -25,7 +26,7 @@ def api_alertas():
     if _check_api_rate(request.remote_addr or '0.0.0.0'):
         return jsonify({'error': 'Too many requests'}), 429
     u = usuario_atual()
-    if u.perfil == 'admin':
+    if is_admin_ou_ggo(u):
         itens = Item.query.filter(Item.quantidade <= Item.estoque_minimo, Item.ativo == True).all()
     else:
         ids = u.almoxarifados_permitidos()
@@ -46,7 +47,7 @@ def api_alertas():
 def api_almoxarife_notificacoes():
     """Retorna requisições pendentes para o almoxarife logado — usado para popup de alerta."""
     u = usuario_atual()
-    if u.perfil not in ('admin', 'almoxarife'):
+    if not is_admin_ou_ggo(u) and u.perfil != 'almoxarife':
         return jsonify([])
     # Busca requisições pendentes do almoxarifado do almoxarife
     if u.perfil == 'almoxarife' and u.almoxarifado_id:

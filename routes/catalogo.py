@@ -2,7 +2,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file
 from extensions import db
 from models import CatalogoInsumo, Item, Almoxarifado, agora
-from core import login_required, admin_required, almoxarife_required, usuario_atual
+from core import login_required, admin_required, almoxarife_required, usuario_atual, is_admin_ou_ggo, admin_ou_ggo_required, almoxarifados_do_ggo
 import io, logging
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -26,7 +26,7 @@ def catalogo_insumos():
     q     = request.args.get('q', '').strip()
     cat   = request.args.get('categoria', '')
     query = CatalogoInsumo.query.filter_by(ativo=True)
-    if u.perfil != 'admin':
+    if not is_admin_ou_ggo(u):
         ids_alm = u.almoxarifados_permitidos()
         if ids_alm:
             query = query.filter(
@@ -67,7 +67,7 @@ def catalogo_insumos():
                 for it in itens_alm:
                     mapa_estoque[it.nome.lower().strip()] = it
 
-    if u.perfil == 'admin':
+    if is_admin_ou_ggo(u):
         almoxarifados_lista = Almoxarifado.query.order_by(Almoxarifado.nome).all()
     else:
         ids_alm2 = u.almoxarifados_permitidos()
@@ -85,7 +85,7 @@ def catalogo_insumos():
 @almoxarife_required
 def catalogo_novo():
     u = usuario_atual()
-    if u.perfil == 'admin':
+    if is_admin_ou_ggo(u):
         almoxarifados = Almoxarifado.query.order_by(Almoxarifado.nome).all()
     else:
         ids = u.almoxarifados_permitidos()
@@ -159,7 +159,7 @@ def catalogo_editar(id):
 
 
 @catalogo_bp.route('/catalogo/insumos/<int:id>/deletar', methods=['POST'])
-@admin_required
+@admin_ou_ggo_required
 def catalogo_deletar(id):
     ins = CatalogoInsumo.query.get_or_404(id)
     ins.ativo = False
@@ -279,7 +279,7 @@ def catalogo_modelo_excel():
 def catalogo_valor_estoque():
     """Mostra valor total do estoque por almoxarifado (quantidade x valor_unitario)."""
     u = usuario_atual()
-    if u.perfil == 'admin':
+    if is_admin_ou_ggo(u):
         alms = Almoxarifado.query.all()
     elif u.perfil == 'analista':
         alms = [db.session.get(Almoxarifado, u.almoxarifado_id)] if u.almoxarifado_id else []

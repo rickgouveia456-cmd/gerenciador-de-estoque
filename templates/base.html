@@ -89,6 +89,16 @@
         <a href="/colaboradores" class="nav-link {% if request.endpoint == 'colaboradores_bp.colaboradores' %}active{% endif %}">
             <i class="bi bi-person-badge me-2"></i> Colaboradores
         </a>
+        <a href="/usuarios" class="nav-link {% if request.endpoint == 'usuarios_bp.usuarios' %}active{% endif %}">
+            <i class="bi bi-people me-2"></i> Usuários
+        </a>
+        <span class="nav-section">Administração</span>
+        <a href="/almoxarifado/novo" class="nav-link {% if request.endpoint == 'main_bp.novo_almoxarifado' %}active{% endif %}">
+            <i class="bi bi-plus-circle me-2"></i> Novo Almoxarifado
+        </a>
+        <a href="/catalogo/insumos" class="nav-link {% if request.endpoint in ('catalogo_bp.catalogo_insumos','catalogo_bp.catalogo_novo','catalogo_bp.catalogo_editar') %}active{% endif %}">
+            <i class="bi bi-collection me-2"></i> Catálogo de Insumos
+        </a>
 
         {% elif usuario_atual and usuario_atual.perfil == 'analista' %}
         <!-- SIDEBAR PARA ANALISTA -->

@@ -39,21 +39,43 @@ def flash_html(message, category='info'):
     flash(Markup(message), category)
 
 def usuario_tem_acesso_almoxarifado(u, alm_id):
-    return u.perfil == 'admin' or (alm_id in u.almoxarifados_permitidos())
+    return u.perfil in ('admin', 'ggo') or (alm_id in u.almoxarifados_permitidos())
 
 def usuario_tem_acesso_item(u, it):
-    return u.perfil == 'admin' or (it and it.almoxarifado_id in u.almoxarifados_permitidos())
+    return u.perfil in ('admin', 'ggo') or (it and it.almoxarifado_id in u.almoxarifados_permitidos())
 
 def ggo_cidade(u):
-    """Retorna a cidade do GGO (armazenada no campo escopo do usuario)."""
+    """Retorna a cidade do GGO (campo escopo). None = sem restrição."""
     if u and u.perfil == 'ggo':
         return (u.escopo or '').strip().lower() or None
     return None
 
 def almoxarifados_do_ggo(u):
-    """GGO ve todos os almoxarifados sem restricao."""
+    """Retorna almoxarifados visíveis ao GGO — filtrado por cidade se escopo preenchido."""
     from models import Almoxarifado
+    cidade = ggo_cidade(u)
+    if cidade:
+        return Almoxarifado.query.filter(
+            db.func.lower(Almoxarifado.cidade) == cidade
+        ).all()
     return Almoxarifado.query.all()
+
+def is_admin_ou_ggo(u):
+    """GGO tem mesmas permissões do admin, mas limitado à sua cidade."""
+    return u and u.perfil in ('admin', 'ggo')
+
+def admin_ou_ggo_required(f):
+    """Decorator: permite admin E ggo (com restrição de cidade aplicada na rota)."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if 'usuario_id' not in session:
+            return redirect(url_for('auth_bp.login'))
+        u = db.session.get(Usuario, session['usuario_id'])
+        if not u or u.perfil not in ('admin', 'ggo'):
+            flash('Acesso restrito.', 'danger')
+            return redirect(url_for('main_bp.index'))
+        return f(*args, **kwargs)
+    return decorated
 
 def usuario_atual():
     if 'usuario_id' in session:
@@ -96,7 +118,7 @@ def almoxarife_required(f):
         if 'usuario_id' not in session:
             return redirect(url_for('auth_bp.login'))
         u = db.session.get(Usuario, session['usuario_id'])
-        if not u or u.perfil not in ('admin', 'almoxarife', 'assistente'):
+        if not u or u.perfil not in ('admin', 'ggo', 'almoxarife', 'assistente'):
             flash('Acesso restrito ao almoxarife.', 'danger')
             return redirect(url_for('main_bp.index'))
         return f(*args, **kwargs)

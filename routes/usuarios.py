@@ -14,16 +14,34 @@ from models import (agora, Almoxarifado, Item, Movimentacao, Requisicao,
 from core import (login_required, admin_required, almoxarife_required,
     usuario_atual, flash_html, usuario_tem_acesso_almoxarifado,
     usuario_tem_acesso_item, PERMISSOES_DISPONIVEIS,
-    _check_rate_limit, _register_attempt, _clear_attempts, _check_api_rate)
+    _check_rate_limit, _register_attempt, _clear_attempts, _check_api_rate,
+    is_admin_ou_ggo, admin_ou_ggo_required, almoxarifados_do_ggo)
 
 logger = logging.getLogger(__name__)
 usuarios_bp = Blueprint('usuarios_bp', __name__)
 
 @usuarios_bp.route('/usuarios')
-@admin_required
+@admin_ou_ggo_required
 def usuarios():
     from collections import OrderedDict
-    todos = Usuario.query.order_by(Usuario.nome).all()
+    u = usuario_atual()
+    if u.perfil == 'ggo':
+        # GGO vê apenas usuários da sua cidade
+        cidade = (u.escopo or '').strip().lower()
+        if cidade:
+            ids_alm = [a.id for a in Almoxarifado.query.filter(
+                db.func.lower(Almoxarifado.cidade) == cidade
+            ).all()]
+            todos = Usuario.query.filter(
+                db.or_(
+                    Usuario.almoxarifado_id.in_(ids_alm),
+                    Usuario.perfil == 'ggo'
+                )
+            ).order_by(Usuario.nome).all()
+        else:
+            todos = Usuario.query.order_by(Usuario.nome).all()
+    else:
+        todos = Usuario.query.order_by(Usuario.nome).all()
     # Agrupar por perfil
     grupos = OrderedDict([
         ('admin',             {'label': '👑 Admin / Fundador',     'label_curto': 'Admin',      'icone': '👑', 'cor': '#7c3aed', 'usuarios': []}),
@@ -51,7 +69,7 @@ PERMISSOES_DISPONIVEIS = {
 }
 
 @usuarios_bp.route('/usuarios/novo', methods=['GET', 'POST'])
-@admin_required
+@admin_ou_ggo_required
 def novo_usuario():
     almoxarifados = Almoxarifado.query.all()
     if request.method == 'POST':
@@ -83,7 +101,7 @@ def novo_usuario():
                            permissoes_disponiveis=PERMISSOES_DISPONIVEIS)
 
 @usuarios_bp.route('/usuarios/<int:id>/editar', methods=['GET', 'POST'])
-@admin_required
+@admin_ou_ggo_required
 def editar_usuario(id):
     u = Usuario.query.get_or_404(id)
     atual = usuario_atual()
@@ -126,7 +144,7 @@ def editar_usuario(id):
                            permissoes_disponiveis=PERMISSOES_DISPONIVEIS)
 
 @usuarios_bp.route('/usuarios/<int:id>/deletar', methods=['POST'])
-@admin_required
+@admin_ou_ggo_required
 def deletar_usuario(id):
     u = Usuario.query.get_or_404(id)
     atual = usuario_atual()
@@ -155,7 +173,7 @@ def deletar_usuario(id):
 # ── ACESSO EXTRA (substituto temporário) ─────────────────────────────────────
 
 @usuarios_bp.route('/usuarios/<int:id>/acesso_extra', methods=['POST'])
-@admin_required
+@admin_ou_ggo_required
 def conceder_acesso_extra(id):
     u = Usuario.query.get_or_404(id)
     admin = usuario_atual()
@@ -177,7 +195,7 @@ def conceder_acesso_extra(id):
     return redirect(url_for('usuarios_bp.editar_usuario', id=id))
 
 @usuarios_bp.route('/acesso_extra/<int:id>/revogar', methods=['POST'])
-@admin_required
+@admin_ou_ggo_required
 def revogar_acesso_extra(id):
     a = AcessoExtra.query.get_or_404(id)
     uid = a.usuario_id
@@ -187,7 +205,7 @@ def revogar_acesso_extra(id):
     return redirect(url_for('usuarios_bp.editar_usuario', id=uid))
 
 @usuarios_bp.route('/usuarios/<int:id>/permissao', methods=['POST'])
-@admin_required
+@admin_ou_ggo_required
 def conceder_permissao(id):
     u = Usuario.query.get_or_404(id)
     admin = usuario_atual()
@@ -211,7 +229,7 @@ def conceder_permissao(id):
     return redirect(url_for('usuarios_bp.editar_usuario', id=id))
 
 @usuarios_bp.route('/permissao_extra/<int:pid>/revogar', methods=['POST'])
-@admin_required
+@admin_ou_ggo_required
 def revogar_permissao(pid):
     p = PermissaoExtra.query.get_or_404(pid)
     uid = p.usuario_id

@@ -21,7 +21,7 @@ services:
     ports:
       - "127.0.0.1:3306:3306"
     environment:
-      MYSQL_DATABASE:      ${MYSQL_DATABASE:-logiprime}
+      MYSQL_DATABASE:      ${MYSQL_DATABASE:-logiprime_prod}
       MYSQL_USER:          ${MYSQL_USER:-logiprime}
       MYSQL_PASSWORD:      ${MYSQL_PASSWORD:-logiprime123}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_logiprime_2024}

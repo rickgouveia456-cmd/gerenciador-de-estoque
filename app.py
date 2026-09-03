@@ -13,7 +13,19 @@ logger = logging.getLogger(__name__)
 
 logger.info('=' * 60)
 logger.info('DIAGNOSTICO DE VARIAVEIS DE AMBIENTE:')
-logger.info(f'  DATABASE_URL = {"SIM" if os.environ.get("DATABASE_URL") else "NAO DEFINIDO"}')
+logger.info(f'  DATABASE_URL        = {"SIM ✅" if os.environ.get("DATABASE_URL") else "NAO DEFINIDO ❌"}')
+logger.info(f'  SECRET_KEY          = {"SIM ✅" if os.environ.get("SECRET_KEY") else "NAO DEFINIDO ⚠️"}')
+logger.info(f'  MYSQL_DATABASE      = {os.environ.get("MYSQL_DATABASE", "NAO DEFINIDO")}')
+if os.environ.get("DATABASE_URL"):
+    url = os.environ.get("DATABASE_URL")
+    # Oculta a senha no log
+    import re
+    url_safe = re.sub(r'://([^:]+):([^@]+)@', r'://\1:****@', url)
+    logger.info(f'  DATABASE_URL valor  = {url_safe}')
+else:
+    logger.warning('  ⚠️  DATABASE_URL nao definido — usando SQLite local!')
+    logger.warning('  ⚠️  Verifique se o arquivo .env esta na mesma pasta do docker-compose.yml')
+    logger.warning('  ⚠️  e se o comando usado foi: docker compose up -d (nao docker run)')
 logger.info('=' * 60)
 
 from extensions import db, csrf

@@ -1,0 +1,1 @@
+{"name":"logi-prime/php","description":"Logi-Prime PHP","type":"project","require":{"php":">=8.2","setasign/fpdf":"^1.8"},"config":{"optimize-autoloader":true}}

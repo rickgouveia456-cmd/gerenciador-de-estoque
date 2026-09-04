@@ -1,0 +1,7 @@
+Options -Indexes
+RewriteEngine On
+
+# Redirecionar tudo para o front controller, exceto assets existentes
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [QSA,L]

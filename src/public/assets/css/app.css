@@ -512,3 +512,95 @@ html[data-theme="dark"] .pill-cat[style*="accent"] {
     color: #ff7043 !important;
     border-color: #ff7043 !important;
 }
+
+
+/* ══════════════════════════════════════════════════════════
+   RESPONSIVIDADE MOBILE
+   ══════════════════════════════════════════════════════════ */
+
+/* Tablet e mobile — sidebar escondida por padrão */
+@media (max-width: 991px) {
+
+    .sidebar {
+        transform: translateX(-100%);
+        width: 280px;
+        z-index: 300;
+    }
+
+    .sidebar.show {
+        transform: translateX(0);
+    }
+
+    .main-content {
+        margin-left: 0 !important;
+    }
+
+    .topbar {
+        left: 0 !important;
+        width: 100% !important;
+    }
+
+    /* Botão hamburguer visível */
+    .btn-sidebar-toggle {
+        display: flex !important;
+    }
+
+    /* Overlay ativo quando sidebar aberta */
+    .sidebar-overlay.show {
+        display: block;
+    }
+
+    /* Cards em coluna */
+    .stats-grid {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 12px !important;
+    }
+
+    /* Tabela com scroll horizontal */
+    .table-responsive-mobile {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Topbar compacta */
+    .topbar .topbar-title {
+        font-size: 1rem !important;
+    }
+
+    /* Padding menor nas páginas */
+    .page-content {
+        padding: 16px 12px !important;
+    }
+}
+
+/* Só mobile pequeno */
+@media (max-width: 576px) {
+
+    .stats-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Botões de ação empilhados */
+    .action-btns {
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+
+    /* Formulários full width */
+    .form-row .col-md-6,
+    .form-row .col-md-4,
+    .form-row .col-md-3 {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* Ocultar colunas menos importantes na tabela */
+    .hide-mobile {
+        display: none !important;
+    }
+
+    /* Topbar ícones compactos */
+    .topbar-actions .btn span {
+        display: none;
+    }
+}

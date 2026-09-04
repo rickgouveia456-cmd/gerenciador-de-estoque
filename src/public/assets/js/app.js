@@ -4,12 +4,14 @@
 
 // ── Sidebar Mobile ────────────────────────────────────────────
 function openSidebar() {
-  document.getElementById('sidebar')?.classList.add('open');
+  document.getElementById('sidebar')?.classList.add('show');
   document.getElementById('sidebarOverlay')?.classList.add('show');
+  document.body.style.overflow = 'hidden';
 }
 function closeSidebar() {
-  document.getElementById('sidebar')?.classList.remove('open');
+  document.getElementById('sidebar')?.classList.remove('show');
   document.getElementById('sidebarOverlay')?.classList.remove('show');
+  document.body.style.overflow = '';
 }
 // Fechar no ESC
 document.addEventListener('keydown', e => {

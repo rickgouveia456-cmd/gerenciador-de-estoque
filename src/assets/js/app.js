@@ -1,15 +1,17 @@
-﻿/**
+/**
  * Logi-Prime — JS principal (PHP version)
  */
 
 // ── Sidebar Mobile ────────────────────────────────────────────
 function openSidebar() {
-  document.getElementById('sidebar')?.classList.add('open');
+  document.getElementById('sidebar')?.classList.add('show');
   document.getElementById('sidebarOverlay')?.classList.add('show');
+  document.body.style.overflow = 'hidden';
 }
 function closeSidebar() {
-  document.getElementById('sidebar')?.classList.remove('open');
+  document.getElementById('sidebar')?.classList.remove('show');
   document.getElementById('sidebarOverlay')?.classList.remove('show');
+  document.body.style.overflow = '';
 }
 // Fechar no ESC
 document.addEventListener('keydown', e => {
@@ -98,3 +100,7 @@ window.addLinhaMovimentacao = function(almId, itensJson) {
     </td>`;
   tbody.appendChild(tr);
 };
+
+
+  });
+});

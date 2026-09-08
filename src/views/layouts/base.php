@@ -234,6 +234,9 @@ if ($u) {
     <a href="/admin/backup" class="nav-link <?= ($activeMenu ?? '') === 'backup' ? 'active' : '' ?>">
       <i class="bi bi-cloud-download me-2"></i>Backup
     </a>
+    <a href="/integracao" class="nav-link <?= ($activeMenu ?? '') === 'integracao' ? 'active' : '' ?>">
+      <i class="bi bi-plug-fill me-2"></i>Integrações
+    </a>
   </nav>
   <?php endif; ?>
 

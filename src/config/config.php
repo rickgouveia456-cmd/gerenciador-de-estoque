@@ -55,6 +55,7 @@ if (APP_ENV !== 'development') {
 }
 
 // Paths
-define('ROOT_PATH',  dirname(__DIR__));
-define('VIEWS_PATH', ROOT_PATH . '/views');
-define('LIB_PATH',   ROOT_PATH . '/lib');
+define('ROOT_PATH',    dirname(__DIR__));
+define('VIEWS_PATH',   ROOT_PATH . '/views');
+define('HELPERS_PATH', ROOT_PATH . '/helpers');
+define('LIB_PATH',     ROOT_PATH . '/lib');

@@ -237,6 +237,12 @@ if ($u) {
     <a href="/integracao" class="nav-link <?= ($activeMenu ?? '') === 'integracao' ? 'active' : '' ?>">
       <i class="bi bi-plug-fill me-2"></i>Integrações
     </a>
+    <a href="/admin/configuracao" class="nav-link <?= ($activeMenu ?? '') === 'configuracao' ? 'active' : '' ?>">
+      <i class="bi bi-gear-fill me-2"></i>Configurações
+    </a>
+    <a href="/admin/saude" class="nav-link <?= ($activeMenu ?? '') === 'saude' ? 'active' : '' ?>">
+      <i class="bi bi-activity me-2"></i>Saúde do Sistema
+    </a>
   </nav>
   <?php endif; ?>
 
@@ -280,6 +286,15 @@ if ($u) {
         <button id="darkModeToggle" onclick="toggleDark()" title="Modo escuro/claro"></button>
         <i class="bi bi-moon icon-moon" style="font-size:.85rem"></i>
       </div>
+      <!-- Tour de onboarding -->
+      <button id="btn-iniciar-tour"
+              data-pagina=""
+              class="btn btn-sm btn-outline-secondary d-none d-md-flex align-items-center gap-1"
+              title="Ver tour desta tela"
+              style="font-size:.78rem;opacity:.7">
+        <i class="bi bi-question-circle"></i>
+        <span>Tour</span>
+      </button>
       <?php
       // Contador de alertas
       $nAlertas = 0;
@@ -332,6 +347,7 @@ if ($u) {
         integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmO7O+NDXAz6RBf5Nk7hKikBMTN7"
         crossorigin="anonymous"></script>
 <script src="/assets/js/app.js"></script>
+<script src="/assets/js/onboarding.js"></script>
 <script>
 // Sidebar almoxarifado toggle
 function toggleAlm(id) {

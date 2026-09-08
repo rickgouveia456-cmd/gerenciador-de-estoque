@@ -159,6 +159,11 @@ $routes = [
     ['POST', '#^/integracao/configurar$#',  'integracao/configurar.php', []],
     ['GET',  '#^/integracao/testar$#',      'integracao/testar.php',     []],
     ['POST', '#^/integracao/sincronizar$#', 'integracao/sincronizar.php',[]],
+
+    // Implantação 3.7
+    ['GET|POST', '#^/admin/configuracao$#', 'admin/configuracao.php', []],
+    ['GET',      '#^/admin/saude$#',        'admin/saude.php',        []],
+    ['POST',     '#^/admin/onboarding$#',   'admin/onboarding.php',   []],
 ];
 
 $params = [];

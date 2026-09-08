@@ -42,3 +42,22 @@ CREATE TABLE IF NOT EXISTS `integracao_config` (
 -- Seed: registro inicial do Sienge (desativado por padrão)
 INSERT IGNORE INTO `integracao_config` (`sistema`,`ativo`,`config_json`) 
 VALUES ('sienge', 0, '{"base_url":"","token":"","empresa_id":"","sync_materiais":false,"sync_requisicoes":false,"sync_estoques":false}');
+
+-- Configurações globais do sistema (nome empresa, logo, preferências)
+CREATE TABLE IF NOT EXISTS `configuracao_sistema` (
+  `id`      INT NOT NULL AUTO_INCREMENT,
+  `chave`   VARCHAR(100) NOT NULL UNIQUE,
+  `valor`   LONGTEXT NULL,
+  `binario` LONGBLOB NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT IGNORE INTO `configuracao_sistema` (`chave`, `valor`) VALUES
+('empresa_nome',    'Stanza Construtora'),
+('empresa_cnpj',    ''),
+('empresa_cidade',  'Salvador'),
+('empresa_estado',  'BA'),
+('empresa_telefone',''),
+('empresa_email',   ''),
+('sistema_versao',  '1.0.0'),
+('onboarding_feito','0');

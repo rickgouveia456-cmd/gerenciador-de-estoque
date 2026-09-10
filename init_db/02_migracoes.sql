@@ -74,3 +74,9 @@ WHERE sistema = 'sienge'
 -- Adiciona API_TOKEN na configuracao_sistema
 INSERT IGNORE INTO configuracao_sistema (chave, valor)
 VALUES ('api_token', '');
+
+-- Corrige coluna criado_em no modulo EPI (era data_abertura no schema antigo)
+ALTER TABLE ficha_epi ADD COLUMN IF NOT EXISTS criado_em DATETIME NULL DEFAULT NULL;
+UPDATE ficha_epi SET criado_em = data_abertura WHERE criado_em IS NULL AND data_abertura IS NOT NULL;
+ALTER TABLE item_ficha_epi ADD COLUMN IF NOT EXISTS criado_em DATETIME NULL DEFAULT NULL;
+UPDATE item_ficha_epi SET criado_em = data_entrega WHERE criado_em IS NULL AND data_entrega IS NOT NULL;

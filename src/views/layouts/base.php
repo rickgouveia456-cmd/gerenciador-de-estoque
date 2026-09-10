@@ -234,15 +234,6 @@ if ($u) {
     <a href="/admin/backup" class="nav-link <?= ($activeMenu ?? '') === 'backup' ? 'active' : '' ?>">
       <i class="bi bi-cloud-download me-2"></i>Backup
     </a>
-    <a href="/integracao" class="nav-link <?= ($activeMenu ?? '') === 'integracao' ? 'active' : '' ?>">
-      <i class="bi bi-plug-fill me-2"></i>Integrações
-    </a>
-    <a href="/admin/configuracao" class="nav-link <?= ($activeMenu ?? '') === 'configuracao' ? 'active' : '' ?>">
-      <i class="bi bi-gear-fill me-2"></i>Configurações
-    </a>
-    <a href="/admin/saude" class="nav-link <?= ($activeMenu ?? '') === 'saude' ? 'active' : '' ?>">
-      <i class="bi bi-activity me-2"></i>Saúde do Sistema
-    </a>
   </nav>
   <?php endif; ?>
 

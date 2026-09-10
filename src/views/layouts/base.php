@@ -171,7 +171,7 @@ if ($u) {
         </button>
       </div>
       <!-- Sublinks -->
-      <div id="sub-alm-<?= $alm['id'] ?>" style="<?= $expanded ? 'max-height:500px;opacity:1' : 'max-height:0px;opacity:0' ?>;overflow:hidden;padding-left:16px">
+      <div id="sub-alm-<?= $alm['id'] ?>" style="<?= $expanded ? 'max-height:500px;opacity:1' : 'max-height:0px;opacity:0' ?>;overflow:hidden">
         <a href="/almoxarifado/<?= $alm['id'] ?>" class="nav-link py-1 d-flex justify-content-between align-items-center" style="font-size:0.78rem">
           <span><i class="bi bi-box-seam me-1"></i>Insumos</span>
           <span class="badge bg-secondary rounded-pill"><?= $nInsumos ?></span>

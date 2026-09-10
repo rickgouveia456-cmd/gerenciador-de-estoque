@@ -161,8 +161,22 @@ body {
 [id^="sub-alm-"] {
     overflow: hidden;
     transition: max-height 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.22s ease;
-    background: rgba(0,0,0,0.12);
+    background: rgba(0,0,0,0.15);
+    border-left: 2px solid rgba(255,107,53,0.25);
+    margin-left: 20px;
+    margin-bottom: 2px;
+    border-radius: 0 0 6px 6px;
 }
+[id^="sub-alm-"] .nav-link {
+    padding: 6px 12px !important;
+    font-size: 0.78rem !important;
+    color: var(--sidebar-text) !important;
+}
+[id^="sub-alm-"] .nav-link:hover {
+    background: rgba(255,107,53,0.1) !important;
+    color: #ff8a50 !important;
+}
+.alm-nav-item { margin-bottom: 2px; }
 .alm-nav-item .d-flex { background: transparent !important; }
 
 /* Footer sidebar */

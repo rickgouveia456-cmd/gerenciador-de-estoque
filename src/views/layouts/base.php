@@ -238,7 +238,7 @@ if ($u) {
   <?php endif; ?>
 
   <!-- Footer sidebar -->
-  <div class="mt-auto p-3 border-top" style="position:sticky;bottom:0;background:var(--primary)">
+  <div class="mt-auto p-3 border-top" style="position:sticky;bottom:0;background:rgba(0,0,0,0.25);backdrop-filter:blur(4px)">
     <div class="d-flex align-items-center gap-2">
       <div class="rounded-circle bg-accent d-flex align-items-center justify-content-center"
            style="width:32px;height:32px;background:var(--accent);flex-shrink:0">

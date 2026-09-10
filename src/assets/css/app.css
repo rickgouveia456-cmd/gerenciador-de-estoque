@@ -60,6 +60,10 @@
     --radius-sm: 6px;
     --radius:    10px;
     --radius-lg: 14px;
+
+    /* Alias de compatibilidade */
+    --primary:      #1a2035;
+    --border-color: #e1e8f0;
 }
 
 /* ── Reset ──────────────────────────────────────────────── */
@@ -88,6 +92,7 @@ body {
     overflow-y: auto; overflow-x: hidden;
     overflow-anchor: none; scroll-behavior: auto;
     transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+    padding-bottom: 80px;
 }
 .sidebar::-webkit-scrollbar { width: 3px; }
 .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 99px; }

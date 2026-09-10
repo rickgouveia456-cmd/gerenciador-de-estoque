@@ -231,29 +231,31 @@ $coresGrafico = ['#f97316','#0ea5e9','#10b981','#8b5cf6','#f59e0b'];
 <style>
 .pc-card {
   background: var(--card-bg, #fff);
-  border: 1px solid var(--border-color, #e5e7eb);
+  border: 1px solid var(--border, #e5e7eb);
   border-radius: 14px;
   padding: 20px 18px;
   position: relative;
   overflow: hidden;
   transition: box-shadow .2s;
+  color: var(--text, #111);
 }
 .pc-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.07); }
 .pc-card--warn { border-color: rgba(239,68,68,.3); background: rgba(239,68,68,.03); }
 .pc-card-label { font-size:.75rem; color:var(--text-muted,#6b7280); font-weight:600; text-transform:uppercase; letter-spacing:.04em; margin-bottom:6px; }
-.pc-card-val   { font-size:2.2rem; font-weight:900; line-height:1; margin-bottom:4px; }
+.pc-card-val   { font-size:2.2rem; font-weight:900; line-height:1; margin-bottom:4px; color: var(--text, #111); }
 .pc-card-sub   { font-size:.75rem; color:var(--text-muted,#6b7280); }
 .pc-card-icon  { position:absolute; top:16px; right:16px; font-size:1.6rem; opacity:.15; }
 
 .pc-panel {
   background: var(--card-bg, #fff);
-  border: 1px solid var(--border-color, #e5e7eb);
+  border: 1px solid var(--border, #e5e7eb);
   border-radius: 14px;
   overflow: hidden;
+  color: var(--text, #111);
 }
 .pc-panel-header {
   padding: 16px 24px;
-  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  border-bottom: 1px solid var(--border, #e5e7eb);
 }
 .pc-panel-body { padding: 16px 24px; }
 
@@ -262,8 +264,12 @@ html[data-theme="dark"] .pc-card,
 html[data-theme="dark"] .pc-panel {
   background: #161b22;
   border-color: #30363d;
+  color: #e2e8f0;
 }
-html[data-theme="dark"] .pc-panel-header { border-color: #30363d; }
+html[data-theme="dark"] .pc-card-val   { color: #e2e8f0 !important; }
+html[data-theme="dark"] .pc-card-label { color: #8b949e !important; }
+html[data-theme="dark"] .pc-card-sub   { color: #8b949e !important; }
+html[data-theme="dark"] .pc-panel-header { border-color: #30363d; color: #e2e8f0; }
 html[data-theme="dark"] .pc-card--warn { background: rgba(239,68,68,.06); }
 </style>
 

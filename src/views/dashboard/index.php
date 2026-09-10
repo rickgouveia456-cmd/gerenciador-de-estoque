@@ -89,10 +89,10 @@ $coresGrafico = ['#f97316','#0ea5e9','#10b981','#8b5cf6','#f59e0b'];
     <p class="text-muted mb-0" style="font-size:.85rem">Gestão de almoxarifado de obra</p>
   </div>
 
-  <!-- Filtros -->
-  <form method="GET" action="/" class="d-flex align-items-center gap-2 flex-wrap">
-    <select name="alm" class="form-select form-select-sm" style="min-width:180px" onchange="this.form.submit()">
-      <option value="0" <?= $almFiltro === 0 ? 'selected' : '' ?>>Todos os almoxarifados</option>
+  <!-- Filtros via AJAX -->
+  <div class="d-flex align-items-center gap-2 flex-wrap">
+    <select id="filtroAlm" class="form-select form-select-sm" style="min-width:180px" onchange="atualizarDashboard()">
+      <option value="0">Todos os almoxarifados</option>
       <?php foreach ($almoxarifados as $a): ?>
       <option value="<?= $a['id'] ?>" <?= $almFiltro === (int)$a['id'] ? 'selected' : '' ?>>
         <?= h($a['nome']) ?>
@@ -100,14 +100,11 @@ $coresGrafico = ['#f97316','#0ea5e9','#10b981','#8b5cf6','#f59e0b'];
       <?php endforeach; ?>
     </select>
     <div class="btn-group btn-group-sm" role="group">
-      <?php foreach ([7 => '7 dias', 30 => '30 dias', 60 => '60 dias'] as $v => $l): ?>
-      <button type="submit" name="periodo" value="<?= $v ?>"
-              class="btn <?= $periodo === $v ? 'btn-primary' : 'btn-outline-secondary' ?>">
-        <?= $l ?>
-      </button>
-      <?php endforeach; ?>
+      <button type="button" onclick="setPeriodo(7)"  id="btn7"  class="btn btn-outline-secondary">7 dias</button>
+      <button type="button" onclick="setPeriodo(30)" id="btn30" class="btn btn-primary">30 dias</button>
+      <button type="button" onclick="setPeriodo(60)" id="btn60" class="btn btn-outline-secondary">60 dias</button>
     </div>
-  </form>
+  </div>
 </div>
 
 <!-- ── Cards de métricas ───────────────────────────────────────────────────── -->
@@ -122,8 +119,8 @@ $coresGrafico = ['#f97316','#0ea5e9','#10b981','#8b5cf6','#f59e0b'];
   <div class="col-6 col-md-3">
     <div class="pc-card">
       <div class="pc-card-label">Saídas no período</div>
-      <div class="pc-card-val"><?= number_format($saidaTotal) ?></div>
-      <div class="pc-card-sub"><?= $mediaDia ?> por dia em média</div>
+      <div class="pc-card-val" id="val-saidas"><?= number_format($saidaTotal) ?></div>
+      <div class="pc-card-sub" id="val-media"><?= $mediaDia ?> por dia em média</div>
       <div class="pc-card-icon text-warning"><i class="bi bi-box-arrow-up-right"></i></div>
     </div>
   </div>
@@ -135,12 +132,12 @@ $coresGrafico = ['#f97316','#0ea5e9','#10b981','#8b5cf6','#f59e0b'];
     </div>
   </div>
   <div class="col-6 col-md-3">
-    <div class="pc-card <?= $abaixoMin > 0 ? 'pc-card--warn' : '' ?>">
+    <div class="pc-card <?= $abaixoMin > 0 ? 'pc-card--warn' : '' ?>" id="card-abaixo">
       <div class="pc-card-label">Abaixo do Mínimo</div>
-      <div class="pc-card-val" style="<?= $abaixoMin > 0 ? 'color:#ef4444' : '' ?>">
+      <div class="pc-card-val" id="val-abaixo" style="<?= $abaixoMin > 0 ? 'color:#ef4444' : '' ?>">
         <?= $abaixoMin ?>
       </div>
-      <div class="pc-card-sub"><?= $abaixoMin > 0 ? 'precisam de reposição' : 'estoque ok' ?></div>
+      <div class="pc-card-sub" id="val-abaixo-sub"><?= $abaixoMin > 0 ? 'precisam de reposição' : 'estoque ok' ?></div>
       <div class="pc-card-icon text-danger"><i class="bi bi-exclamation-triangle"></i></div>
     </div>
   </div>
@@ -176,7 +173,7 @@ $coresGrafico = ['#f97316','#0ea5e9','#10b981','#8b5cf6','#f59e0b'];
         <div style="width:180px;height:180px;flex-shrink:0">
           <canvas id="donutInsumos"></canvas>
         </div>
-        <div style="min-width:160px">
+        <div style="min-width:160px" id="legendaInsumos">
           <?php foreach ($top5Insumos as $i => $ins): ?>
           <div class="d-flex align-items-center gap-2 mb-2">
             <span style="width:10px;height:10px;border-radius:50%;background:<?= $coresGrafico[$i] ?>;flex-shrink:0"></span>
@@ -209,7 +206,7 @@ $coresGrafico = ['#f97316','#0ea5e9','#10b981','#8b5cf6','#f59e0b'];
         <div style="width:180px;height:180px;flex-shrink:0">
           <canvas id="donutColabs"></canvas>
         </div>
-        <div style="min-width:160px">
+        <div style="min-width:160px" id="legendaColabs">
           <?php foreach ($top5Colabs as $i => $col): ?>
           <div class="d-flex align-items-center gap-2 mb-2">
             <span style="width:10px;height:10px;border-radius:50%;background:<?= $coresGrafico[$i] ?>;flex-shrink:0"></span>
@@ -379,4 +376,161 @@ document.getElementById('darkModeToggle')?.addEventListener('click', () => {
     graficoLinha.update();
   }, 100);
 });
+
+// ── AJAX: Atualização sem recarregar ──────────────────────────────────────
+let periodoAtual = <?= $periodo ?>;
+let almAtual     = <?= $almFiltro ?>;
+let donutInsumos = null;
+let donutColabs  = null;
+const CORES = <?= json_encode($coresGrafico) ?>;
+
+function setPeriodo(p) {
+  periodoAtual = p;
+  // Atualiza botões
+  [7, 30, 60].forEach(v => {
+    const btn = document.getElementById('btn' + v);
+    if (btn) {
+      btn.className = v === p
+        ? 'btn btn-primary btn-sm'
+        : 'btn btn-outline-secondary btn-sm';
+    }
+  });
+  atualizarDashboard();
+}
+
+function atualizarDashboard() {
+  almAtual = parseInt(document.getElementById('filtroAlm')?.value || 0);
+
+  // Animação de saída — fade + slide up
+  animarSaida();
+
+  fetch(`/api/dashboard?periodo=${periodoAtual}&alm=${almAtual}`)
+    .then(r => r.json())
+    .then(d => {
+      // Atualiza cards com contador animado
+      animarContador('val-saidas', d.saida_total);
+      animarContador('val-abaixo', d.abaixo_min);
+
+      const mediaEl = document.getElementById('val-media');
+      if (mediaEl) mediaEl.textContent = d.media_dia + ' por dia em média';
+
+      const abaixoSub = document.getElementById('val-abaixo-sub');
+      if (abaixoSub) abaixoSub.textContent = d.abaixo_min > 0 ? 'precisam de reposição' : 'estoque ok';
+
+      const cardAbaixo = document.getElementById('card-abaixo');
+      const valAbaixo  = document.getElementById('val-abaixo');
+      if (cardAbaixo) cardAbaixo.classList.toggle('pc-card--warn', d.abaixo_min > 0);
+      if (valAbaixo)  valAbaixo.style.color = d.abaixo_min > 0 ? '#ef4444' : '';
+
+      // Atualiza gráfico de linha com animação
+      const labelsFormatados = d.grafico_labels.map(dt => {
+        const [y,m,dia] = dt.split('-');
+        return `${dia}/${m}`;
+      });
+      graficoLinha.data.labels = labelsFormatados;
+      graficoLinha.data.datasets[0].data = d.grafico_data;
+      graficoLinha.options.animation = { duration: 600, easing: 'easeInOutQuart' };
+      graficoLinha.update();
+
+      // Atualiza donuts
+      atualizarDonut('donutInsumos', d.top5_insumos.map(i => i.nome), d.top5_insumos.map(i => parseFloat(i.total)));
+      atualizarDonut('donutColabs',  d.top5_colabs.map(c => c.colaborador), d.top5_colabs.map(c => parseFloat(c.total)));
+
+      // Atualiza legendas dos donuts
+      atualizarLegenda('legendaInsumos', d.top5_insumos.map(i => i.nome));
+      atualizarLegenda('legendaColabs',  d.top5_colabs.map(c => c.colaborador));
+
+      // Animação de entrada
+      animarEntrada();
+    })
+    .catch(err => console.error('Erro ao atualizar dashboard:', err));
+}
+
+function atualizarDonut(canvasId, labels, data) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  // Destrói o donut existente se houver
+  const chart = Chart.getChart(canvas);
+  if (chart) chart.destroy();
+
+  if (!labels.length) return;
+
+  new Chart(canvas.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: CORES,
+        borderWidth: 0,
+        hoverOffset: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      cutout: '65%',
+      animation: { duration: 700, easing: 'easeInOutBack' },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed}` } }
+      }
+    }
+  });
+}
+
+function atualizarLegenda(id, nomes) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = nomes.map((n, i) =>
+    `<div class="d-flex align-items-center gap-2 mb-2">
+      <span style="width:10px;height:10px;border-radius:50%;background:${CORES[i]};flex-shrink:0"></span>
+      <span style="font-size:.78rem;color:var(--text-muted)" title="${n}">${n.length > 22 ? n.slice(0,22)+'…' : n}</span>
+    </div>`
+  ).join('');
+}
+
+// Contador animado (conta de 0 até o valor)
+function animarContador(id, destino) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const inicio = parseInt(el.textContent.replace(/\D/g,'')) || 0;
+  const duracao = 500;
+  const start = performance.now();
+  function step(agora) {
+    const prog = Math.min((agora - start) / duracao, 1);
+    const ease = 1 - Math.pow(1 - prog, 3);
+    el.textContent = Math.round(inicio + (destino - inicio) * ease).toLocaleString('pt-BR');
+    if (prog < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// Fade + translateY para saída
+function animarSaida() {
+  const alvos = ['val-saidas','val-media','val-abaixo','graficoConsumo','donutInsumos','donutColabs'];
+  alvos.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.style.transition = 'opacity .2s ease, transform .2s ease';
+      el.style.opacity = '0.3';
+      el.style.transform = 'translateY(-4px)';
+    }
+  });
+}
+
+// Fade + translateY para entrada
+function animarEntrada() {
+  const alvos = ['val-saidas','val-media','val-abaixo','graficoConsumo','donutInsumos','donutColabs'];
+  alvos.forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (el) {
+      setTimeout(() => {
+        el.style.transition = 'opacity .4s ease, transform .4s ease';
+        el.style.opacity = '1';
+        el.style.transform = 'translateY(0)';
+      }, i * 60);
+    }
+  });
+}
 </script>

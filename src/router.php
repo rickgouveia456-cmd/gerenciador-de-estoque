@@ -153,6 +153,7 @@ $routes = [
     ['POST',     '#^/almoxarifado/(\d+)/kits/(\d+)/excluir$#',      'kits/excluir.php', ['alm_id','kit_id']],
     // Healthcheck
     ['GET', '#^/healthz$#', 'api/healthz.php', []],
+    ['GET', '#^/api/dashboard$#', 'api/dashboard_data.php', []],
 
     // Integrações
     ['GET',  '#^/integracao$#',             'integracao/index.php',      []],

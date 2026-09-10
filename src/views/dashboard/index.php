@@ -270,8 +270,8 @@ html[data-theme="dark"] .pc-panel-header { border-color: #30363d; }
 html[data-theme="dark"] .pc-card--warn { background: rgba(239,68,68,.06); }
 </style>
 
-<!-- ── Chart.js ───────────────────────────────────────────────────────────── -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<!-- ── Chart.js local ─────────────────────────────────────────────────────── -->
+<script src="/assets/js/chart.min.js"></script>
 <script>
 const isDark = () => document.documentElement.getAttribute('data-theme') === 'dark';
 const gridColor  = () => isDark() ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.06)';
@@ -310,6 +310,7 @@ const graficoLinha = new Chart(ctxLinha, {
   },
   options: {
     responsive: true,
+    animation: { duration: 1000, easing: 'easeInOutQuart' },
     plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
     scales: {
       x: { grid: { color: gridColor() }, ticks: { color: labelColor(), maxTicksLimit: 10 } },

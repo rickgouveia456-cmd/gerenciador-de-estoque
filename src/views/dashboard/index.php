@@ -307,7 +307,7 @@ const graficoLinha = new Chart(ctxLinha, {
   },
   options: {
     responsive: true,
-    animation: { duration: 1000, easing: 'easeInOutQuart' },
+    animation: { duration: 1300, easing: 'easeInOutQuart' },
     plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
     scales: {
       x: { grid: { color: gridColor() }, ticks: { color: labelColor(), maxTicksLimit: 10 } },
@@ -429,7 +429,7 @@ function atualizarDashboard() {
       });
       graficoLinha.data.labels = labelsFormatados;
       graficoLinha.data.datasets[0].data = d.grafico_data;
-      graficoLinha.options.animation = { duration: 600, easing: 'easeInOutQuart' };
+      graficoLinha.options.animation = { duration: 800, easing: 'easeInOutQuart' };
       graficoLinha.update();
 
       // Atualiza donuts
@@ -470,7 +470,7 @@ function atualizarDonut(canvasId, labels, data) {
     options: {
       responsive: true,
       cutout: '65%',
-      animation: { duration: 700, easing: 'easeInOutBack' },
+      animation: { duration: 950, easing: 'easeInOutBack' },
       plugins: {
         legend: { display: false },
         tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed}` } }
@@ -495,7 +495,7 @@ function animarContador(id, destino) {
   const el = document.getElementById(id);
   if (!el) return;
   const inicio = parseInt(el.textContent.replace(/\D/g,'')) || 0;
-  const duracao = 500;
+  const duracao = 650;
   const start = performance.now();
   function step(agora) {
     const prog = Math.min((agora - start) / duracao, 1);
@@ -529,7 +529,7 @@ function animarEntrada() {
         el.style.transition = 'opacity .4s ease, transform .4s ease';
         el.style.opacity = '1';
         el.style.transform = 'translateY(0)';
-      }, i * 60);
+      }, i * 80);
     }
   });
 }

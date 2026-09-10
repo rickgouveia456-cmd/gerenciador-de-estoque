@@ -723,3 +723,65 @@ html:not([data-theme="dark"]) .dropdown-item { color: #1a2035 !important; }
 html:not([data-theme="dark"]) .list-group-item { background: #ffffff !important; color: #1a2035 !important; border-color: #e1e8f0 !important; }
 html:not([data-theme="dark"]) .modal-content  { background: #ffffff !important; color: #1a2035 !important; }
 html:not([data-theme="dark"]) .badge.bg-secondary { background: #e2e8f0 !important; color: #374151 !important; }
+
+/* ══════════════════════════════════════════════════════════
+   LIGHT MODE — forçar fundo branco nos cards do dashboard
+   ══════════════════════════════════════════════════════════ */
+html:not([data-theme="dark"]) .pc-card,
+html:not([data-theme="dark"]) .pc-panel,
+html:not([data-theme="dark"]) .dash-card,
+html:not([data-theme="dark"]) .dash-panel {
+    background: #ffffff !important;
+    border-color: #e5e7eb !important;
+    color: #111 !important;
+}
+html:not([data-theme="dark"]) .pc-card-label,
+html:not([data-theme="dark"]) .pc-card-sub,
+html:not([data-theme="dark"]) .pc-panel-header,
+html:not([data-theme="dark"]) .dash-panel-header {
+    color: #6b7280 !important;
+    border-color: #e5e7eb !important;
+    background: transparent !important;
+}
+html:not([data-theme="dark"]) .pc-card-val,
+html:not([data-theme="dark"]) .dash-card-val {
+    color: #111 !important;
+}
+html:not([data-theme="dark"]) .dash-alert-row {
+    border-color: #f3f4f6 !important;
+    color: #111 !important;
+}
+html:not([data-theme="dark"]) .dash-alert-row:hover { background: #f9fafb !important; }
+html:not([data-theme="dark"]) .dash-action-btn {
+    background: #fff !important;
+    border-color: #e5e7eb !important;
+    color: #374151 !important;
+}
+html:not([data-theme="dark"]) .dash-action-btn:hover {
+    border-color: #f97316 !important;
+    color: #f97316 !important;
+}
+html:not([data-theme="dark"]) .dash-alert-nome { color: #111 !important; }
+html:not([data-theme="dark"]) .dash-alert-alm  { color: #6b7280 !important; }
+
+/* Gráfico — fundo branco no light */
+html:not([data-theme="dark"]) #graficoConsumo,
+html:not([data-theme="dark"]) #donutInsumos,
+html:not([data-theme="dark"]) #donutColabs {
+    background: transparent !important;
+}
+
+/* Topbar no light mode */
+html:not([data-theme="dark"]) .topbar {
+    background: #ffffff !important;
+    border-bottom: 1px solid #e1e8f0 !important;
+    color: #1a2035 !important;
+}
+html:not([data-theme="dark"]) .topbar .page-title { color: #1a2035 !important; }
+
+/* Conteúdo principal — fundo claro */
+html:not([data-theme="dark"]) .page-content,
+html:not([data-theme="dark"]) .container-fluid,
+html:not([data-theme="dark"]) .main-content > div {
+    background: #f0f3f8 !important;
+}

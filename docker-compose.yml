@@ -4,6 +4,8 @@ services:
     container_name: logiprime_php
     env_file:
       - .env
+    environment:
+      APP_ENV: development
     ports:
       - "${APP_PORT:-80}:80"
     volumes:

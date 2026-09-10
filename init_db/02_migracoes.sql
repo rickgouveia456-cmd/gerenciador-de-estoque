@@ -61,3 +61,16 @@ INSERT IGNORE INTO `configuracao_sistema` (`chave`, `valor`) VALUES
 ('empresa_email',   ''),
 ('sistema_versao',  '1.0.0'),
 ('onboarding_feito','0');
+
+-- Adiciona webhook_secret na config do Sienge
+UPDATE integracao_config
+SET config_json = JSON_SET(
+    COALESCE(config_json, '{}'),
+    '$.webhook_secret', ''
+)
+WHERE sistema = 'sienge'
+  AND JSON_EXTRACT(config_json, '$.webhook_secret') IS NULL;
+
+-- Adiciona API_TOKEN na configuracao_sistema
+INSERT IGNORE INTO configuracao_sistema (chave, valor)
+VALUES ('api_token', '');

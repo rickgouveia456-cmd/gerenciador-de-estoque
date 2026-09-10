@@ -1,4 +1,6 @@
-<?php
+
+
+3<?php
 /**
  * Logi-Prime — Router simples
  * Mapeia URI -> controller
@@ -153,20 +155,13 @@ $routes = [
     ['POST',     '#^/almoxarifado/(\d+)/kits/(\d+)/excluir$#',      'kits/excluir.php', ['alm_id','kit_id']],
     // Healthcheck
     ['GET', '#^/healthz$#', 'api/healthz.php', []],
-    ['GET', '#^/api/dashboard$#', 'api/dashboard_data.php', []],
-
     // API v1 — externa (Sienge, ERP, apps)
     ['GET',      '#^/api/v1$#',                  'api/v1/docs.php',          []],
     ['GET',      '#^/api/v1/almoxarifados$#',     'api/v1/almoxarifados.php', []],
     ['GET',      '#^/api/v1/estoque$#',           'api/v1/estoque.php',       []],
     ['GET|POST', '#^/api/v1/movimentacoes$#',     'api/v1/movimentacoes.php', []],
     ['GET|POST', '#^/api/v1/requisicoes$#',       'api/v1/requisicoes.php',   []],
-
-    // Integrações
-    ['GET',  '#^/integracao$#',             'integracao/index.php',      []],
-    ['POST', '#^/integracao/configurar$#',  'integracao/configurar.php', []],
-    ['GET',  '#^/integracao/testar$#',      'integracao/testar.php',     []],
-    ['POST', '#^/integracao/sincronizar$#', 'integracao/sincronizar.php',[]],
+    ['POST',     '#^/api/v1/webhook$#',           'api/v1/webhook.php',       []],
 
     // Implantação 3.7
     ['GET|POST', '#^/admin/configuracao$#', 'admin/configuracao.php', []],

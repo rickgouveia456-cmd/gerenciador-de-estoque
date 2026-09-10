@@ -46,10 +46,11 @@ ini_set('session.cookie_samesite', 'Lax');
 ini_set('session.gc_maxlifetime', 3600);
 
 if (APP_ENV !== 'development') {
-    ini_set('session.cookie_secure', 1);
+    ini_set('session.cookie_secure', 0);
     ini_set('display_errors', 0);
     error_reporting(0);
 } else {
+    ini_set('session.cookie_secure', 0);
     ini_set('display_errors', 1);
     error_reporting(E_ALL);
 }

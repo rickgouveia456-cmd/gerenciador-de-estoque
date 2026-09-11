@@ -389,6 +389,7 @@ let almAtual     = <?= $almFiltro ?>;
 let donutInsumos = null;
 let donutColabs  = null;
 const CORES = <?= json_encode($coresGrafico) ?>;
+let _fetchEmAndamento = false;
 
 function setPeriodo(p) {
   periodoAtual = p;
@@ -405,13 +406,31 @@ function setPeriodo(p) {
 }
 
 function atualizarDashboard() {
+  // Evita múltiplas chamadas simultâneas
+  if (_fetchEmAndamento) return;
+  _fetchEmAndamento = true;
+
   almAtual = parseInt(document.getElementById('filtroAlm')?.value || 0);
 
-  // Animação de saída — fade + slide up
+  // Mostra spinner nos botões
+  [7,30,60].forEach(v => {
+    const btn = document.getElementById('btn'+v);
+    if (btn && v === periodoAtual) btn.innerHTML = '<span class="spinner-border spinner-border-sm" style="width:10px;height:10px"></span>';
+  });
+
+  // Animação de saída
   animarSaida();
 
-  fetch(`/api/dashboard?periodo=${periodoAtual}&alm=${almAtual}`)
-    .then(r => r.json())
+  // AbortController para timeout de 10s
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+
+  fetch(`/api/dashboard?periodo=${periodoAtual}&alm=${almAtual}`, { signal: controller.signal })
+    .then(r => {
+      clearTimeout(timeout);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
     .then(d => {
       // Atualiza cards com contador animado
       animarContador('val-saidas', d.saida_total);
@@ -449,7 +468,26 @@ function atualizarDashboard() {
       // Animação de entrada
       animarEntrada();
     })
-    .catch(err => console.error('Erro ao atualizar dashboard:', err));
+    .catch(err => {
+      clearTimeout(timeout);
+      console.error('Erro ao atualizar dashboard:', err);
+      // Restaura opacidade mesmo em caso de erro
+      animarEntrada();
+    })
+    .finally(() => {
+      _fetchEmAndamento = false;
+      // Restaura texto dos botões
+      [7,30,60].forEach(v => {
+        const btn = document.getElementById('btn'+v);
+        if (btn) {
+          const labels = {7:'7 dias', 30:'30 dias', 60:'60 dias'};
+          btn.innerHTML = labels[v];
+          btn.className = v === periodoAtual
+            ? 'btn btn-primary btn-sm'
+            : 'btn btn-outline-secondary btn-sm';
+        }
+      });
+    });
 }
 
 function atualizarDonut(canvasId, labels, data) {

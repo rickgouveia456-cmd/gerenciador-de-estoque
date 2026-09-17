@@ -551,7 +551,84 @@ html[data-theme="dark"] .pill-cat[style*="accent"] {
 
 
 /* ══════════════════════════════════════════════════════════
-   RESPONSIVIDADE MOBILE
+   SIDEBAR — SEMPRE ESCURA (independente do tema)
+   ══════════════════════════════════════════════════════════ */
+.sidebar,
+html:not([data-theme="dark"]) .sidebar,
+html[data-theme="dark"] .sidebar {
+    background: var(--gradient-sidebar) !important;
+}
+.sidebar-scroll,
+html:not([data-theme="dark"]) .sidebar-scroll,
+html[data-theme="dark"] .sidebar-scroll {
+    background: transparent !important;
+}
+.sidebar-footer,
+html:not([data-theme="dark"]) .sidebar-footer,
+html[data-theme="dark"] .sidebar-footer {
+    background: rgba(0,0,0,0.25) !important;
+    border-color: rgba(255,255,255,0.06) !important;
+}
+
+/* Textos da sidebar — sempre claros */
+.sidebar .nav-link,
+html:not([data-theme="dark"]) .sidebar .nav-link {
+    color: var(--sidebar-text) !important;
+}
+.sidebar .nav-link:hover,
+html:not([data-theme="dark"]) .sidebar .nav-link:hover {
+    color: var(--sidebar-text-hover) !important;
+    background: var(--sidebar-bg-hover) !important;
+}
+.sidebar .nav-link.active,
+html:not([data-theme="dark"]) .sidebar .nav-link.active {
+    color: #ff8a50 !important;
+    background: var(--sidebar-bg-active) !important;
+}
+.sidebar .nav-section,
+html:not([data-theme="dark"]) .sidebar .nav-section {
+    color: var(--sidebar-section) !important;
+}
+.sidebar .brand span,
+html:not([data-theme="dark"]) .sidebar .brand span {
+    color: #fff !important;
+}
+/* Forçar cor clara nos spans dos almoxarifados no light mode */
+html:not([data-theme="dark"]) .sidebar span,
+html:not([data-theme="dark"]) .sidebar .alm-nav-item span,
+html:not([data-theme="dark"]) .sidebar [id^="sub-alm-"] .nav-link {
+    color: var(--sidebar-text) !important;
+}
+html:not([data-theme="dark"]) .sidebar [id^="sub-alm-"] .nav-link:hover {
+    color: #ff8a50 !important;
+}
+/* Badge dentro da sidebar — manter estilo */
+html:not([data-theme="dark"]) .sidebar .badge {
+    background: #2a3547 !important;
+    color: #e2e8f0 !important;
+}
+/* Cor de % dos almoxarifados — não sobrescrever (já é inline com cor dinâmica) */
+/* Footer da sidebar — textos sempre claros */
+html:not([data-theme="dark"]) .sidebar-footer .fw-semibold { color: #e2e8f0 !important; }
+html:not([data-theme="dark"]) .sidebar-footer .text-muted,
+html:not([data-theme="dark"]) .sidebar-footer [style*="color:var(--sidebar-text)"] { color: var(--sidebar-text) !important; }
+html:not([data-theme="dark"]) .sidebar-footer .btn-outline-secondary {
+    border-color: rgba(255,255,255,0.2) !important;
+    color: rgba(255,255,255,0.6) !important;
+}
+html:not([data-theme="dark"]) .sidebar-footer .btn-outline-secondary:hover {
+    background: rgba(255,255,255,0.1) !important;
+    color: #fff !important;
+}
+/* Submenus no light mode */
+html:not([data-theme="dark"]) [id^="sub-alm-"] {
+    background: rgba(0,0,0,0.15) !important;
+    border-left-color: rgba(255,107,53,0.25) !important;
+}
+/* Cidade/label na sidebar (ex: "SALVADOR") */
+html:not([data-theme="dark"]) .sidebar .nav-section { color: var(--sidebar-section) !important; }
+
+
    ══════════════════════════════════════════════════════════ */
 
 /* Tablet e mobile — sidebar escondida por padrão */
@@ -738,19 +815,19 @@ html[data-theme="dark"] .page-sub   { color: #8b949e !important; }
    ══════════════════════════════════════════════════════════ */
 
 /* Fundo geral de qualquer div/section/article com bg branco inline */
-html[data-theme="dark"] [style*="background:#fff"],
-html[data-theme="dark"] [style*="background: #fff"],
-html[data-theme="dark"] [style*="background-color:#fff"],
-html[data-theme="dark"] [style*="background-color: #fff"],
-html[data-theme="dark"] [style*="background:white"],
-html[data-theme="dark"] [style*="background: white"],
-html[data-theme="dark"] [style*="background:#ffffff"],
-html[data-theme="dark"] [style*="background: #ffffff"],
-html[data-theme="dark"] [style*="background:#f0f3f8"],
-html[data-theme="dark"] [style*="background:#f8fafd"],
-html[data-theme="dark"] [style*="background:#f9fafb"],
-html[data-theme="dark"] [style*="background:#f1f5f9"],
-html[data-theme="dark"] [style*="background:#f0f4fa"] {
+html[data-theme="dark"] :not(.sidebar):not(.sidebar *)[style*="background:#fff"],
+html[data-theme="dark"] :not(.sidebar):not(.sidebar *)[style*="background: #fff"],
+html[data-theme="dark"] :not(.sidebar):not(.sidebar *)[style*="background-color:#fff"],
+html[data-theme="dark"] :not(.sidebar):not(.sidebar *)[style*="background-color: #fff"],
+html[data-theme="dark"] :not(.sidebar):not(.sidebar *)[style*="background:white"],
+html[data-theme="dark"] :not(.sidebar):not(.sidebar *)[style*="background: white"],
+html[data-theme="dark"] :not(.sidebar):not(.sidebar *)[style*="background:#ffffff"],
+html[data-theme="dark"] :not(.sidebar):not(.sidebar *)[style*="background: #ffffff"],
+html[data-theme="dark"] :not(.sidebar):not(.sidebar *)[style*="background:#f0f3f8"],
+html[data-theme="dark"] :not(.sidebar):not(.sidebar *)[style*="background:#f8fafd"],
+html[data-theme="dark"] :not(.sidebar):not(.sidebar *)[style*="background:#f9fafb"],
+html[data-theme="dark"] :not(.sidebar):not(.sidebar *)[style*="background:#f1f5f9"],
+html[data-theme="dark"] :not(.sidebar):not(.sidebar *)[style*="background:#f0f4fa"] {
     background: #161b22 !important;
     border-color: #30363d !important;
 }
@@ -955,6 +1032,14 @@ html:not([data-theme="dark"]) h4,
 html:not([data-theme="dark"]) h5,
 html:not([data-theme="dark"]) h6           { color: #1a2035 !important; }
 html:not([data-theme="dark"]) p            { color: #374151; }
+/* Exceção: textos dentro da sidebar não são afetados pelas regras de light mode */
+html:not([data-theme="dark"]) .sidebar h1,
+html:not([data-theme="dark"]) .sidebar h2,
+html:not([data-theme="dark"]) .sidebar h3,
+html:not([data-theme="dark"]) .sidebar h4,
+html:not([data-theme="dark"]) .sidebar h5,
+html:not([data-theme="dark"]) .sidebar h6  { color: #e2e8f0 !important; }
+html:not([data-theme="dark"]) .sidebar p   { color: var(--sidebar-text) !important; }
 html:not([data-theme="dark"]) .dropdown-menu { background: #ffffff !important; border-color: #e1e8f0 !important; }
 html:not([data-theme="dark"]) .dropdown-item { color: #1a2035 !important; }
 html:not([data-theme="dark"]) .list-group-item { background: #ffffff !important; color: #1a2035 !important; border-color: #e1e8f0 !important; }

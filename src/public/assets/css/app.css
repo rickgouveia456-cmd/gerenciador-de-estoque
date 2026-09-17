@@ -944,6 +944,31 @@ html:not([data-theme="dark"]) .list-group-item { background: #ffffff !important;
 html:not([data-theme="dark"]) .modal-content  { background: #ffffff !important; color: #1a2035 !important; }
 html:not([data-theme="dark"]) .badge.bg-secondary { background: #e2e8f0 !important; color: #374151 !important; }
 
+/* Links no light mode: garantir cor escura, sem underline por padrão */
+html:not([data-theme="dark"]) a.text-dark,
+html:not([data-theme="dark"]) a.fw-semibold.text-decoration-none,
+html:not([data-theme="dark"]) a.fw-bold.text-decoration-none,
+html:not([data-theme="dark"]) a.text-decoration-none { color: #1a2035 !important; text-decoration: none !important; }
+html:not([data-theme="dark"]) a.text-decoration-none:hover { color: var(--accent) !important; }
+
+/* Tabela no light mode: textos e fundos corretos */
+html:not([data-theme="dark"]) .table td    { color: #1a2035 !important; }
+html:not([data-theme="dark"]) .table th    { color: #6b7a96 !important; background: #f0f4fa !important; }
+html:not([data-theme="dark"]) .table-hover tbody tr:hover > * { background: rgba(255,107,53,0.06) !important; }
+
+/* Pills de categoria no light mode */
+html:not([data-theme="dark"]) .pill-cat {
+    background: #f1f5f9 !important;
+    color: #64748b !important;
+    border: 1px solid #e2e8f0 !important;
+}
+html:not([data-theme="dark"]) .pill-cat.active-cat,
+html:not([data-theme="dark"]) #pill-cat-todos {
+    background: var(--accent-light) !important;
+    color: var(--accent) !important;
+    border-color: var(--accent) !important;
+}
+
 /* ══════════════════════════════════════════════════════════
    LIGHT MODE — forçar fundo branco nos cards do dashboard
    ══════════════════════════════════════════════════════════ */

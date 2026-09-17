@@ -107,8 +107,7 @@ $isAlmox     = in_array($u['perfil'], ['admin', 'almoxarife']);
   <button class="btn btn-sm rounded-pill pill-cat"
           id="pill-cat-<?= $catKey ?>"
           onclick="filtrarCat('<?= $catKey ?>')"
-          data-cat="<?= $catKey ?>"
-          style="background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0">
+          data-cat="<?= $catKey ?>">
     <?= $catCfg['emoji'] ?> <?= $catCfg['label'] ?> (<?= $n ?>)
   </button>
   <?php endforeach; ?>
@@ -440,12 +439,13 @@ let _modoSel   = false;
 
 function filtrarCat(cat) {
   _catAtual = cat;
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   // Atualizar pills
   document.querySelectorAll('.pill-cat').forEach(el => {
     el.style.fontWeight = '';
-    el.style.background = '#f1f5f9';
-    el.style.color      = '#64748b';
-    el.style.border     = '1px solid #e2e8f0';
+    el.style.background = isDark ? '#21262d' : '#f1f5f9';
+    el.style.color      = isDark ? '#8b949e' : '#64748b';
+    el.style.border     = isDark ? '1px solid #30363d' : '1px solid #e2e8f0';
   });
   const pa = document.getElementById('pill-cat-' + cat);
   if (pa) {

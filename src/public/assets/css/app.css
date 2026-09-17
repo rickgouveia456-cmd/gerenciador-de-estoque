@@ -10,14 +10,15 @@
     --accent-light:   rgba(255,107,53,0.12);
     --accent-mid:     rgba(255,107,53,0.20);
 
-    /* Sidebar escura */
-    --sidebar-bg:        #1a2035;
-    --sidebar-bg-hover:  #232d45;
-    --sidebar-bg-active: rgba(255,107,53,0.15);
-    --sidebar-text:      #a8b4c8;
-    --sidebar-text-hover:#e2e8f0;
-    --sidebar-border:    rgba(255,255,255,0.06);
-    --sidebar-section:   #4a5670;
+    /* Sidebar — light mode (clara) */
+    --sidebar-bg:        #ffffff;
+    --sidebar-bg-hover:  #f4f6fa;
+    --sidebar-bg-active: rgba(255,107,53,0.10);
+    --sidebar-text:      #4a5670;
+    --sidebar-text-hover:#1a2035;
+    --sidebar-border:    #e1e8f0;
+    --sidebar-section:   #9aaabb;
+    --gradient-sidebar:  linear-gradient(180deg,#ffffff 0%,#f4f6fa 100%);
 
     /* Layout */
     --sidebar-w:   260px;
@@ -44,7 +45,6 @@
 
     /* Gradientes */
     --gradient-primary: linear-gradient(135deg,#ff6b35 0%,#ff8a50 100%);
-    --gradient-sidebar: linear-gradient(180deg,#1a2035 0%,#151c2e 100%);
     --gradient-success: linear-gradient(135deg,#059669,#10b981);
     --gradient-warning: linear-gradient(135deg,#d97706,#f59e0b);
     --gradient-danger:  linear-gradient(135deg,#dc2626,#ef4444);
@@ -551,82 +551,35 @@ html[data-theme="dark"] .pill-cat[style*="accent"] {
 
 
 /* ══════════════════════════════════════════════════════════
-   SIDEBAR — SEMPRE ESCURA (independente do tema)
+   SIDEBAR — light mode: textos e badges adaptados
    ══════════════════════════════════════════════════════════ */
-.sidebar,
-html:not([data-theme="dark"]) .sidebar,
-html[data-theme="dark"] .sidebar {
-    background: var(--gradient-sidebar) !important;
+/* No light mode a sidebar é clara — ajusta textos e bordas */
+html:not([data-theme="dark"]) .sidebar {
+    box-shadow: 2px 0 12px rgba(0,0,0,0.08);
+    border-right: 1px solid #e1e8f0;
 }
-.sidebar-scroll,
-html:not([data-theme="dark"]) .sidebar-scroll,
-html[data-theme="dark"] .sidebar-scroll {
-    background: transparent !important;
-}
-.sidebar-footer,
-html:not([data-theme="dark"]) .sidebar-footer,
-html[data-theme="dark"] .sidebar-footer {
-    background: rgba(0,0,0,0.25) !important;
-    border-color: rgba(255,255,255,0.06) !important;
-}
+html:not([data-theme="dark"]) .sidebar .brand span { color: #1a2035 !important; }
+html:not([data-theme="dark"]) .sidebar .nav-section { color: #9aaabb !important; }
+html:not([data-theme="dark"]) .sidebar .nav-link { color: #4a5670 !important; }
+html:not([data-theme="dark"]) .sidebar .nav-link:hover { color: #1a2035 !important; background: #f4f6fa !important; border-left-color: rgba(255,107,53,0.4); }
+html:not([data-theme="dark"]) .sidebar .nav-link.active { color: var(--accent) !important; background: rgba(255,107,53,0.10) !important; border-left-color: var(--accent); }
+html:not([data-theme="dark"]) .sidebar .nav-link i { color: inherit !important; }
+html:not([data-theme="dark"]) [id^="sub-alm-"] { background: rgba(0,0,0,0.03) !important; border-left-color: rgba(255,107,53,0.3) !important; }
+html:not([data-theme="dark"]) [id^="sub-alm-"] .nav-link { color: #5a6a82 !important; }
+html:not([data-theme="dark"]) [id^="sub-alm-"] .nav-link:hover { color: var(--accent) !important; background: rgba(255,107,53,0.07) !important; }
+html:not([data-theme="dark"]) .sidebar .badge { background: #e4eaf2 !important; color: #4a5670 !important; }
+html:not([data-theme="dark"]) .sidebar-footer { background: #f4f6fa !important; border-color: #e1e8f0 !important; }
+html:not([data-theme="dark"]) .sidebar-footer .fw-semibold { color: #1a2035 !important; }
+html:not([data-theme="dark"]) .sidebar-footer .btn-outline-secondary { border-color: #c8d4e0 !important; color: #4a5670 !important; }
+html:not([data-theme="dark"]) .sidebar-footer .btn-outline-secondary:hover { background: #e4eaf2 !important; color: #1a2035 !important; }
+/* Alm-nav no light: texto escuro */
+html:not([data-theme="dark"]) .sidebar .alm-nav-item span { color: #4a5670 !important; }
+html:not([data-theme="dark"]) .sidebar .alm-nav-item .nav-link.active span { color: var(--accent) !important; }
 
-/* Textos da sidebar — sempre claros */
-.sidebar .nav-link,
-html:not([data-theme="dark"]) .sidebar .nav-link {
-    color: var(--sidebar-text) !important;
-}
-.sidebar .nav-link:hover,
-html:not([data-theme="dark"]) .sidebar .nav-link:hover {
-    color: var(--sidebar-text-hover) !important;
-    background: var(--sidebar-bg-hover) !important;
-}
-.sidebar .nav-link.active,
-html:not([data-theme="dark"]) .sidebar .nav-link.active {
-    color: #ff8a50 !important;
-    background: var(--sidebar-bg-active) !important;
-}
-.sidebar .nav-section,
-html:not([data-theme="dark"]) .sidebar .nav-section {
-    color: var(--sidebar-section) !important;
-}
-.sidebar .brand span,
-html:not([data-theme="dark"]) .sidebar .brand span {
-    color: #fff !important;
-}
-/* Forçar cor clara nos spans dos almoxarifados no light mode */
-html:not([data-theme="dark"]) .sidebar span,
-html:not([data-theme="dark"]) .sidebar .alm-nav-item span,
-html:not([data-theme="dark"]) .sidebar [id^="sub-alm-"] .nav-link {
-    color: var(--sidebar-text) !important;
-}
-html:not([data-theme="dark"]) .sidebar [id^="sub-alm-"] .nav-link:hover {
-    color: #ff8a50 !important;
-}
-/* Badge dentro da sidebar — manter estilo */
-html:not([data-theme="dark"]) .sidebar .badge {
-    background: #2a3547 !important;
-    color: #e2e8f0 !important;
-}
-/* Cor de % dos almoxarifados — não sobrescrever (já é inline com cor dinâmica) */
-/* Footer da sidebar — textos sempre claros */
-html:not([data-theme="dark"]) .sidebar-footer .fw-semibold { color: #e2e8f0 !important; }
-html:not([data-theme="dark"]) .sidebar-footer .text-muted,
-html:not([data-theme="dark"]) .sidebar-footer [style*="color:var(--sidebar-text)"] { color: var(--sidebar-text) !important; }
-html:not([data-theme="dark"]) .sidebar-footer .btn-outline-secondary {
-    border-color: rgba(255,255,255,0.2) !important;
-    color: rgba(255,255,255,0.6) !important;
-}
-html:not([data-theme="dark"]) .sidebar-footer .btn-outline-secondary:hover {
-    background: rgba(255,255,255,0.1) !important;
-    color: #fff !important;
-}
-/* Submenus no light mode */
-html:not([data-theme="dark"]) [id^="sub-alm-"] {
-    background: rgba(0,0,0,0.15) !important;
-    border-left-color: rgba(255,107,53,0.25) !important;
-}
-/* Cidade/label na sidebar (ex: "SALVADOR") */
-html:not([data-theme="dark"]) .sidebar .nav-section { color: var(--sidebar-section) !important; }
+/* No dark mode: sidebar sempre escura (variáveis já definem isso via :root no dark) */
+html[data-theme="dark"] .sidebar-footer { background: rgba(0,0,0,0.25) !important; border-color: rgba(255,255,255,0.06) !important; }
+html[data-theme="dark"] .sidebar-footer .fw-semibold { color: #e2e8f0 !important; }
+html[data-theme="dark"] .sidebar-footer .btn-outline-secondary { border-color: rgba(255,255,255,0.15) !important; color: rgba(255,255,255,0.6) !important; }
 
 
    ══════════════════════════════════════════════════════════ */
@@ -736,6 +689,15 @@ html[data-theme="dark"] {
     --danger-light: rgba(220,38,38,0.15);
     --shadow-sm: 0 2px 8px rgba(0,0,0,.4);
     --shadow:    0 4px 16px rgba(0,0,0,.5);
+    /* Sidebar escura no dark mode */
+    --sidebar-bg:        #1a2035;
+    --sidebar-bg-hover:  #232d45;
+    --sidebar-bg-active: rgba(255,107,53,0.15);
+    --sidebar-text:      #a8b4c8;
+    --sidebar-text-hover:#e2e8f0;
+    --sidebar-border:    rgba(255,255,255,0.06);
+    --sidebar-section:   #4a5670;
+    --gradient-sidebar:  linear-gradient(180deg,#1a2035 0%,#151c2e 100%);
 }
 
 /* ── Dark: body e superfícies ────────────────────────────── */

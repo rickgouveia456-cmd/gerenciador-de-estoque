@@ -247,7 +247,11 @@ elseif($abaAtual==="ficha_detalhe"): ?>
           <form method="POST" action="/epi_modulo?aba=devolver_item" class="d-inline"><?= csrf_field() ?>
             <input type="hidden" name="item_id" value="<?= $it["id"] ?>">
             <input type="hidden" name="ficha_id" value="<?= $ficha["id"] ?>">
-            <button class="btn btn-sm btn-outline-success" onclick="return confirm(\"Registrar devolução?\")"><i class="bi bi-arrow-return-left"></i></button>
+            <button type="button" class="btn btn-sm btn-outline-success"
+                    onclick="abrirModalDevolucao('<?= $it["id"] ?>', '<?= $ficha["id"] ?>', '<?= addslashes(h($ficha["colaborador"])) ?>', '<?= addslashes(h($it["descricao"])) ?>')"
+                    title="Registrar devolução">
+              <i class="bi bi-arrow-return-left"></i>
+            </button>
           </form>
           <?php endif; ?>
         </td>
@@ -276,16 +280,66 @@ elseif($abaAtual==="devolucoes"): ?>
     <td class="small text-muted"><?= h($d["alm_nome"]??"—") ?></td>
     <td class="text-center small"><?= $d["data_entrega"]?fmt_data($d["data_entrega"],"d/m/Y"):"—" ?></td>
     <td class="text-center">
-      <form method="POST" action="/epi_modulo?aba=devolver_item"><?= csrf_field() ?>
-        <input type="hidden" name="item_id" value="<?= $d["id"] ?>">
-        <input type="hidden" name="ficha_id" value="<?= $d["ficha_id"] ?>">
-        <button class="btn btn-sm btn-success" onclick="return confirm(\"Confirmar devolução?\")"><i class="bi bi-arrow-return-left me-1"></i>Devolver</button>
-      </form>
+      <button class="btn btn-sm btn-success"
+              onclick="abrirModalDevolucao('<?= $d["id"] ?>', '<?= $d["ficha_id"] ?>', '<?= addslashes(h($d["colaborador"])) ?>', '<?= addslashes(h($d["descricao"])) ?>')">
+        <i class="bi bi-arrow-return-left me-1"></i>Devolver
+      </button>
     </td>
   </tr>
   <?php endforeach; ?>
   </tbody>
 </table></div></div>
+
+<!-- Modal de devolução -->
+<div class="modal fade" id="modalDevolucao" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="background:var(--success);color:#fff">
+        <h6 class="modal-title fw-bold"><i class="bi bi-arrow-return-left me-2"></i>Confirmar Devolução de EPI</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="/epi_modulo?aba=devolver_item">
+        <?= csrf_field() ?>
+        <input type="hidden" name="item_id"  id="devolItemId">
+        <input type="hidden" name="ficha_id" id="devolFichaId">
+        <div class="modal-body">
+          <div class="alert mb-3" style="background:rgba(5,150,105,.08);border:1px solid rgba(5,150,105,.25);border-radius:8px">
+            <div class="fw-semibold mb-1" id="devolColabNome" style="color:var(--success)"></div>
+            <div class="small text-muted" id="devolDescricao"></div>
+          </div>
+          <label class="form-label fw-semibold">Motivo da devolução <span class="text-muted fw-normal">(opcional)</span></label>
+          <select name="motivo" class="form-select mb-2">
+            <option value="">— Selecione ou deixe em branco —</option>
+            <option value="Fim do uso">Fim do uso</option>
+            <option value="EPI danificado">EPI danificado</option>
+            <option value="Troca por novo">Troca por novo</option>
+            <option value="Encerramento de contrato">Encerramento de contrato</option>
+            <option value="Transferência de obra">Transferência de obra</option>
+            <option value="Devolução voluntária">Devolução voluntária</option>
+          </select>
+          <div class="form-text">
+            <i class="bi bi-info-circle me-1"></i>
+            O item será devolvido ao estoque do almoxarifado automaticamente.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-success"><i class="bi bi-check-lg me-1"></i>Confirmar Devolução</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function abrirModalDevolucao(itemId, fichaId, colaborador, descricao) {
+  document.getElementById('devolItemId').value  = itemId;
+  document.getElementById('devolFichaId').value = fichaId;
+  document.getElementById('devolColabNome').textContent = colaborador;
+  document.getElementById('devolDescricao').textContent = descricao;
+  new bootstrap.Modal(document.getElementById('modalDevolucao')).show();
+}
+</script>
 <?php endif; ?>
 
 <?php // ═══ MATRIZ ════════════════════════════════════════════

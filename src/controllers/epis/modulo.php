@@ -123,9 +123,66 @@ if ($aba === "ficha_nova" && $_SERVER["REQUEST_METHOD"] === "POST") {
 // ── DEVOLUCAO ITEM FICHA (POST) ──────────────────────────────
 if ($aba === "devolver_item" && $_SERVER["REQUEST_METHOD"] === "POST") {
     csrf_check();
-    $itemId = (int)($_POST["item_id"] ?? 0); $fichaId = (int)($_POST["ficha_id"] ?? 0);
-    db()->prepare("UPDATE item_ficha_epi SET data_devolucao=CURDATE() WHERE id=?")->execute([$itemId]);
-    flash("Devolucao registrada!","success"); redirect("/epi_modulo?aba=ficha_detalhe&id=$fichaId");
+    $itemId  = (int)($_POST["item_id"]  ?? 0);
+    $fichaId = (int)($_POST["ficha_id"] ?? 0);
+    $motivo  = trim($_POST["motivo"] ?? "") ?: null;
+
+    // Buscar dados do item da ficha e da ficha
+    $stItem = db()->prepare(
+        "SELECT ife.*, f.colaborador, f.almoxarifado_id
+         FROM item_ficha_epi ife
+         JOIN ficha_epi f ON f.id = ife.ficha_id
+         WHERE ife.id = ?"
+    );
+    $stItem->execute([$itemId]);
+    $epiItem = $stItem->fetch();
+
+    // Marcar devolução na ficha
+    db()->prepare(
+        "UPDATE item_ficha_epi
+         SET data_devolucao = CURDATE(), motivo_devolucao = ?
+         WHERE id = ?"
+    )->execute([$motivo, $itemId]);
+
+    // Tentar localizar o item no estoque pelo nome (busca exata, depois parcial)
+    if ($epiItem && $epiItem['almoxarifado_id']) {
+        $almId = (int)$epiItem['almoxarifado_id'];
+        $descricao = $epiItem['descricao'];
+        $qtdDevol  = (float)($epiItem['quantidade'] ?? 1);
+
+        // Busca exata primeiro, depois LIKE
+        $stEstoque = db()->prepare(
+            "SELECT id, nome, quantidade FROM item
+             WHERE almoxarifado_id = ? AND ativo = 1
+               AND (nome = ? OR nome LIKE ?)
+             ORDER BY (nome = ?) DESC
+             LIMIT 1"
+        );
+        $stEstoque->execute([$almId, $descricao, "%$descricao%", $descricao]);
+        $itemEstoque = $stEstoque->fetch();
+
+        if ($itemEstoque) {
+            // Devolver ao estoque
+            db()->prepare("UPDATE item SET quantidade = quantidade + ? WHERE id = ?")
+                ->execute([$qtdDevol, $itemEstoque['id']]);
+
+            // Registrar movimentação de entrada
+            $obsMovimento = "Devolução EPI — {$epiItem['colaborador']}" . ($motivo ? " | $motivo" : "");
+            db()->prepare(
+                "INSERT INTO movimentacao (tipo, quantidade, responsavel, observacao, item_id)
+                 VALUES ('entrada', ?, ?, ?, ?)"
+            )->execute([$qtdDevol, $u['nome'], $obsMovimento, $itemEstoque['id']]);
+
+            flash("Devolução registrada! {$qtdDevol}x {$itemEstoque['nome']} devolvido ao estoque.", "success");
+        } else {
+            // Item não encontrado no estoque — registra só na ficha com aviso
+            flash("Devolução registrada na ficha. ⚠ Item não localizado no estoque para reposição automática.", "warning");
+        }
+    } else {
+        flash("Devolução registrada!", "success");
+    }
+
+    redirect("/epi_modulo?aba=ficha_detalhe&id=$fichaId");
 }
 
 // ── ENCERRAR FICHA (POST) ────────────────────────────────────

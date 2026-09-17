@@ -4,7 +4,7 @@ $u = usuario_atual();
 if ($u['perfil'] === 'analista') { flash('Analists nao podem registrar movimentacoes.','danger'); redirect('/'); }
 
 $ids = almoxarifados_permitidos_ids();
-if ($u['perfil'] === 'admin') {
+if (in_array($u['perfil'], ['admin', 'ggo'])) {
     $almoxarifados = db()->query('SELECT * FROM almoxarifado ORDER BY nome')->fetchAll();
 } else {
     if ($ids) {

@@ -357,7 +357,7 @@ html[data-theme="dark"] .mov-item-nome { color:#e2e8f0; }
 <!-- ── JavaScript ─────────────────────────────────────────────────────────── -->
 <script>
 // Dados dos itens por almoxarifado (injetados pelo controller)
-const itensJson = <?= $itens_json ?? '{}' ?>;
+const itensJson = <?= json_encode($itensJson, JSON_UNESCAPED_UNICODE) ?>;
 let linhaCount = 0;
 
 // ── Toggle Entrada/Saída ──────────────────────────────────────────────────

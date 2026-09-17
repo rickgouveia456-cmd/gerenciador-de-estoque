@@ -158,11 +158,11 @@ if ($u) {
       <div class="d-flex align-items-center" style="padding:0 12px">
         <a href="/almoxarifado/<?= $alm['id'] ?>"
            class="nav-link flex-grow-1 <?= $isActiveAlm?'active':'' ?>"
-           style="padding:6px 4px 6px 0">
+           style="padding:6px 2px 6px 0">
           <i class="bi bi-warehouse me-1" style="font-size:0.8rem"></i>
           <span class="text-truncate" style="font-size:0.82rem"><?= h($alm['nome']) ?></span>
         </a>
-        <span style="font-size:0.72rem;color:<?= $pctColor ?>;font-weight:600;flex-shrink:0"><?= $pct ?>%</span>
+        <span style="font-size:0.72rem;color:<?= $pctColor ?>;font-weight:600;flex-shrink:0;margin-left:3px"><?= $pct ?>%</span>
         <button class="btn btn-xs border-0 ms-1 p-0 alm-toggle"
                 onclick="toggleAlm(<?= $alm['id'] ?>)"
                 style="color:var(--text-muted);font-size:0.8rem;width:20px;line-height:1"
@@ -171,7 +171,7 @@ if ($u) {
         </button>
       </div>
       <!-- Sublinks -->
-      <div id="sub-alm-<?= $alm['id'] ?>" style="<?= $expanded ? 'max-height:500px;opacity:1' : 'max-height:0px;opacity:0' ?>;overflow:hidden">
+      <div id="sub-alm-<?= $alm['id'] ?>" style="<?= $expanded ? 'max-height:500px;opacity:1;transform:translateY(0)' : 'max-height:0px;opacity:0;transform:translateY(-6px)' ?>;overflow:hidden;transition:max-height 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease, transform 0.25s ease">
         <a href="/almoxarifado/<?= $alm['id'] ?>" class="nav-link py-1 d-flex justify-content-between align-items-center" style="font-size:0.78rem">
           <span><i class="bi bi-box-seam me-1"></i>Insumos</span>
           <span class="badge bg-secondary rounded-pill"><?= $nInsumos ?></span>
@@ -355,9 +355,11 @@ function toggleAlm(id) {
   if (!isOpen) {
     sub.style.maxHeight = sub.scrollHeight + 'px';
     sub.style.opacity = '1';
+    sub.style.transform = 'translateY(0)';
   } else {
     sub.style.maxHeight = '0px';
     sub.style.opacity = '0';
+    sub.style.transform = 'translateY(-6px)';
   }
 
   if (btn) {

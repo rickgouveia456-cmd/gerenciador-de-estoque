@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Logi-Prime — Router simples
  * Mapeia URI -> controller
@@ -124,8 +125,9 @@ $routes = [
     ['GET|POST', '#^/perfil/2fa/ativar$#',          'auth/2fa_ativar.php',      []],
     ['POST',     '#^/perfil/2fa/desativar$#',       'auth/2fa_desativar.php',   []],
     ['POST',     '#^/admin/2fa/desativar/(\d+)$#',  'auth/2fa_admin.php',       ['uid']],
-
     // API JSON
+    ['GET',  '#^/api/dashboard$#',                  'api/dashboard_data.php',   []],
+    ['GET',  '#^/api/alertas$#',                    'api/alertas.php',          []],
     ['GET',  '#^/api/alertas$#',                    'api/alertas.php',          []],
     ['GET',  '#^/api/colaboradores$#',              'api/colaboradores.php',    []],
     ['GET',  '#^/api/itens$#',                      'api/itens.php',            []],

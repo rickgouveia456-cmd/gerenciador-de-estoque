@@ -160,7 +160,7 @@ body {
 /* Sublinks almoxarifado */
 [id^="sub-alm-"] {
     overflow: hidden;
-    transition: max-height 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.22s ease;
+    transition: max-height 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease, transform 0.25s ease;
     background: rgba(0,0,0,0.15);
     border-left: 2px solid rgba(255,107,53,0.25);
     margin-left: 20px;
@@ -542,18 +542,8 @@ html[data-theme="dark"] .pill-cat[style*="accent"] {
 
     .sidebar {
         transform: translateX(-100%);
-        width: 320px;
+        width: var(--sidebar-w);
         z-index: 300;
-    }
-
-    /* Sidebar mobile: garante que os nomes não sejam cortados */
-    .sidebar .nav-link span,
-    .sidebar .alm-nav-item .nav-link span,
-    .sidebar .nav-link .text-truncate {
-        white-space: normal !important;
-        overflow: visible !important;
-        text-overflow: unset !important;
-        word-break: break-word;
     }
 
     .sidebar.show {

@@ -4,7 +4,7 @@
  */
 requer_login();
 $u = usuario_atual();
-if ($u['perfil'] !== 'admin') {
+if (!in_array($u['perfil'], ['admin', 'ggo'])) {
     flash('Acesso restrito a administradores.', 'danger');
     redirect('/');
 }

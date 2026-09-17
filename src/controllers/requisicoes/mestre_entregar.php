@@ -1,6 +1,6 @@
 <?php
 requer_login(); csrf_check(); $id=(int)($params['id']??0); $u=usuario_atual();
-if(!in_array($u['perfil'],['admin','almoxarife'])){flash('Acesso negado.','danger');redirect("/requisicoes/mestre/$id");}
+if(!in_array($u['perfil'],['admin','ggo','almoxarife'])){flash('Acesso negado.','danger');redirect("/requisicoes/mestre/$id");}
 $st=db()->prepare('SELECT * FROM requisicao_mestre WHERE id=?'); $st->execute([$id]); $req=$st->fetch();
 if(!$req||!in_array($req['status'],['pendente','aprovada','parcial'])){flash('Já processada.','warning');redirect("/requisicoes/mestre/$id");}
 $stI=db()->prepare("SELECT rmi.*,i.nome AS item_nome,i.unidade,i.quantidade AS estoq FROM requisicao_mestre_item rmi JOIN item i ON i.id=rmi.item_id WHERE rmi.requisicao_id=? AND rmi.status_item IN ('aprovado','pendente')");

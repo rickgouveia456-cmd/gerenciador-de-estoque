@@ -1,8 +1,8 @@
 <?php
 requer_login(); $u=usuario_atual();
-$podeFazer=in_array($u['perfil'],['mestre','tecnico_seguranca','admin','almoxarife'])||$u['pode_requisitar'];
+$podeFazer=in_array($u['perfil'],['mestre','tecnico_seguranca','admin','ggo','almoxarife'])||$u['pode_requisitar'];
 if(!$podeFazer){flash('Sem permissao.','danger');redirect('/');}
-if($u['perfil']==='admin'){ $almoxarifados=db()->query('SELECT * FROM almoxarifado ORDER BY nome')->fetchAll(); }
+if(in_array($u['perfil'],['admin','ggo'])){ $almoxarifados=db()->query('SELECT * FROM almoxarifado ORDER BY nome')->fetchAll(); }
 elseif($u['perfil']==='tecnico_seguranca'){ $ids=almoxarifados_permitidos_ids(); $ph=implode(',',array_fill(0,count($ids),'?')); $s=db()->prepare("SELECT * FROM almoxarifado WHERE id IN ($ph)"); $s->execute($ids); $almoxarifados=$s->fetchAll(); }
 else { if(!$u['almoxarifado_id']){flash('Sem almoxarifado vinculado.','warning');redirect('/requisicoes/mestre');} $s=db()->prepare('SELECT * FROM almoxarifado WHERE id=?'); $s->execute([$u['almoxarifado_id']]); $almoxarifados=[$s->fetch()]; }
 $itensJson=[];

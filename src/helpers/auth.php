@@ -34,7 +34,7 @@ function requer_login(): void {
 function requer_admin(): void {
     requer_login();
     $u = usuario_atual();
-    if (!$u || $u['perfil'] !== 'admin') {
+    if (!$u || !in_array($u['perfil'], ['admin', 'ggo'])) {
         flash('Acesso restrito a administradores.', 'danger');
         redirect('/');
     }

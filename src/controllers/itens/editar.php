@@ -2,9 +2,9 @@
 requer_login(); $id=(int)($params['id']??0); $u=usuario_atual();
 $st=db()->prepare('SELECT * FROM item WHERE id=?'); $st->execute([$id]); $it=$st->fetch();
 if(!$it){http_response_code(404);exit;}
-if(!in_array($u['perfil'],['admin','almoxarife'])||!usuario_tem_acesso_almoxarifado((int)$it['almoxarifado_id'])){flash('Acesso negado.','danger');redirect("/item/$id");}
+if(!in_array($u['perfil'],['admin','ggo','almoxarife'])||!usuario_tem_acesso_almoxarifado((int)$it['almoxarifado_id'])){flash('Acesso negado.','danger');redirect("/item/$id");}
 $ids=almoxarifados_permitidos_ids();
-$almoxarifados=$u['perfil']==='admin' ? db()->query('SELECT * FROM almoxarifado ORDER BY nome')->fetchAll() :
+$almoxarifados=in_array($u['perfil'],['admin','ggo']) ? db()->query('SELECT * FROM almoxarifado ORDER BY nome')->fetchAll() :
     ($ids ? (function($ids){ $ph=implode(',',array_fill(0,count($ids),'?')); $s=db()->prepare("SELECT * FROM almoxarifado WHERE id IN ($ph) ORDER BY nome"); $s->execute($ids); return $s->fetchAll(); })($ids) : []);
 if($_SERVER['REQUEST_METHOD']==='POST'){
     csrf_check();

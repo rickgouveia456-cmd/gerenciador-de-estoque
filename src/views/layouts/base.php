@@ -193,7 +193,7 @@ if ($u) {
       </div>
     </div>
     <?php endforeach; ?>
-    <?php if($u['perfil']==='admin'): ?>
+    <?php if(in_array($u['perfil'],['admin','ggo'])): ?>
     <a href="/almoxarifado/novo" class="nav-link text-success" style="font-size:0.82rem">
       <i class="bi bi-plus-circle me-2"></i>Novo Almoxarifado
     </a>
@@ -203,7 +203,7 @@ if ($u) {
   <?php endif; ?>
 
   <!-- Modulos -->
-  <?php if (in_array($u['perfil'], ['admin','almoxarife','analista','tecnico_seguranca'])): ?>
+  <?php if (in_array($u['perfil'], ['admin','ggo','almoxarife','analista','tecnico_seguranca'])): ?>
   <div class="nav-section">Módulos</div>
   <nav class="nav flex-column">
     <a href="/epi_modulo" class="nav-link <?= ($activeMenu ?? '') === 'epi_modulo' ? 'active' : '' ?>">
@@ -212,7 +212,7 @@ if ($u) {
     <a href="/colaboradores" class="nav-link <?= ($activeMenu ?? '') === 'colaboradores' ? 'active' : '' ?>">
       <i class="bi bi-people me-2"></i>Colaboradores
     </a>
-    <?php if (in_array($u['perfil'], ['admin','almoxarife','analista'])): ?>
+    <?php if (in_array($u['perfil'], ['admin','ggo','almoxarife','analista'])): ?>
     <a href="/catalogo" class="nav-link <?= ($activeMenu ?? '') === 'catalogo' ? 'active' : '' ?>">
       <i class="bi bi-journal-text me-2"></i>Catálogo
     </a>
@@ -242,6 +242,12 @@ if ($u) {
   <nav class="nav flex-column">
     <a href="/usuarios" class="nav-link <?= ($activeMenu ?? '') === 'usuarios' ? 'active' : '' ?>">
       <i class="bi bi-person-gear me-2"></i>Usuários
+    </a>
+    <a href="/admin" class="nav-link <?= ($activeMenu ?? '') === 'admin' ? 'active' : '' ?>">
+      <i class="bi bi-sliders me-2"></i>Painel Admin
+    </a>
+    <a href="/admin/backup" class="nav-link <?= ($activeMenu ?? '') === 'backup' ? 'active' : '' ?>">
+      <i class="bi bi-cloud-download me-2"></i>Backup
     </a>
     <a href="/relatorios" class="nav-link <?= ($activeMenu ?? '') === 'relatorios' ? 'active' : '' ?>">
       <i class="bi bi-bar-chart-line me-2"></i>Relatórios

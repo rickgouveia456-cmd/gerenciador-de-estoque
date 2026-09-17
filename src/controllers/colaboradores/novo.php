@@ -1,6 +1,6 @@
 <?php
 requer_login(); csrf_check(); $u=usuario_atual();
-if(!in_array($u['perfil'],['admin','almoxarife','analista'])){flash('Acesso negado.','danger');redirect('/');}
+if(!in_array($u['perfil'],['admin','ggo','almoxarife','analista'])){flash('Acesso negado.','danger');redirect('/');}
 $nome=trim($_POST['nome']??'');
 if(!$nome){flash('Informe o nome.','warning');redirect('/colaboradores');}
 $ex=db()->prepare('SELECT id FROM colaborador WHERE nome LIKE ?');$ex->execute([$nome]);

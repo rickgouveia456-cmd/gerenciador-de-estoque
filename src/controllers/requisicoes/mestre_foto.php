@@ -7,7 +7,7 @@ requer_login();
 
 $u = usuario_atual();
 
-if (!in_array($u['perfil'], ['admin', 'almoxarife'])) {
+if (!in_array($u['perfil'], ['admin', 'ggo', 'almoxarife'])) {
     json_response(['ok' => false, 'erro' => 'Acesso negado.'], 403);
 }
 

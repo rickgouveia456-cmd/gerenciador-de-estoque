@@ -1,6 +1,6 @@
 <?php
 requer_login(); $id=(int)($params['id']??0); $u=usuario_atual();
-if(!in_array($u['perfil'],['admin','almoxarife'])){flash('Sem permissao.','danger');redirect('/requisicoes/mestre');}
+if(!in_array($u['perfil'],['admin','ggo','almoxarife'])){flash('Sem permissao.','danger');redirect('/requisicoes/mestre');}
 $st=db()->prepare('SELECT * FROM requisicao_mestre WHERE id=?'); $st->execute([$id]); $req=$st->fetch();
 if(!$req||$req['status']==='entregue'){flash('Não editável.','warning');redirect("/requisicoes/mestre/$id");}
 $stI=db()->prepare('SELECT * FROM requisicao_mestre_item WHERE requisicao_id=?'); $stI->execute([$id]); $itens=$stI->fetchAll();

@@ -1,6 +1,6 @@
 <?php
 requer_login(); csrf_check(); $id=(int)($params['id']??0); $u=usuario_atual();
-if(!in_array($u['perfil'],['admin','almoxarife'])){flash('Acesso negado.','danger');redirect('/requisicoes/mestre');}
+if(!in_array($u['perfil'],['admin','ggo','almoxarife'])){flash('Acesso negado.','danger');redirect('/requisicoes/mestre');}
 $st=db()->prepare('SELECT * FROM requisicao_mestre WHERE id=?'); $st->execute([$id]); $req=$st->fetch();
 if(!$req||$req['status']!=='pendente'){flash('Requisição não está pendente.','warning');redirect("/requisicoes/mestre/$id");}
 $decisao=$_POST['decisao']??'aprovada';

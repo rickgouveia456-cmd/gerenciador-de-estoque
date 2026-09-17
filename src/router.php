@@ -76,7 +76,7 @@ $routes = [
     ['POST',     '#^/epis/(\d+)/usar$#',                'epis/usar.php',   ['id']],
     ['POST',     '#^/epis/(\d+)/devolver$#',            'epis/devolver.php',['id']],
     ['GET',      '#^/ficha_epi/(\d+)$#',                'epis/ficha.php',  ['colaborador_id']],
-    ['GET',      '#^/epi_modulo$#',                     'epis/modulo.php', []],
+    ['GET|POST', '#^/epi_modulo$#',                     'epis/modulo.php', []],
 
     // Colaboradores
     ['GET',      '#^/colaboradores$#',          'colaboradores/index.php',  []],

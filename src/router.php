@@ -98,6 +98,7 @@ $routes = [
     ['POST',     '#^/catalogo/(\d+)/deletar$#',     'catalogo/deletar.php', ['id']],
     ['GET',      '#^/catalogo/valor_estoque$#',     'catalogo/valor_estoque.php', []],
     ['GET|POST', '#^/catalogo/importar$#',          'catalogo/importar.php',[]],
+    ['GET',      '#^/catalogo/modelo_csv$#',        'catalogo/modelo_csv.php', []],
 
     // Relatorios
     ['GET', '#^/relatorios$#',                              'relatorios/index.php',          []],

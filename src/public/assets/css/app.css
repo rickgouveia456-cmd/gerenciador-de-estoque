@@ -20,7 +20,7 @@
     --sidebar-section:   #4a5670;
 
     /* Layout */
-    --sidebar-w:   320px;
+    --sidebar-w:   260px;
     --topbar-h:    60px;
     --bg:          #f0f3f8;
     --card-bg:     #ffffff;
@@ -89,13 +89,30 @@ body {
     z-index: 200;
     display: flex; flex-direction: column;
     box-shadow: 4px 0 20px rgba(0,0,0,0.20);
-    overflow-y: auto; overflow-x: hidden;
-    overflow-anchor: none; scroll-behavior: auto;
+    overflow: hidden;
     transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
-    padding-bottom: 80px;
 }
-.sidebar::-webkit-scrollbar { width: 3px; }
-.sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 99px; }
+
+/* Área scrollável dentro da sidebar */
+.sidebar-scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overflow-anchor: none;
+    scroll-behavior: auto;
+    padding-bottom: 8px;
+}
+.sidebar-scroll::-webkit-scrollbar { width: 3px; }
+.sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 99px; }
+
+/* Footer da sidebar — sempre fixo no rodapé */
+.sidebar-footer {
+    flex-shrink: 0;
+    padding: 10px 12px;
+    border-top: 1px solid var(--sidebar-border);
+    background: rgba(0,0,0,0.25);
+    backdrop-filter: blur(4px);
+}
 
 /* Brand */
 .sidebar .brand {

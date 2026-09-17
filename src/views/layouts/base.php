@@ -62,6 +62,8 @@ if ($u) {
     </button>
   </div>
 
+  <div class="sidebar-scroll" id="sidebarScroll">
+
   <div class="nav-section">Menu Principal</div>
   <nav class="nav flex-column">
     <?php if (in_array($u['perfil'], ['admin','almoxarife','analista'])): ?>
@@ -237,18 +239,20 @@ if ($u) {
   </nav>
   <?php endif; ?>
 
-  <!-- Footer sidebar -->
-  <div class="mt-auto p-3 border-top" style="position:sticky;bottom:0;background:rgba(0,0,0,0.25);backdrop-filter:blur(4px)">
+  </div><!-- /sidebar-scroll -->
+
+  <!-- Footer sidebar — fixo no rodapé -->
+  <div class="sidebar-footer">
     <div class="d-flex align-items-center gap-2">
-      <div class="rounded-circle bg-accent d-flex align-items-center justify-content-center"
+      <div class="rounded-circle d-flex align-items-center justify-content-center"
            style="width:32px;height:32px;background:var(--accent);flex-shrink:0">
         <span class="text-white fw-bold" style="font-size:0.75rem">
           <?= strtoupper(substr($u['nome'], 0, 1)) ?>
         </span>
       </div>
       <div class="flex-grow-1 overflow-hidden">
-        <div class="fw-semibold text-truncate" style="font-size:0.82rem"><?= h($u['nome']) ?></div>
-        <div class="text-muted" style="font-size:0.72rem"><?= h(ucfirst($u['perfil'])) ?></div>
+        <div class="fw-semibold text-truncate" style="font-size:0.82rem;color:#e2e8f0"><?= h($u['nome']) ?></div>
+        <div style="font-size:0.72rem;color:var(--sidebar-text)"><?= h(ucfirst($u['perfil'])) ?></div>
       </div>
       <form method="POST" action="/logout" class="m-0">
         <?= csrf_field() ?>
@@ -347,7 +351,7 @@ function toggleAlm(id) {
   if (!sub) return;
 
   // Salvar scroll atual da sidebar antes de qualquer alteração
-  const sidebar = document.getElementById('sidebar');
+  const sidebar = document.getElementById('sidebarScroll');
   const scrollY = sidebar ? sidebar.scrollTop : 0;
 
   const isOpen = sub.style.maxHeight && sub.style.maxHeight !== '0px';
@@ -407,7 +411,7 @@ function toggleAlm(id) {
 
 // Persistir scroll da sidebar entre navegações
 (function() {
-  const sidebar = document.getElementById('sidebar');
+  const sidebar = document.getElementById('sidebarScroll');
   if (!sidebar) return;
 
   // Restaurar scroll salvo

@@ -542,8 +542,18 @@ html[data-theme="dark"] .pill-cat[style*="accent"] {
 
     .sidebar {
         transform: translateX(-100%);
-        width: 280px;
+        width: 320px;
         z-index: 300;
+    }
+
+    /* Sidebar mobile: garante que os nomes não sejam cortados */
+    .sidebar .nav-link span,
+    .sidebar .alm-nav-item .nav-link span,
+    .sidebar .nav-link .text-truncate {
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: unset !important;
+        word-break: break-word;
     }
 
     .sidebar.show {

@@ -452,8 +452,13 @@ function atualizarDashboard() {
         const [y,m,dia] = dt.split('-');
         return `${dia}/${m}`;
       });
+      // Recria gradiente com dimensões atuais do canvas
+      const novoGradiente = ctxLinha.createLinearGradient(0, 0, 0, ctxLinha.canvas.offsetHeight || 200);
+      novoGradiente.addColorStop(0, 'rgba(249,115,22,.25)');
+      novoGradiente.addColorStop(1, 'rgba(249,115,22,0)');
       graficoLinha.data.labels = labelsFormatados;
       graficoLinha.data.datasets[0].data = d.grafico_data;
+      graficoLinha.data.datasets[0].backgroundColor = novoGradiente;
       graficoLinha.options.animation = { duration: 800, easing: 'easeInOutQuart' };
       graficoLinha.update();
 
@@ -552,8 +557,8 @@ function animarContador(id, destino) {
 
 // Fade + translateY para saída
 function animarSaida() {
-  const alvos = ['val-saidas','val-media','val-abaixo','graficoConsumo','donutInsumos','donutColabs'];
-  alvos.forEach(id => {
+  // Anima os cards de valor
+  ['val-saidas','val-media','val-abaixo'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
       el.style.transition = 'opacity .2s ease, transform .2s ease';
@@ -561,12 +566,16 @@ function animarSaida() {
       el.style.transform = 'translateY(-4px)';
     }
   });
+  // Anima os painéis dos gráficos (não o canvas diretamente)
+  document.querySelectorAll('.pc-panel').forEach(el => {
+    el.style.transition = 'opacity .2s ease';
+    el.style.opacity = '0.5';
+  });
 }
 
 // Fade + translateY para entrada
 function animarEntrada() {
-  const alvos = ['val-saidas','val-media','val-abaixo','graficoConsumo','donutInsumos','donutColabs'];
-  alvos.forEach((id, i) => {
+  ['val-saidas','val-media','val-abaixo'].forEach((id, i) => {
     const el = document.getElementById(id);
     if (el) {
       setTimeout(() => {
@@ -575,6 +584,12 @@ function animarEntrada() {
         el.style.transform = 'translateY(0)';
       }, i * 80);
     }
+  });
+  document.querySelectorAll('.pc-panel').forEach((el, i) => {
+    setTimeout(() => {
+      el.style.transition = 'opacity .4s ease';
+      el.style.opacity = '1';
+    }, i * 80);
   });
 }
 </script>

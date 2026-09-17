@@ -1,5 +1,10 @@
 <?php
-requer_admin(); csrf_check(); $id=(int)($params['id']??0); $atual=usuario_atual();
+requer_login();
+$uAtual = usuario_atual();
+if (!in_array($uAtual['perfil'], ['admin', 'ggo'])) {
+    flash('Acesso restrito.', 'danger'); redirect('/');
+}
+csrf_check(); $id=(int)($params['id']??0); $atual=$uAtual;
 $acao=$_POST['acao']??'';
 if($acao==='acesso_extra'){
     db()->prepare('INSERT INTO acesso_extra (usuario_id,almoxarifado_id,motivo,data_fim,concedido_por) VALUES (?,?,?,?,?)')->execute([$id,(int)$_POST['almoxarifado_id'],trim($_POST['motivo']??'')?:null,trim($_POST['data_fim']??'')?:null,$atual['nome']]);

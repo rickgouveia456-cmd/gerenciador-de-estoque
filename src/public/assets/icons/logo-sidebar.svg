@@ -1,55 +1,50 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 170 44" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 175 46" fill="none">
   <defs>
-    <linearGradient id="sf" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#f97316"/>
-      <stop offset="100%" stop-color="#c2410c"/>
+    <linearGradient id="sf" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#e06520"/>
+      <stop offset="100%" stop-color="#b04010"/>
     </linearGradient>
-    <linearGradient id="ss" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#ea580c"/>
-      <stop offset="100%" stop-color="#9a3412"/>
+    <linearGradient id="sr" x1="0" y1="0.5" x2="1" y2="0.5">
+      <stop offset="0%" stop-color="#c85010"/>
+      <stop offset="100%" stop-color="#8a3008"/>
     </linearGradient>
-    <linearGradient id="st" x1="0" y1="1" x2="1" y2="0">
-      <stop offset="0%" stop-color="#fb923c"/>
-      <stop offset="100%" stop-color="#f97316"/>
+    <linearGradient id="sl" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#e87030"/>
+      <stop offset="100%" stop-color="#f08040"/>
+    </linearGradient>
+    <linearGradient id="sa" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#e06520"/>
+      <stop offset="100%" stop-color="#f09050"/>
     </linearGradient>
   </defs>
 
-  <!-- Face frontal -->
-  <path d="M2 24 L2 38 L18 41 L18 27 Z" fill="url(#sf)"/>
+  <!-- Corpo esquerdo -->
+  <path d="M2 23 L2 35 L17 39 L17 27 Z"  fill="url(#sf)"/>
+  <!-- Corpo direito -->
+  <path d="M17 27 L17 39 L32 35 L32 23 Z" fill="url(#sr)"/>
+  <!-- Divisão -->
+  <path d="M17 27 L17 39" stroke="#7a2a08" stroke-width="0.6"/>
 
-  <!-- Face lateral direita -->
-  <path d="M18 27 L18 41 L30 37 L30 23 Z" fill="url(#ss)"/>
+  <!-- Tampa esquerda -->
+  <path d="M2 23 L2 16 L10 12 L17 16 L17 23 Z" fill="url(#sl)"/>
+  <!-- Tampa direita -->
+  <path d="M17 16 L24 12 L32 16 L32 23 L17 23 Z" fill="url(#sr)" opacity="0.9"/>
 
-  <!-- Aba esquerda aberta -->
-  <path d="M2 24 L2 18 L10 15 L18 19 L18 27 Z" fill="url(#st)"/>
-
-  <!-- Aba direita aberta -->
-  <path d="M18 19 L30 15 L30 23 L18 27 Z" fill="url(#ss)" opacity="0.85"/>
-
-  <!-- Linha junção -->
-  <path d="M18 27 L18 41" stroke="#9a3412" stroke-width="0.7"/>
+  <!-- Topo -->
+  <path d="M2 23 L17 27 L32 23" stroke="#8a3008" stroke-width="0.5" opacity="0.7"/>
 
   <!-- Seta -->
-  <rect x="14" y="5" width="4" height="13" rx="2"
-        fill="url(#st)"
-        transform="rotate(45 16 11.5)"/>
-  <polygon points="24,2  30,8  27,9  25,5  21,3"
-           fill="#fb923c"/>
+  <line x1="15" y1="19" x2="26" y2="4"
+        stroke="url(#sa)" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M23 1 L30 3 L28 11 Z" fill="url(#sa)"/>
 
-  <!-- Texto "Logi" -->
-  <text x="40" y="28"
+  <!-- Texto branco na sidebar -->
+  <text x="40" y="29"
         font-family="'Segoe UI Black','Arial Black',sans-serif"
-        font-size="18" font-weight="900"
-        fill="#ffffff" letter-spacing="-0.3">Logi</text>
+        font-size="19" font-weight="900"
+        fill="#ffffff">Logi-Prime</text>
 
-  <!-- "-Prime" laranja -->
-  <text x="82" y="28"
-        font-family="'Segoe UI Black','Arial Black',sans-serif"
-        font-size="18" font-weight="900"
-        fill="#f97316" letter-spacing="-0.3">-Prime</text>
-
-  <!-- Subtítulo -->
-  <text x="41" y="38"
+  <text x="41" y="40"
         font-family="'Segoe UI',Arial,sans-serif"
-        font-size="5" fill="rgba(255,255,255,0.45)" letter-spacing="1.8">GESTÃO DE OBRA</text>
+        font-size="5" fill="rgba(255,255,255,0.4)" letter-spacing="2">GESTÃO DE OBRA</text>
 </svg>

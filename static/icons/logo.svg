@@ -1,83 +1,75 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 64" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 76" fill="none">
   <defs>
-    <linearGradient id="boxFront" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#f97316"/>
-      <stop offset="100%" stop-color="#c2410c"/>
+    <linearGradient id="gFront" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#e06520"/>
+      <stop offset="100%" stop-color="#b04010"/>
     </linearGradient>
-    <linearGradient id="boxSide" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#ea580c"/>
-      <stop offset="100%" stop-color="#9a3412"/>
+    <linearGradient id="gRight" x1="0" y1="0.5" x2="1" y2="0.5">
+      <stop offset="0%" stop-color="#c85010"/>
+      <stop offset="100%" stop-color="#8a3008"/>
     </linearGradient>
-    <linearGradient id="boxTop" x1="0" y1="1" x2="1" y2="0">
-      <stop offset="0%" stop-color="#fb923c"/>
-      <stop offset="100%" stop-color="#f97316"/>
+    <linearGradient id="gLid" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#e87030"/>
+      <stop offset="100%" stop-color="#f08040"/>
     </linearGradient>
-    <linearGradient id="arrowGrad" x1="0" y1="1" x2="1" y2="0">
-      <stop offset="0%" stop-color="#f97316"/>
-      <stop offset="100%" stop-color="#fb923c"/>
+    <linearGradient id="gArrow" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#e06520"/>
+      <stop offset="100%" stop-color="#f09050"/>
     </linearGradient>
   </defs>
 
-  <!-- ══════════════════════════════
-       CAIXA 3D ABERTA
-       ══════════════════════════════ -->
+  <!-- ═══════════════════════════════════════
+       CAIXA ISOMÉTRICA ABERTA
+       ═══════════════════════════════════════ -->
 
-  <!-- Face frontal da caixa -->
-  <path d="M8 34 L8 54 L30 58 L30 38 Z" fill="url(#boxFront)"/>
+  <!-- Corpo inferior esquerdo (face frontal) -->
+  <path d="M3 36 L3 55 L27 62 L27 43 Z"          fill="url(#gFront)"/>
 
-  <!-- Face lateral direita -->
-  <path d="M30 38 L30 58 L46 52 L46 32 Z" fill="url(#boxSide)"/>
+  <!-- Corpo inferior direito (face lateral) -->
+  <path d="M27 43 L27 62 L51 55 L51 36 Z"         fill="url(#gRight)"/>
 
-  <!-- Base inferior (linha de sombra) -->
-  <path d="M8 54 L30 58 L46 52 L24 48 Z" fill="#7c2d12" opacity="0.4"/>
+  <!-- Linha divisória do corpo -->
+  <path d="M27 43 L27 62"                          stroke="#7a2a08" stroke-width="0.8"/>
 
-  <!-- Aba esquerda aberta (tampa) -->
-  <path d="M8 34 L8 26 L17 22 L30 28 L30 38 Z" fill="url(#boxTop)"/>
+  <!-- ── Tampas abertas (simétricas, inclinadas para fora) ── -->
 
-  <!-- Detalhe da aba esquerda (vinco central) -->
-  <path d="M8 30 L17 26 L30 33" stroke="#fdba74" stroke-width="0.6" opacity="0.6"/>
+  <!-- Tampa esquerda — abre para a esquerda e cima -->
+  <path d="M3 36 L3 25 L15 18 L27 25 L27 36 Z"    fill="url(#gLid)"/>
 
-  <!-- Aba direita aberta (tampa) -->
-  <path d="M30 28 L46 22 L46 32 L30 38 Z" fill="url(#boxSide)" opacity="0.85"/>
+  <!-- Tampa direita — abre para a direita e cima -->
+  <path d="M27 25 L39 18 L51 25 L51 36 L27 36 Z"  fill="url(#gRight)" opacity="0.9"/>
 
-  <!-- Detalhe da aba direita (vinco) -->
-  <path d="M30 33 L46 27" stroke="#c2410c" stroke-width="0.5" opacity="0.5"/>
+  <!-- Linha de topo da caixa (junção tampas/corpo) -->
+  <path d="M3 36 L27 43 L51 36"                    stroke="#8a3008" stroke-width="0.7" opacity="0.7"/>
 
-  <!-- Linha de junção frente/lateral -->
-  <path d="M30 38 L30 58" stroke="#9a3412" stroke-width="0.8"/>
+  <!-- Linha de cume das tampas -->
+  <path d="M3 25 L27 32 L51 25"                    stroke="#f0a060" stroke-width="0.5" opacity="0.4"/>
 
-  <!-- ══════════════════════════════
-       SETA SAINDO DA CAIXA
-       ══════════════════════════════ -->
+  <!-- Detalhe de vinco tampa esquerda -->
+  <path d="M3 30 L15 23 L27 30"                    stroke="#f0a060" stroke-width="0.5" opacity="0.35"/>
 
-  <!-- Haste da seta (diagonal para cima-direita) -->
-  <rect x="26" y="10" width="5" height="18" rx="2.5"
-        fill="url(#arrowGrad)"
-        transform="rotate(45 28.5 19)"/>
+  <!-- Detalhe de vinco tampa direita -->
+  <path d="M27 30 L39 23 L51 30"                   stroke="#7a2a08" stroke-width="0.4" opacity="0.35"/>
 
-  <!-- Ponta da seta -->
-  <polygon points="36,4  44,12  40,13  38,8  33,6"
-           fill="url(#arrowGrad)"/>
+  <!-- ── Seta saindo da caixa ── -->
+  <!-- Haste da seta — diagonal longa para cima-direita -->
+  <line x1="24" y1="30" x2="42" y2="6"
+        stroke="url(#gArrow)" stroke-width="5" stroke-linecap="round"/>
 
-  <!-- ══════════════════════════════
-       TEXTO
-       ══════════════════════════════ -->
+  <!-- Ponta da seta (cabeça) -->
+  <path d="M37 2 L48 5 L45 16 Z"                  fill="url(#gArrow)"/>
 
-  <!-- "Logi" -->
-  <text x="58" y="40"
-        font-family="'Segoe UI Black','Arial Black',Arial,sans-serif"
-        font-size="26" font-weight="900"
-        fill="#1e293b" letter-spacing="-0.5">Logi</text>
+  <!-- ═══════════════════════════════════════
+       TEXTO — igual à imagem de referência
+       cor cinza-azulado escuro, bold
+       ═══════════════════════════════════════ -->
+  <text x="65" y="46"
+        font-family="'Segoe UI Black','Arial Black','Helvetica Neue',Arial,sans-serif"
+        font-size="30" font-weight="900"
+        fill="#3d4f63">Logi-Prime</text>
 
-  <!-- "-Prime" laranja -->
-  <text x="115" y="40"
-        font-family="'Segoe UI Black','Arial Black',Arial,sans-serif"
-        font-size="26" font-weight="900"
-        fill="#f97316" letter-spacing="-0.5">-Prime</text>
-
-  <!-- Subtítulo -->
-  <text x="59" y="52"
+  <text x="66" y="60"
         font-family="'Segoe UI',Arial,sans-serif"
         font-size="7.5" font-weight="400"
-        fill="#94a3b8" letter-spacing="2.5">GESTÃO DE OBRA</text>
+        fill="#94a3b8" letter-spacing="3">GESTÃO DE OBRA</text>
 </svg>

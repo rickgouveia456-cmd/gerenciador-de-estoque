@@ -437,9 +437,15 @@ function toggleAlm(id) {
 function toggleDark() {
   var d = document.documentElement.getAttribute('data-theme') === 'dark';
   var n = d ? 'light' : 'dark';
+  // Adiciona classe de transição global antes de trocar
+  document.documentElement.classList.add('theme-transitioning');
   document.documentElement.setAttribute('data-theme', n);
   localStorage.setItem('lp_theme', n);
   document.cookie = 'theme=' + n + ';path=/;max-age=31536000;SameSite=Lax';
+  // Remove a classe após a transição terminar
+  setTimeout(function() {
+    document.documentElement.classList.remove('theme-transitioning');
+  }, 400);
 }
 (function() {
   var t = localStorage.getItem('lp_theme') || '';

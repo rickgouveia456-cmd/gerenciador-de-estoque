@@ -69,6 +69,54 @@
 /* ── Reset ──────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
 
+/* Transição suave ao trocar tema claro/escuro */
+body,
+.sidebar,
+.sidebar-scroll,
+.sidebar-footer,
+.topbar,
+.card,
+.card-header,
+.card-body,
+.card-footer,
+.main-content,
+.table,
+.table td,
+.table th,
+.form-control,
+.form-select,
+.input-group-text,
+.modal-content,
+.dropdown-menu,
+.list-group-item,
+.nav-tabs,
+.nav-tabs .nav-link,
+.page-link,
+.badge,
+.btn-outline-secondary,
+.sidebar .nav-link,
+[id^="sub-alm-"],
+.pc-card,
+.pc-panel {
+    transition:
+        background-color 0.35s ease,
+        border-color 0.35s ease,
+        color 0.25s ease,
+        box-shadow 0.35s ease !important;
+}
+
+/* Quando troca de tema — forçar transição em TODOS os elementos */
+html.theme-transitioning *,
+html.theme-transitioning *::before,
+html.theme-transitioning *::after {
+    transition:
+        background-color 0.35s ease,
+        border-color 0.35s ease,
+        color 0.25s ease,
+        fill 0.35s ease,
+        stroke 0.35s ease !important;
+}
+
 body {
     background: var(--bg);
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;

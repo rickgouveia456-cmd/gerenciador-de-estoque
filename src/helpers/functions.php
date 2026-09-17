@@ -75,7 +75,7 @@ function status_badge(string $status): string {
     return match($status) {
         'ok'      => '<span class="badge bg-success">OK</span>',
         'alerta'  => '<span class="badge bg-warning">Alerta</span>',
-        'critico' => '<span class="badge bg-danger">Cr├¡tico</span>',
+        'critico' => '<span class="badge bg-danger">Crítico</span>',
         default   => '<span class="badge bg-secondary">' . h($status) . '</span>',
     };
 }
@@ -83,10 +83,10 @@ function status_badge(string $status): string {
 function categoria_label(string $cat): string {
     return match($cat) {
         'epi'        => 'EPI',
-        'maquinario' => 'Maquin├írio',
-        'eletrica'   => 'El├®trica',
-        'hidraulica' => 'Hidr├íulica',
-        'gas'        => 'G├ís',
+        'maquinario' => 'Maquinário',
+        'eletrica'   => 'Elétrica',
+        'hidraulica' => 'Hidráulica',
+        'gas'        => 'Gás',
         default      => 'Geral',
     };
 }

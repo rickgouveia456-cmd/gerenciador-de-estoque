@@ -44,7 +44,7 @@ if ($u) {
       crossorigin="anonymous">
 <link rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-<link rel="stylesheet" href="/assets/css/app.css">
+<link rel="stylesheet" href="/assets/css/app.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'].'/assets/css/app.css') ?>">
 </head>
 <body>
 
@@ -437,15 +437,9 @@ function toggleAlm(id) {
 function toggleDark() {
   var d = document.documentElement.getAttribute('data-theme') === 'dark';
   var n = d ? 'light' : 'dark';
-  // Adiciona classe de transição global antes de trocar
-  document.documentElement.classList.add('theme-transitioning');
   document.documentElement.setAttribute('data-theme', n);
   localStorage.setItem('lp_theme', n);
   document.cookie = 'theme=' + n + ';path=/;max-age=31536000;SameSite=Lax';
-  // Remove a classe após a transição terminar
-  setTimeout(function() {
-    document.documentElement.classList.remove('theme-transitioning');
-  }, 400);
 }
 (function() {
   var t = localStorage.getItem('lp_theme') || '';

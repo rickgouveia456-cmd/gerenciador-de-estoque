@@ -1,54 +1,83 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 64" fill="none">
   <defs>
-    <linearGradient id="gBox" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#ff8a50"/>
-      <stop offset="100%" stop-color="#ff4500"/>
+    <linearGradient id="boxFront" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f97316"/>
+      <stop offset="100%" stop-color="#c2410c"/>
     </linearGradient>
-    <linearGradient id="gBoxDark" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#ff6b35"/>
-      <stop offset="100%" stop-color="#cc3300"/>
+    <linearGradient id="boxSide" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ea580c"/>
+      <stop offset="100%" stop-color="#9a3412"/>
+    </linearGradient>
+    <linearGradient id="boxTop" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#fb923c"/>
+      <stop offset="100%" stop-color="#f97316"/>
+    </linearGradient>
+    <linearGradient id="arrowGrad" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#f97316"/>
+      <stop offset="100%" stop-color="#fb923c"/>
     </linearGradient>
   </defs>
 
-  <!-- ═══ ÍCONE: letra L + pirâmide de caixas ═══ -->
+  <!-- ══════════════════════════════
+       CAIXA 3D ABERTA
+       ══════════════════════════════ -->
 
-  <!-- Letra L (bold, fundo escuro) -->
-  <!-- Haste vertical -->
-  <rect x="4" y="6" width="10" height="48" rx="2" fill="#1e293b"/>
-  <!-- Haste horizontal -->
-  <rect x="4" y="44" width="36" height="10" rx="2" fill="#1e293b"/>
+  <!-- Face frontal da caixa -->
+  <path d="M8 34 L8 54 L30 58 L30 38 Z" fill="url(#boxFront)"/>
 
-  <!-- Pirâmide de caixas no topo do L -->
-  <!-- Nível 3 (base) — 3 caixas pequenas -->
-  <rect x="4"  y="26" width="10" height="10" rx="1.5" fill="url(#gBoxDark)" stroke="#ff8a50" stroke-width="0.5"/>
-  <rect x="16" y="26" width="10" height="10" rx="1.5" fill="url(#gBox)"     stroke="#ff8a50" stroke-width="0.5"/>
-  <rect x="28" y="26" width="10" height="10" rx="1.5" fill="url(#gBoxDark)" stroke="#ff8a50" stroke-width="0.5"/>
+  <!-- Face lateral direita -->
+  <path d="M30 38 L30 58 L46 52 L46 32 Z" fill="url(#boxSide)"/>
 
-  <!-- Nível 2 (meio) — 2 caixas -->
-  <rect x="10" y="14" width="10" height="10" rx="1.5" fill="url(#gBox)"     stroke="#ff8a50" stroke-width="0.5"/>
-  <rect x="22" y="14" width="10" height="10" rx="1.5" fill="url(#gBoxDark)" stroke="#ff8a50" stroke-width="0.5"/>
+  <!-- Base inferior (linha de sombra) -->
+  <path d="M8 54 L30 58 L46 52 L24 48 Z" fill="#7c2d12" opacity="0.4"/>
 
-  <!-- Nível 1 (topo) — 1 caixa -->
-  <rect x="16" y="4"  width="10" height="8"  rx="1.5" fill="#ff6b35" stroke="#ff8a50" stroke-width="0.8"/>
-  <!-- Pequena seta/detalhe no topo da caixa do ápice -->
-  <path d="M21 4 L21 1" stroke="#ff6b35" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Aba esquerda aberta (tampa) -->
+  <path d="M8 34 L8 26 L17 22 L30 28 L30 38 Z" fill="url(#boxTop)"/>
 
-  <!-- ═══ TEXTO ═══ -->
-  <!-- "Logi" bold escuro -->
-  <text x="50" y="36"
+  <!-- Detalhe da aba esquerda (vinco central) -->
+  <path d="M8 30 L17 26 L30 33" stroke="#fdba74" stroke-width="0.6" opacity="0.6"/>
+
+  <!-- Aba direita aberta (tampa) -->
+  <path d="M30 28 L46 22 L46 32 L30 38 Z" fill="url(#boxSide)" opacity="0.85"/>
+
+  <!-- Detalhe da aba direita (vinco) -->
+  <path d="M30 33 L46 27" stroke="#c2410c" stroke-width="0.5" opacity="0.5"/>
+
+  <!-- Linha de junção frente/lateral -->
+  <path d="M30 38 L30 58" stroke="#9a3412" stroke-width="0.8"/>
+
+  <!-- ══════════════════════════════
+       SETA SAINDO DA CAIXA
+       ══════════════════════════════ -->
+
+  <!-- Haste da seta (diagonal para cima-direita) -->
+  <rect x="26" y="10" width="5" height="18" rx="2.5"
+        fill="url(#arrowGrad)"
+        transform="rotate(45 28.5 19)"/>
+
+  <!-- Ponta da seta -->
+  <polygon points="36,4  44,12  40,13  38,8  33,6"
+           fill="url(#arrowGrad)"/>
+
+  <!-- ══════════════════════════════
+       TEXTO
+       ══════════════════════════════ -->
+
+  <!-- "Logi" -->
+  <text x="58" y="40"
         font-family="'Segoe UI Black','Arial Black',Arial,sans-serif"
-        font-size="20" font-weight="900"
+        font-size="26" font-weight="900"
         fill="#1e293b" letter-spacing="-0.5">Logi</text>
 
-  <!-- "-Prime" laranja bold -->
-  <text x="93" y="36"
+  <!-- "-Prime" laranja -->
+  <text x="115" y="40"
         font-family="'Segoe UI Black','Arial Black',Arial,sans-serif"
-        font-size="20" font-weight="900"
-        fill="#ff6b35" letter-spacing="-0.5">-Prime</text>
+        font-size="26" font-weight="900"
+        fill="#f97316" letter-spacing="-0.5">-Prime</text>
 
-  <!-- Subtítulo fino -->
-  <text x="51" y="48"
+  <!-- Subtítulo -->
+  <text x="59" y="52"
         font-family="'Segoe UI',Arial,sans-serif"
-        font-size="7" font-weight="400"
-        fill="#94a3b8" letter-spacing="2">GESTÃO DE OBRA</text>
+        font-size="7.5" font-weight="400"
+        fill="#94a3b8" letter-spacing="2.5">GESTÃO DE OBRA</text>
 </svg>

@@ -40,6 +40,31 @@ function requer_admin(): void {
     }
 }
 
+/**
+ * Exige perfil admin OU ggo (admin regional).
+ * GGO tem acesso às mesmas telas de admin, mas só vê dados da sua cidade.
+ */
+function requer_admin_ou_ggo(): void {
+    requer_login();
+    $u = usuario_atual();
+    if (!$u || !in_array($u['perfil'], ['admin', 'ggo'])) {
+        flash('Acesso restrito a administradores.', 'danger');
+        redirect('/');
+    }
+}
+
+/**
+ * Retorna a cidade do GGO.
+ * GGO deve ter almoxarifado_id vinculado — a cidade desse almoxarifado
+ * define o escopo regional do GGO.
+ */
+function ggo_cidade(): ?string {
+    $u = usuario_atual();
+    if (!$u || $u['perfil'] !== 'ggo') return null;
+    // Usa alm_cidade carregado no JOIN de usuario_atual()
+    return $u['alm_cidade'] ?? null;
+}
+
 function requer_almoxarife(): void {
     requer_login();
     $u = usuario_atual();
@@ -54,16 +79,16 @@ function perfil_pode(string $acao): bool {
     if (!$u) return false;
     $perfil = $u['perfil'];
     $mapa = [
-        'ver_dashboard'      => ['admin', 'almoxarife', 'analista', 'assistente'],
-        'ver_almoxarifado'   => ['admin', 'almoxarife', 'analista', 'assistente'],
-        'editar_item'        => ['admin', 'almoxarife', 'assistente'],
-        'movimentar'         => ['admin', 'almoxarife', 'assistente'],
-        'ver_relatorios'     => ['admin', 'almoxarife', 'analista', 'assistente'],
-        'fazer_requisicao'   => ['admin', 'almoxarife', 'mestre', 'tecnico_seguranca', 'colaborador'],
-        'aprovar_requisicao' => ['admin', 'almoxarife'],
-        'gerenciar_usuarios' => ['admin'],
-        'ver_catalogo'       => ['admin', 'almoxarife', 'analista', 'assistente'],
-        'gerenciar_catalogo' => ['admin', 'almoxarife', 'assistente'],
+        'ver_dashboard'      => ['admin', 'ggo', 'almoxarife', 'analista', 'assistente'],
+        'ver_almoxarifado'   => ['admin', 'ggo', 'almoxarife', 'analista', 'assistente'],
+        'editar_item'        => ['admin', 'ggo', 'almoxarife', 'assistente'],
+        'movimentar'         => ['admin', 'ggo', 'almoxarife', 'assistente'],
+        'ver_relatorios'     => ['admin', 'ggo', 'almoxarife', 'analista', 'assistente'],
+        'fazer_requisicao'   => ['admin', 'ggo', 'almoxarife', 'mestre', 'tecnico_seguranca', 'colaborador'],
+        'aprovar_requisicao' => ['admin', 'ggo', 'almoxarife'],
+        'gerenciar_usuarios' => ['admin', 'ggo'],
+        'ver_catalogo'       => ['admin', 'ggo', 'almoxarife', 'analista', 'assistente'],
+        'gerenciar_catalogo' => ['admin', 'ggo', 'almoxarife', 'assistente'],
     ];
     return in_array($perfil, $mapa[$acao] ?? []);
 }
@@ -71,10 +96,25 @@ function perfil_pode(string $acao): bool {
 function almoxarifados_permitidos_ids(): array {
     $u = usuario_atual();
     if (!$u) return [];
+
+    // Admin vê tudo
     if ($u['perfil'] === 'admin') {
         $rows = db()->query('SELECT id FROM almoxarifado')->fetchAll();
         return array_column($rows, 'id');
     }
+
+    // GGO vê todos os almoxarifados da sua cidade
+    if ($u['perfil'] === 'ggo') {
+        $cidade = ggo_cidade();
+        if ($cidade) {
+            $stmt = db()->prepare('SELECT id FROM almoxarifado WHERE cidade = ?');
+            $stmt->execute([$cidade]);
+            return array_column($stmt->fetchAll(), 'id');
+        }
+        // Sem cidade definida: fallback para almoxarifado vinculado
+        return $u['almoxarifado_id'] ? [(int)$u['almoxarifado_id']] : [];
+    }
+
     $ids = [];
     if ($u['almoxarifado_id']) $ids[] = (int)$u['almoxarifado_id'];
 
@@ -95,6 +135,14 @@ function usuario_tem_acesso_almoxarifado(int $almId): bool {
     $u = usuario_atual();
     if (!$u) return false;
     if ($u['perfil'] === 'admin') return true;
+    if ($u['perfil'] === 'ggo') {
+        // GGO tem acesso se o almoxarifado for da sua cidade
+        $cidade = ggo_cidade();
+        if (!$cidade) return in_array($almId, almoxarifados_permitidos_ids());
+        $stmt = db()->prepare('SELECT COUNT(*) FROM almoxarifado WHERE id=? AND cidade=?');
+        $stmt->execute([$almId, $cidade]);
+        return (bool)$stmt->fetchColumn();
+    }
     return in_array($almId, almoxarifados_permitidos_ids());
 }
 

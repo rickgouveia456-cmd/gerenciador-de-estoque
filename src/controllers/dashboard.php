@@ -21,6 +21,16 @@ $idsStr = $ids ? implode(',', array_map('intval', $ids)) : '0';
 // Almoxarifados visiveis
 if ($u['perfil'] === 'admin') {
     $almoxarifados = db()->query('SELECT * FROM almoxarifado ORDER BY cidade, obra, nome')->fetchAll();
+} elseif ($u['perfil'] === 'ggo') {
+    // GGO vê todos os almoxarifados da sua cidade
+    $cidade = ggo_cidade();
+    if ($cidade) {
+        $stmtA = db()->prepare('SELECT * FROM almoxarifado WHERE cidade=? ORDER BY obra, nome');
+        $stmtA->execute([$cidade]);
+        $almoxarifados = $stmtA->fetchAll();
+    } else {
+        $almoxarifados = [];
+    }
 } elseif ($u['perfil'] === 'analista' && $u['almoxarifado_id']) {
     $stmtA = db()->prepare('SELECT * FROM almoxarifado WHERE id=?');
     $stmtA->execute([$u['almoxarifado_id']]);

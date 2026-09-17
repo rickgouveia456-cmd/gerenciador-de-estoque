@@ -15,6 +15,7 @@
           <?php
           $perfisOpcoes = [
             'admin'             => ['cor'=>'#7c3aed','icone'=>'bi-shield-lock-fill',  'label'=>'Admin'],
+            'ggo'               => ['cor'=>'#dc2626','icone'=>'bi-building-fill',      'label'=>'GGO'],
             'almoxarife'        => ['cor'=>'#ff6b35','icone'=>'bi-boxes',             'label'=>'Almoxarife'],
             'mestre'            => ['cor'=>'#f0a500','icone'=>'bi-person-badge-fill', 'label'=>'Mestre'],
             'tecnico_seguranca' => ['cor'=>'#059669','icone'=>'bi-shield-check-fill', 'label'=>'Tec. Seg.'],
@@ -47,6 +48,24 @@
           <?php endforeach; ?>
         </div>
         <div class="form-text mt-1">Clique para selecionar o perfil do usuário</div>
+      </div>
+
+      <!-- Painel GGO: aparece só quando perfil=ggo -->
+      <div class="col-md-12" id="painelGgo" style="display:<?= ($u2['perfil']??'') === 'ggo' ? 'block' : 'none' ?>">
+        <div class="alert mb-0" style="background:rgba(220,38,38,0.07);border:1px solid rgba(220,38,38,0.25);border-radius:10px;padding:14px 18px">
+          <div class="d-flex align-items-start gap-3">
+            <i class="bi bi-building-fill fs-4" style="color:#dc2626;flex-shrink:0;margin-top:2px"></i>
+            <div>
+              <div class="fw-bold mb-1" style="color:#dc2626;font-size:0.9rem">Gestor de Gerência de Obras (GGO)</div>
+              <div style="font-size:0.82rem;color:var(--text-muted);line-height:1.5">
+                O GGO tem acesso de <strong>administrador regional</strong> — visualiza e gerencia
+                <strong>todos os almoxarifados, usuários e relatórios da cidade</strong> vinculada ao almoxarifado selecionado abaixo.<br>
+                <span style="color:#dc2626">⚠ O escopo regional é definido pela <strong>cidade do almoxarifado vinculado</strong>.</span>
+                Selecione um almoxarifado para definir a cidade de atuação do GGO.
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="col-md-12"><label class="form-label fw-semibold">Almoxarifado</label><select name="almoxarifado_id" class="form-select"><option value="">—</option><?php foreach($almoxarifados as $a): ?><option value="<?= $a['id'] ?>" <?= ($u2['almoxarifado_id']??0)==$a['id']?'selected':'' ?>><?= h($a['nome']) ?></option><?php endforeach; ?></select></div>
       <?php if(!$isNew): ?>
@@ -83,6 +102,7 @@ function selecionarPerfil(perfil) {
   document.getElementById('perfilInput').value = perfil;
   const perfisConfig = {
     'admin':             '#7c3aed',
+    'ggo':               '#dc2626',
     'almoxarife':        '#ff6b35',
     'mestre':            '#f0a500',
     'tecnico_seguranca': '#059669',
@@ -98,5 +118,8 @@ function selecionarPerfil(perfil) {
     btn.style.color = p === perfil ? '#fff' : cor;
     btn.classList.toggle('perfil-card-ativo', p === perfil);
   });
+  // Mostra painel explicativo do GGO
+  const painelGgo = document.getElementById('painelGgo');
+  if (painelGgo) painelGgo.style.display = perfil === 'ggo' ? 'block' : 'none';
 }
 </script>

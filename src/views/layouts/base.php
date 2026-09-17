@@ -237,6 +237,16 @@ if ($u) {
       <i class="bi bi-cloud-download me-2"></i>Backup
     </a>
   </nav>
+  <?php elseif ($u['perfil'] === 'ggo'): ?>
+  <div class="nav-section">Gerência Regional</div>
+  <nav class="nav flex-column">
+    <a href="/usuarios" class="nav-link <?= ($activeMenu ?? '') === 'usuarios' ? 'active' : '' ?>">
+      <i class="bi bi-person-gear me-2"></i>Usuários
+    </a>
+    <a href="/relatorios" class="nav-link <?= ($activeMenu ?? '') === 'relatorios' ? 'active' : '' ?>">
+      <i class="bi bi-bar-chart-line me-2"></i>Relatórios
+    </a>
+  </nav>
   <?php endif; ?>
 
   </div><!-- /sidebar-scroll -->

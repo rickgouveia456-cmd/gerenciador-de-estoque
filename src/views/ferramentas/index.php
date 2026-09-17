@@ -65,7 +65,7 @@
         <label class="form-label fw-semibold">Colaborador que vai usar</label>
         <div class="position-relative">
           <input type="text" id="inputColabFerr" class="form-control" placeholder="Digite o nome..." autocomplete="off">
-          <div id="acListFerr" class="position-absolute w-100 bg-white border rounded shadow-sm" style="top:100%;z-index:300;max-height:200px;overflow-y:auto;display:none"></div>
+          <div id="acListFerr" class="position-absolute w-100 ac-dropdown border rounded shadow-sm" style="top:100%;z-index:300;max-height:200px;overflow-y:auto;display:none"></div>
         </div>
       </div>
       <div class="modal-footer">
@@ -123,15 +123,14 @@ document.getElementById('inputColabFerr')?.addEventListener('input', function() 
       if (!data.length) { list.style.display = 'none'; return; }
       data.slice(0, 8).forEach(c => {
         const d = document.createElement('div');
-        d.className = 'px-3 py-2';
-        d.style.cssText = 'cursor:pointer;font-size:0.88rem;border-bottom:1px solid #eee';
+        d.className = 'ac-item';
         d.textContent = c.nome + (c.funcao ? ' — ' + c.funcao : '');
         d.onmousedown = () => {
           document.getElementById('inputColabFerr').value = c.nome;
           list.style.display = 'none';
         };
-        d.onmouseover = () => d.style.background = 'var(--accent-light)';
-        d.onmouseout  = () => d.style.background = '';
+        d.onmouseover = () => {};
+        d.onmouseout  = () => {};
         list.appendChild(d);
       });
       list.style.display = '';

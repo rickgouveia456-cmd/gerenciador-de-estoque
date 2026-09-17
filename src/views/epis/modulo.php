@@ -126,7 +126,7 @@ elseif($abaAtual==="ficha_nova"): ?>
       <div class="row g-3">
         <div class="col-md-4"><label class="form-label fw-semibold">Colaborador *</label>
           <input type="text" name="colaborador" class="form-control" required id="inputColab" autocomplete="off" placeholder="Nome...">
-          <div id="sugColab" class="list-group position-absolute shadow-sm" style="z-index:1000;display:none;min-width:250px"></div>
+          <div id="sugColab" class="ac-dropdown list-group position-absolute shadow-sm" style="z-index:1000;display:none;min-width:250px"></div>
         </div>
         <div class="col-md-3"><label class="form-label fw-semibold">Função</label><input type="text" name="funcao" class="form-control" placeholder="Ex: Pedreiro..."></div>
         <div class="col-md-3"><label class="form-label fw-semibold">Obra</label><input type="text" name="obra" class="form-control" placeholder="Ex: Obra Patamares"></div>

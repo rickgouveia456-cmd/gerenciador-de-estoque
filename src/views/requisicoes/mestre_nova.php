@@ -65,7 +65,7 @@
                        class="form-control" required autocomplete="off"
                        placeholder="Digite o nome do colaborador...">
                 <div id="autocompleteList"
-                     class="position-absolute w-100 bg-white border rounded-2 shadow-sm"
+                     class="position-absolute w-100 ac-dropdown border rounded-2 shadow-sm"
                      style="top:100%;left:0;z-index:300;max-height:200px;overflow-y:auto;display:none">
                 </div>
               </div>
@@ -286,16 +286,15 @@ function fetchColaboradores(q) {
       _acList.innerHTML = '';
       data.slice(0, 8).forEach(item => {
         const d = document.createElement('div');
-        d.className = 'px-3 py-2 d-flex align-items-center gap-2';
-        d.style.cssText = 'cursor:pointer;font-size:0.88rem;border-bottom:1px solid var(--border)';
-        d.innerHTML = `<i class="bi bi-person-fill text-muted" style="font-size:0.75rem"></i>
+        d.className = 'ac-item d-flex align-items-center gap-2';
+        d.innerHTML = `<i class="bi bi-person-fill" style="font-size:0.75rem;opacity:.5"></i>
                        <span>${item.nome}</span>`;
         d.onmousedown = () => {
           _inputColab.value = item.nome;
           _acList.style.display = 'none';
         };
-        d.onmouseover = () => d.style.background = 'var(--accent-light)';
-        d.onmouseout  = () => d.style.background = '';
+        d.onmouseover = () => {};
+        d.onmouseout  = () => {};
         _acList.appendChild(d);
       });
       _acList.style.display = '';

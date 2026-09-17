@@ -489,6 +489,59 @@ code { color: var(--accent); background: var(--accent-light); padding: 2px 7px; 
 .dropdown-item { color: var(--text); border-radius: var(--radius-sm); font-size: 0.875rem; padding: 8px 12px; }
 .dropdown-item:hover { background: var(--accent-light); color: var(--accent); }
 
+/* ── Autocomplete dropdown (colaboradores, itens, etc.) ─────────────────────── */
+.ac-dropdown {
+    background: #fff;
+    border-color: var(--border) !important;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow-y: auto;
+}
+.ac-dropdown .ac-item,
+.ac-dropdown .list-group-item,
+.ac-dropdown > div,
+.ac-dropdown > ul > li > button,
+.ac-dropdown > button {
+    display: block;
+    width: 100%;
+    padding: 9px 14px;
+    font-size: 0.855rem;
+    color: var(--text);
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+.ac-dropdown .ac-item:last-child,
+.ac-dropdown > div:last-child { border-bottom: none; }
+.ac-dropdown .ac-item:hover,
+.ac-dropdown > div:hover,
+.ac-dropdown > button:hover { background: var(--accent-light) !important; color: var(--accent) !important; }
+
+/* Dark mode */
+html[data-theme="dark"] .ac-dropdown {
+    background: #1c2333 !important;
+    border-color: #30363d !important;
+}
+html[data-theme="dark"] .ac-dropdown .ac-item,
+html[data-theme="dark"] .ac-dropdown .list-group-item,
+html[data-theme="dark"] .ac-dropdown .list-group-item-action,
+html[data-theme="dark"] .ac-dropdown > div,
+html[data-theme="dark"] .ac-dropdown > button {
+    color: #e2e8f0 !important;
+    border-color: #30363d !important;
+    background: transparent !important;
+}
+html[data-theme="dark"] .ac-dropdown .ac-item:hover,
+html[data-theme="dark"] .ac-dropdown .list-group-item-action:hover,
+html[data-theme="dark"] .ac-dropdown > div:hover,
+html[data-theme="dark"] .ac-dropdown > button:hover {
+    background: rgba(255,107,53,0.12) !important;
+    color: #ff8a50 !important;
+}
+
 .list-group-item { background: #fff; border-color: var(--border); color: var(--text); font-size: 0.875rem; }
 
 .page-link { color: var(--text-muted); border-color: var(--border); background: #fff; border-radius: var(--radius-sm) !important; margin: 0 2px; font-size: 0.8rem; }

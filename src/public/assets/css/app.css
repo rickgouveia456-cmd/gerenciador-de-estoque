@@ -717,6 +717,207 @@ html[data-theme="dark"] .page-title { color: #e2e8f0 !important; }
 html[data-theme="dark"] .page-sub   { color: #8b949e !important; }
 
 /* ══════════════════════════════════════════════════════════
+   DARK MODE — cobertura completa de inline styles e elementos
+   ══════════════════════════════════════════════════════════ */
+
+/* Fundo geral de qualquer div/section/article com bg branco inline */
+html[data-theme="dark"] [style*="background:#fff"],
+html[data-theme="dark"] [style*="background: #fff"],
+html[data-theme="dark"] [style*="background-color:#fff"],
+html[data-theme="dark"] [style*="background-color: #fff"],
+html[data-theme="dark"] [style*="background:white"],
+html[data-theme="dark"] [style*="background: white"],
+html[data-theme="dark"] [style*="background:#ffffff"],
+html[data-theme="dark"] [style*="background: #ffffff"],
+html[data-theme="dark"] [style*="background:#f0f3f8"],
+html[data-theme="dark"] [style*="background:#f8fafd"],
+html[data-theme="dark"] [style*="background:#f9fafb"],
+html[data-theme="dark"] [style*="background:#f1f5f9"],
+html[data-theme="dark"] [style*="background:#f0f4fa"] {
+    background: #161b22 !important;
+    border-color: #30363d !important;
+}
+
+/* Cor de texto hardcoded escuro */
+html[data-theme="dark"] [style*="color:#111"],
+html[data-theme="dark"] [style*="color: #111"],
+html[data-theme="dark"] [style*="color:#1a2035"],
+html[data-theme="dark"] [style*="color: #1a2035"],
+html[data-theme="dark"] [style*="color:#333"],
+html[data-theme="dark"] [style*="color: #333"],
+html[data-theme="dark"] [style*="color:#374151"],
+html[data-theme="dark"] [style*="color: #374151"] {
+    color: #e2e8f0 !important;
+}
+
+/* Cor de texto muted hardcoded */
+html[data-theme="dark"] [style*="color:#6b7280"],
+html[data-theme="dark"] [style*="color: #6b7280"],
+html[data-theme="dark"] [style*="color:#64748b"],
+html[data-theme="dark"] [style*="color: #64748b"],
+html[data-theme="dark"] [style*="color:#6b7a96"],
+html[data-theme="dark"] [style*="color: #6b7a96"],
+html[data-theme="dark"] [style*="color:#9ca3af"],
+html[data-theme="dark"] [style*="color: #9ca3af"],
+html[data-theme="dark"] [style*="color:#aaa"],
+html[data-theme="dark"] [style*="color: #aaa"] {
+    color: #8b949e !important;
+}
+
+/* Bordas hardcoded claras */
+html[data-theme="dark"] [style*="border:1px solid #e"],
+html[data-theme="dark"] [style*="border: 1px solid #e"],
+html[data-theme="dark"] [style*="border-color:#e"],
+html[data-theme="dark"] [style*="border-bottom:1px solid #e"],
+html[data-theme="dark"] [style*="border-top:1px solid #e"] {
+    border-color: #30363d !important;
+}
+
+/* Tabela: linhas zebradas e hover */
+html[data-theme="dark"] .table-hover tbody tr:nth-child(even) {
+    background: rgba(255,255,255,.02) !important;
+}
+
+/* thead — fundo */
+html[data-theme="dark"] thead,
+html[data-theme="dark"] .table th,
+html[data-theme="dark"] th {
+    background: #0d1117 !important;
+    color: #8b949e !important;
+    border-color: #30363d !important;
+}
+
+/* td texto */
+html[data-theme="dark"] td {
+    color: #e2e8f0 !important;
+    border-color: #30363d !important;
+}
+
+/* tr zebra inline */
+html[data-theme="dark"] tr[style*="background"] {
+    background: transparent !important;
+}
+
+/* Inputs e selects */
+html[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select {
+    background: #0d1117 !important;
+    color: #e2e8f0 !important;
+    border-color: #30363d !important;
+}
+
+/* Page body e wrappers de conteúdo */
+html[data-theme="dark"] .page-body,
+html[data-theme="dark"] .page-content,
+html[data-theme="dark"] .container-fluid {
+    background: var(--bg) !important;
+    color: var(--text) !important;
+}
+
+/* Painéis e cards do dashboard */
+html[data-theme="dark"] .pc-card,
+html[data-theme="dark"] .pc-panel,
+html[data-theme="dark"] .dash-card,
+html[data-theme="dark"] .dash-panel {
+    background: #161b22 !important;
+    border-color: #30363d !important;
+    color: #e2e8f0 !important;
+}
+html[data-theme="dark"] .pc-panel-header,
+html[data-theme="dark"] .dash-panel-header {
+    border-color: #30363d !important;
+    color: #e2e8f0 !important;
+}
+html[data-theme="dark"] .pc-card-label,
+html[data-theme="dark"] .pc-card-sub { color: #8b949e !important; }
+html[data-theme="dark"] .pc-card-val { color: #e2e8f0 !important; }
+
+/* Bottom nav mobile */
+html[data-theme="dark"] .bottom-nav {
+    background: #161b22 !important;
+    border-color: #30363d !important;
+}
+html[data-theme="dark"] .bottom-nav-item { color: #8b949e !important; }
+html[data-theme="dark"] .bottom-nav-item.active { color: var(--accent) !important; }
+
+/* nav-tabs */
+html[data-theme="dark"] .nav-tabs { border-color: #30363d !important; }
+html[data-theme="dark"] .nav-tabs .nav-link { color: #8b949e !important; }
+html[data-theme="dark"] .nav-tabs .nav-link.active { color: var(--accent) !important; border-bottom-color: var(--accent) !important; }
+
+/* Paginação */
+html[data-theme="dark"] .page-link { background: #161b22 !important; border-color: #30363d !important; color: #8b949e !important; }
+html[data-theme="dark"] .page-item.active .page-link { background: var(--accent) !important; color: #fff !important; }
+html[data-theme="dark"] .page-item.disabled .page-link { opacity: .4 !important; }
+
+/* Código inline */
+html[data-theme="dark"] code { background: rgba(255,107,53,.15) !important; color: #ff8a50 !important; }
+html[data-theme="dark"] pre  { background: #0d1117 !important; color: #e2e8f0 !important; border-color: #30363d !important; }
+
+/* HR */
+html[data-theme="dark"] hr { border-color: #30363d !important; opacity: 1 !important; }
+
+/* Scrollbar */
+html[data-theme="dark"] ::-webkit-scrollbar-track { background: #0d1117 !important; }
+html[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #30363d !important; }
+
+/* Pill de categoria nos users/catálogo */
+html[data-theme="dark"] .active-pill,
+html[data-theme="dark"] [id^="pill-"] {
+    background: #21262d !important;
+    color: #c9d1d9 !important;
+    border-color: #30363d !important;
+}
+
+/* Busca / filtro inline */
+html[data-theme="dark"] #buscaItem,
+html[data-theme="dark"] [id*="busca"],
+html[data-theme="dark"] [id*="filtro"] {
+    background: #0d1117 !important;
+    color: #e2e8f0 !important;
+    border-color: #30363d !important;
+}
+
+/* Popover / tooltip de bootstrap */
+html[data-theme="dark"] .popover { background: #161b22 !important; border-color: #30363d !important; color: #e2e8f0 !important; }
+html[data-theme="dark"] .tooltip-inner { background: #21262d !important; color: #e2e8f0 !important; }
+
+/* Input group text */
+html[data-theme="dark"] .input-group-text {
+    background: #21262d !important;
+    border-color: #30363d !important;
+    color: #8b949e !important;
+}
+
+/* Barra de busca de relatório */
+html[data-theme="dark"] #barraExcluir,
+html[data-theme="dark"] [style*="background:#fff"][style*="box-shadow"] {
+    background: #161b22 !important;
+    border-color: #30363d !important;
+    color: #e2e8f0 !important;
+}
+
+/* Tabela: tr com background inline (para tabelas de relatório) */
+html[data-theme="dark"] tbody tr[style*="background:#f"],
+html[data-theme="dark"] tbody tr[style*="background: #f"] {
+    background: rgba(255,255,255,.03) !important;
+}
+
+/* Garantir textos legíveis em qualquer span/div sem classe */
+html[data-theme="dark"] .main-content span:not([class]),
+html[data-theme="dark"] .main-content div:not([class]) {
+    color: inherit;
+}
+
+/* Card footer e card header */
+html[data-theme="dark"] .card-footer {
+    background: rgba(255,255,255,.03) !important;
+    border-color: #30363d !important;
+    color: #e2e8f0 !important;
+}
+
+/* ══════════════════════════════════════════════════════════
    LIGHT MODE — garantir que elementos não fiquem escuros
    ══════════════════════════════════════════════════════════ */
 html:not([data-theme="dark"]) body         { background: #f0f3f8; color: #1a2035; }

@@ -160,7 +160,7 @@ if ($u) {
            class="nav-link flex-grow-1 <?= $isActiveAlm?'active':'' ?>"
            style="padding:6px 2px 6px 0">
           <i class="bi bi-warehouse me-1" style="font-size:0.8rem"></i>
-          <span class="text-truncate" style="font-size:0.82rem"><?= h($alm['nome']) ?></span>
+          <span style="font-size:0.82rem;word-break:break-word;white-space:normal;line-height:1.3"><?= h($alm['nome']) ?></span>
         </a>
         <span style="font-size:0.72rem;color:<?= $pctColor ?>;font-weight:600;flex-shrink:0;margin-left:3px"><?= $pct ?>%</span>
         <button class="btn btn-xs border-0 ms-1 p-0 alm-toggle"

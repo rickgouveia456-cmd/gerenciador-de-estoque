@@ -255,6 +255,11 @@ body {
    ══════════════════════════════════════════════════════════ */
 .main-content { margin-left: var(--sidebar-w); min-height: 100vh; }
 
+/* Em telas muito largas (≥1400px) a sidebar fica com 280px no máximo */
+@media (min-width: 1400px) {
+    :root { --sidebar-w: 280px; }
+}
+
 .topbar {
     background: #ffffff;
     height: var(--topbar-h);
@@ -265,6 +270,8 @@ body {
     box-shadow: var(--shadow-xs);
     /* Linha laranja no topo */
     border-top: 3px solid var(--accent);
+    /* Garantir que não ultrapasse o container */
+    width: 100%;
 }
 .topbar-title {
     font-weight: 700;
@@ -274,6 +281,19 @@ body {
 }
 
 .page-body { padding: 22px 24px; }
+
+/* Telas grandes — mais espaço e conteúdo centralizado */
+@media (min-width: 1200px) {
+    .page-body { padding: 28px 32px; }
+}
+@media (min-width: 1600px) {
+    .page-body { padding: 32px 40px; }
+    :root { --sidebar-w: 270px; }
+}
+/* Telas ultrawide — limitar largura máxima do conteúdo */
+@media (min-width: 1920px) {
+    .page-body { padding: 36px 48px; max-width: 1600px; }
+}
 
 /* ══════════════════════════════════════════════════════════
    CARDS
